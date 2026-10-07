@@ -20,3 +20,13 @@ DEFAULT_CATEGORIES = [
     ('Pothole', 'pothole'), ('Streetlight', 'streetlight'), ('Drainage', 'drainage'),
     ('Garbage', 'garbage'), ('Water leak', 'water-leak'), ('Public facility', 'facility'),
 ]
+
+# Who may make each status move. Moving to 'assigned' happens through the assign
+# endpoint (Task 14), because it needs an assignee.
+TRANSITION_ROLES = {
+    ('reported', 'verified'): {'verifier', 'admin'},
+    ('reported', 'rejected'): {'verifier', 'admin'},
+    ('verified', 'assigned'): {'verifier', 'authority', 'admin'},
+    ('assigned', 'in_progress'): {'authority', 'admin'},
+    ('in_progress', 'resolved'): {'authority', 'admin'},
+}

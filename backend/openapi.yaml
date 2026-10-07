@@ -164,9 +164,11 @@ paths:
       tags: [Workflow]
       summary: Change status (verifier, authority, admin)
       description: |
-        Allowed moves: reported->verified, reported->rejected, verified->assigned,
-        assigned->in_progress, in_progress->resolved. Anything else returns 409.
-        Resolving may include a proof photo. Each change creates a status event and notifies followers.
+        Allowed moves: reported->verified, reported->rejected, assigned->in_progress, in_progress->resolved.
+        Moving to assigned is done only through POST /reports/{id}/assign (409 use_assign_endpoint).
+        Verifier or admin: verified and rejected (rejecting needs a note). Assigned authority or admin:
+        in_progress and resolved. rejected and resolved are final. A merged duplicate cannot be updated
+        directly (409 is_duplicate). Each change creates a status event and notifies followers.
       requestBody:
         required: true
         content:
@@ -184,7 +186,9 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/Report'}
         '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Invalid'}
   /reports/{id}/assign:
     parameters:
       - {$ref: '#/components/parameters/ReportId'}
