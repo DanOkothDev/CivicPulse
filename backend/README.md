@@ -1,18 +1,93 @@
 # CivicPulse backend
 
-Flask API for CivicPulse. The endpoints are defined in `openapi.yaml` (the API contract): build to match it.
+Flask API for CivicPulse. The full contract is in `openapi.yaml`: build to match it. Paste it into editor.swagger.io to browse it as documentation.
+
+## Status
+
+**Working now:** project setup, database schema, authentication and roles, report submission with photos, report listing with filters, following reports.
+**Next:** status workflow (Task 7), then assignment, notifications, job queue and AI hooks.
+
+| Task | What | State |
+|---|---|---|
+| 2 | API contract (`openapi.yaml`) | Done |
+| 3 | Flask project setup | Done |
+| 4 | Authentication and roles | Done |
+| 5 | PostgreSQL/PostGIS schema | Done |
+| 6 | Report endpoints and photo upload | Done |
+| 7 | Status workflow | Not started |
+
+## API endpoints
+
+All paths start with `/api/v1`. Send the token on protected routes: `Authorization: Bearer <token>`.
+Errors always look like `{"error": {"code": "...", "message": "...", "details": {}}}`.
+
+### Working
+
+| Method | Path | Who | What it does |
+|---|---|---|---|
+| GET | `/health` | Anyone | Checks the app, database and PostGIS |
+| GET | `/categories` | Anyone | The six report categories |
+| GET | `/areas` | Anyone | Areas (wards or zones) |
+| POST | `/auth/register` | Anyone | Create a resident account. Returns `{token, user}` |
+| POST | `/auth/login` | Anyone | Log in. Returns `{token, user}` |
+| GET | `/auth/me` | Logged in | The current user |
+| POST | `/reports` | Logged in | Submit a report (multipart form, see below) |
+| GET | `/reports` | Logged in | List reports (filters below) |
+| GET | `/reports/{id}` | Logged in | One report |
+| POST | `/reports/{id}/follow` | Logged in | Follow a report (safe to repeat) |
+| DELETE | `/reports/{id}/follow` | Logged in | Stop following |
+| GET | `/uploads/{path}` | Anyone | Serves saved photos (no `/api/v1` prefix) |
+
+### Not built yet (in `openapi.yaml`)
+
+| Method | Path | Task |
+|---|---|---|
+| PATCH | `/reports/{id}/status` | 7 |
+| GET | `/reports/{id}/history` | 7 |
+| POST | `/reports/{id}/assign` | 14 |
+| GET | `/reports/{id}/duplicates`, POST `/reports/{id}/merge`, POST `/reports/{id}/unmerge` | 13, 17 |
+| GET | `/notifications`, POST `/notifications/{id}/read` | 15 |
+| GET | `/analytics/summary`, `/analytics/hotspots` | 21, 22 |
+| GET | `/users`, PATCH `/users/{id}/role` | Admin tools |
+
+### Examples
+
+**Register or log in** (JSON):
+```json
+POST /api/v1/auth/register
+{"name": "Dan", "email": "dan@example.com", "password": "at-least-8-chars", "area_id": 1}
+```
+Registering always creates a **resident**; any `role` sent is ignored.
+
+**Submit a report** (`multipart/form-data` [a request format that carries a file plus normal form fields]):
+
+| Field | Required | Notes |
+|---|---|---|
+| `category_id` | Yes | From `GET /categories` |
+| `lat`, `lon` | Yes | Latitude -90 to 90, longitude -180 to 180 |
+| `photo` | Yes | JPEG or PNG, max 5 MB. The file contents are checked, not the name |
+| `description` | No | Up to 500 characters |
+
+The report starts as `reported` and gets its first status event. If an area has a boundary drawn, the report is placed in that area automatically.
+
+**List reports** (query parameters, all optional): `bbox` (`min_lon,min_lat,max_lon,max_lat`), `category_id`, `status`, `area_id`, `mine=true`, `following=true`, `include_duplicates=true`, `page`, `per_page` (default 50, max 200). Duplicates are hidden by default and counted in their parent's `report_count`. The response is `{items, page, per_page, total}`.
 
 ## Run it
 
-1. Start the database and Redis: `docker compose up -d`
+Use Python 3.12 or 3.13. Commands are for Windows PowerShell.
+
+1. Start the database and Redis (Docker Desktop must be running): `docker compose up -d`
 2. Create a virtual environment and install packages:
-   `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`
-3. Copy settings: `cp .env.example .env`
-4. Create the tables and starter data:
-   `flask --app wsgi init-db` then `flask --app wsgi seed`
-5. Start the server: `flask --app wsgi run`
-6. Check it: open http://localhost:5000/api/v1/health (should show status ok and the PostGIS version)
-7. Run the tests: `pytest`
+   `python -m venv venv`, then `.\venv\Scripts\Activate.ps1`, then `pip install -r requirements.txt`
+3. Copy settings: `Copy-Item .env.example .env`
+4. Put strong secrets in `.env`. Run `python -c "import secrets; print(secrets.token_hex(32))"` twice and use the results for `SECRET_KEY` and `JWT_SECRET_KEY`.
+5. Create the tables and starter data: `flask --app wsgi init-db` then `flask --app wsgi seed`
+6. Create your first admin: `flask --app wsgi create-user --name "Your Name" --email you@example.com --role admin`
+7. Start the server: `flask --app wsgi run`
+8. Check it: open http://localhost:5000/api/v1/health (should show `"status": "ok"` and the PostGIS version)
+9. Run the tests: `pytest` (20 tests; they need the database running and seeded)
+
+Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break GeoAlchemy2.
 
 ## Folder guide
 
@@ -23,30 +98,52 @@ Flask API for CivicPulse. The endpoints are defined in `openapi.yaml` (the API c
 | `app/extensions.py` | Shared tools: database, JWT, CORS, migrations |
 | `app/models.py` | All database tables (source of truth for the schema) |
 | `app/constants.py` | Roles, statuses and the allowed status moves |
-| `app/errors.py` | Turns every error into the contract's error format; use `raise ApiError(code, message, status)` |
-| `app/api/` | One file per group of endpoints. Register new ones in `app/api/__init__.py` |
-| `app/cli.py` | `init-db` and `seed` commands |
+| `app/errors.py` | Turns every error into the contract format. Use `raise ApiError(code, message, status)` |
+| `app/auth_utils.py` | `@login_required`, `@roles_required(...)` and `current_user()` |
+| `app/storage.py` | Checks and saves uploaded photos |
+| `app/api/` | One file per group of endpoints: `auth`, `reports`, `reference`, `health`, `media`. Register new ones in `app/api/__init__.py` |
+| `app/cli.py` | `init-db`, `seed` and `create-user` commands |
 | `docs/schema.sql` | Plain SQL version of the schema, for reading |
+| `tests/` | Automated tests. Test users and reports clean up after themselves |
+| `uploads/` | Saved photos (created automatically, not committed to git) |
+
+## Protecting routes
+
+```python
+from app.auth_utils import login_required, roles_required, current_user
+
+@bp.post('/reports/<int:id>/status')
+@roles_required('verifier', 'authority', 'admin')   # 401 if not logged in, 403 if wrong role
+def change_status(id):
+    user = current_user()
+    ...
+```
+
+Roles: `resident`, `verifier`, `authority`, `admin`. The role is read from the database on every request, so role changes apply immediately.
 
 ## The schema (8 tables)
 
-- `users`: name, email, password hash, role (resident, verifier, authority, admin), area
+- `users`: name, email, password hash, role, area
 - `areas`: name and optional boundary polygon
-- `categories`: pothole, streetlight, drainage, garbage, water leak, public facility
-- `reports`: the main table: category, status, `location`, photo, creator, assignee, duplicate info, AI suggestions
-- `status_events`: one row per status change (who, when, note); used to calculate days to resolve
+- `categories`: Pothole, Streetlight, Drainage, Garbage, Water leak, Public facility (ids 1 to 6)
+- `reports`: category, status, `location`, photo, creator, assignee, duplicate info, AI suggestions
+- `status_events`: one row per status change (who, when, note), used to calculate days to resolve
 - `follows`: which user follows which report
 - `notifications`: messages for users about reports
-- `hotspots`: results of the clustering job (Teammate 3, Task 21)
+- `hotspots`: results of the clustering job
+
+Statuses: `reported`, `verified`, `rejected`, `assigned`, `in_progress`, `resolved`.
 
 ## Design choices worth knowing
 
-- **`location` is a Geography column** [a map-aware type that measures distances in real metres]. Distance queries like `ST_DWithin(location, point, 50)` mean "within 50 metres". A GiST index [a spatial search index] is created automatically so these stay fast.
-- **Coordinates order:** PostGIS points are written longitude first, then latitude: `POINT(lon lat)`.
+- **`location` is a Geography column** [a map-aware type that measures distances in real metres]. Queries like `ST_DWithin(location, point, 50)` mean "within 50 metres". A spatial index is created automatically so they stay fast.
+- **Coordinate order:** PostGIS points are written longitude first: `POINT(lon lat)`. The API's `location` object uses `{lat, lon}`.
 - **Duplicates:** a duplicate report stores `duplicate_of` (its parent). The parent's `report_count` counts everyone. Keep that number updated when merging or unmerging.
-- **Status and role are text with a check rule**, not database enums. They are easier to change later.
-- **`init-db` vs migrations:** `flask init-db` is the quick way for development. Once the schema must change without wiping data, use migrations [versioned database changes]: `flask --app wsgi db init`, `flask --app wsgi db migrate -m initial`, then add `import geoalchemy2` at the top of the generated file in `migrations/versions/`, then `flask --app wsgi db upgrade`.
+- **Status and role are text with a check rule**, not database enums, so they are easier to change later.
+- **Photos** are saved under a random name in `uploads/reports/`. The path is stored in `photo_path` and the API returns a full `photo_url`.
+- **`init-db` vs migrations:** `flask init-db` is the quick way for development. When the schema must change without wiping data, use migrations [versioned database changes]: `flask --app wsgi db init`, `flask --app wsgi db migrate -m initial`, then add `import geoalchemy2` at the top of the generated file in `migrations/versions/`, then `flask --app wsgi db upgrade`.
 
-## Next tasks
+## For teammates
 
-Task 4 (auth and roles), Task 6 (report endpoints and uploads), Task 7 (status workflow using `can_transition`).
+- **Frontend:** build against `openapi.yaml`. Log in, store the token, send it as `Authorization: Bearer <token>`. Photos load from `photo_url`.
+- **AI and data:** write seed data using category names to look up ids, not hardcoded numbers. `photo_path` cannot be empty. Write coordinates longitude first.

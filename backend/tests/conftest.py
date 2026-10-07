@@ -2,19 +2,19 @@ import uuid
 
 import pytest
 from flask import jsonify
+from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.auth_utils import roles_required
 from app.extensions import db
-from app.models import User
-from werkzeug.security import generate_password_hash
+from app.models import Report, User
 
 DOMAIN = '@test.civicpulse'
 
 
 @pytest.fixture
-def app():
-    app = create_app()
+def app(tmp_path):
+    app = create_app({'UPLOAD_FOLDER': str(tmp_path)})  # test photos go to a temp folder
 
     @app.get('/api/v1/_test/verifier-only')
     @roles_required('verifier', 'admin')
@@ -22,8 +22,11 @@ def app():
         return jsonify(ok=True)
 
     yield app
-    with app.app_context():  # remove the users the test created
-        User.query.filter(User.email.like('%' + DOMAIN)).delete(synchronize_session=False)
+    with app.app_context():  # remove everything the test created
+        ids = [u.id for u in User.query.filter(User.email.like('%' + DOMAIN)).all()]
+        if ids:
+            Report.query.filter(Report.created_by.in_(ids)).delete(synchronize_session=False)
+            User.query.filter(User.id.in_(ids)).delete(synchronize_session=False)
         db.session.commit()
 
 

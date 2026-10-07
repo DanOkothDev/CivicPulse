@@ -15,6 +15,9 @@ def create_app(config=None):
     app.config.from_object(Config)
     if config:
         app.config.update(config)
+    folder = app.config['UPLOAD_FOLDER']
+    if not os.path.isabs(folder):  # keep uploads inside the backend folder, wherever you run from
+        app.config['UPLOAD_FOLDER'] = os.path.abspath(os.path.join(app.root_path, '..', folder))
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
     db.init_app(app)

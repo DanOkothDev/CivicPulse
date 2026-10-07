@@ -1,11 +1,14 @@
 from .auth import bp as auth_bp
 from .health import bp as health_bp
+from .media import bp as media_bp
 from .reference import bp as reference_bp
+from .reports import bp as reports_bp
 
 API_PREFIX = '/api/v1'
 
 
 def register_blueprints(app):
-    # Add new blueprints here (reports, notifications, analytics, admin...).
-    for bp in (health_bp, reference_bp, auth_bp):
+    # Add new blueprints here (notifications, analytics, admin...).
+    for bp in (health_bp, reference_bp, auth_bp, reports_bp):
         app.register_blueprint(bp, url_prefix=API_PREFIX)
+    app.register_blueprint(media_bp)  # photos are served at /uploads/..., outside /api/v1
