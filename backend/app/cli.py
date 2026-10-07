@@ -1,9 +1,11 @@
 import click
 from sqlalchemy import text
 
-from .constants import DEFAULT_CATEGORIES
+from werkzeug.security import generate_password_hash
+
+from .constants import DEFAULT_CATEGORIES, ROLES
 from .extensions import db
-from .models import Area, Category
+from .models import Area, Category, User
 
 
 def register_cli(app):
@@ -25,3 +27,20 @@ def register_cli(app):
             db.session.add(Area(name='Default area'))
         db.session.commit()
         click.echo('Seeded categories and a default area.')
+
+    @app.cli.command('create-user')
+    @click.option('--name', prompt=True)
+    @click.option('--email', prompt=True)
+    @click.option('--role', type=click.Choice(ROLES), default='verifier', show_default=True)
+    @click.option('--password', prompt=True, hide_input=True, confirmation_prompt=True)
+    def create_user(name, email, role, password):
+        """Create a user with any role (for the first admin, verifier or authority)."""
+        email = email.strip().lower()
+        if User.query.filter_by(email=email).first():
+            raise click.ClickException('That email already exists.')
+        if len(password) < 8:
+            raise click.ClickException('Password must be at least 8 characters.')
+        db.session.add(User(name=name.strip(), email=email, role=role,
+                            password_hash=generate_password_hash(password)))
+        db.session.commit()
+        click.echo(f'Created {role} {email}.')
