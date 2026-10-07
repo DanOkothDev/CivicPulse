@@ -1,3 +1,17 @@
+"""
+CivicPulse - Synthetic Seed Report Generator
+
+Task 12:
+Generate realistic civic infrastructure reports for development/testing.
+
+The data is synthetic. The coordinates are realistic Nairobi coordinates,
+but the reports do NOT represent real citizen complaints.
+
+Task 13:
+The generated dataset contains deliberate clusters of reports that can
+be used to test duplicate detection.
+"""
+
 import json
 import math
 import random
@@ -12,48 +26,38 @@ from pathlib import Path
 NUMBER_OF_REPORTS = 300
 RANDOM_SEED = 42
 
-# Nairobi CBD / surrounding area.
-# These are geographic coordinates used only to make the
-# synthetic dataset spatially realistic.
 CENTER_LATITUDE = -1.286389
 CENTER_LONGITUDE = 36.817223
 
-# Approximate area covered by generated reports.
 LATITUDE_RANGE = 0.045
 LONGITUDE_RANGE = 0.045
 
 OUTPUT_FILE = Path(__file__).parent / "reports_seed.json"
 
+# Seed user is identified by email rather than a hardcoded database ID.
+SEED_USER_EMAIL = "seed@civicpulse.test"
 
-# ============================================================
-# DATABASE REFERENCE IDs
-# ============================================================
-#
-# IMPORTANT:
-# Replace these values with the actual IDs from the team's
-# categories, areas and users tables.
-#
-# DO NOT assume that IDs 1-5 exist in the final database.
-#
+# Area is optional according to the database schema.
+DEFAULT_AREA_ID = None
 
-CATEGORY_IDS = {
-    "pothole": 1,
-    "garbage": 2,
-    "drainage": 3,
-    "streetlight": 4,
-    "water": 5,
-}
-
-AREA_IDS = [1]
-
-# A real user ID must exist because reports.created_by
-# is NOT NULL.
-CREATED_BY_USER_IDS = [1]
+# photo_path is required by the Report model.
+PLACEHOLDER_PHOTO = "seed/placeholder.jpg"
 
 
 # ============================================================
-# REPORT CATEGORIES
+# CIVICPULSE CATEGORIES
 # ============================================================
+
+# These names must match the Category records in the database.
+CATEGORIES = [
+    "pothole",
+    "streetlight",
+    "drainage",
+    "garbage",
+    "water leak",
+    "public facility",
+]
+
 
 CATEGORY_DESCRIPTIONS = {
     "pothole": [
@@ -63,15 +67,13 @@ CATEGORY_DESCRIPTIONS = {
         "Road surface has deteriorated and requires repair.",
         "Large pothole creating a hazard for road users.",
     ],
-
-    "garbage": [
-        "Uncollected garbage has accumulated beside the road.",
-        "Waste is piling up near a public area.",
-        "Overflowing waste is creating an unpleasant environment.",
-        "Garbage has not been collected and is spreading onto the roadside.",
-        "Large amount of dumped waste reported in the area.",
+    "streetlight": [
+        "Streetlight is not functioning at night.",
+        "Broken streetlight leaves part of the road poorly illuminated.",
+        "Streetlight appears damaged and requires maintenance.",
+        "Public lighting is not working in this section.",
+        "Faulty streetlight is affecting visibility for pedestrians.",
     ],
-
     "drainage": [
         "Drainage channel appears blocked and requires clearing.",
         "Blocked drain is causing water to accumulate.",
@@ -79,58 +81,59 @@ CATEGORY_DESCRIPTIONS = {
         "Open drainage channel is filled with waste and debris.",
         "Water is not flowing properly through the drainage channel.",
     ],
-
-    "streetlight": [
-        "Streetlight is not functioning at night.",
-        "Broken streetlight leaves part of the road poorly illuminated.",
-        "Streetlight appears damaged and requires maintenance.",
-        "Public lighting is not working in this section.",
-        "Several pedestrians report poor lighting caused by a faulty streetlight.",
+    "garbage": [
+        "Uncollected garbage has accumulated beside the road.",
+        "Waste is piling up near a public area.",
+        "Overflowing waste is creating an unpleasant environment.",
+        "Garbage has not been collected and is spreading onto the roadside.",
+        "Large amount of dumped waste reported in the area.",
     ],
-
-    "water": [
+    "water leak": [
         "Possible water leak reported near the roadside.",
         "Water appears to be leaking from damaged infrastructure.",
         "Residents report an interruption in water supply.",
         "Water pipe appears damaged and requires inspection.",
         "Water is pooling around a suspected damaged pipe.",
     ],
+    "public facility": [
+        "Public facility requires maintenance.",
+        "Damaged public facility reported in the area.",
+        "Public infrastructure appears to require repair.",
+        "Facility is deteriorating and may require municipal attention.",
+        "Public facility requires inspection and maintenance.",
+    ],
 }
 
 
 # ============================================================
-# STATUSES
+# VALID DATABASE STATUSES
 # ============================================================
 
 STATUSES = [
     "reported",
     "verified",
+    "rejected",
     "assigned",
     "in_progress",
     "resolved",
 ]
 
 STATUS_WEIGHTS = [
-    0.30,
-    0.20,
-    0.15,
-    0.15,
-    0.20,
+    0.25,  # reported
+    0.15,  # verified
+    0.10,  # rejected
+    0.15,  # assigned
+    0.15,  # in_progress
+    0.20,  # resolved
 ]
 
 
 # ============================================================
-# DUPLICATE CLUSTERS
+# DELIBERATE DUPLICATE CLUSTERS
 # ============================================================
-#
-# We deliberately create groups of reports around the same
-# geographic locations.
-#
-# Each cluster represents several citizens independently
-# reporting approximately the same infrastructure problem.
-#
-# Task 13 should discover these as possible duplicates.
-#
+
+# These clusters intentionally place multiple reports close
+# together so Task 13 can detect them.
 
 DUPLICATE_CLUSTERS = [
     {
@@ -176,7 +179,7 @@ DUPLICATE_CLUSTERS = [
         "number_of_reports": 4,
     },
     {
-        "category": "water",
+        "category": "water leak",
         "latitude": -1.28850,
         "longitude": 36.81050,
         "number_of_reports": 5,
@@ -185,99 +188,79 @@ DUPLICATE_CLUSTERS = [
 
 
 # ============================================================
-# HELPERS
+# HELPER FUNCTIONS
 # ============================================================
 
-def random_status():
-    """Return a realistic report status."""
-    return random.choices(
-        STATUSES,
-        weights=STATUS_WEIGHTS,
-        k=1
-    )[0]
-
-
-def random_datetime():
+def nearby_location(latitude, longitude, max_distance_meters=80):
     """
-    Generate a timestamp from approximately the last 90 days.
+    Generate a random point within approximately max_distance_meters
+    of a given location.
+
+    Used to create deliberate duplicate clusters.
     """
-    now = datetime.now(timezone.utc)
 
-    days_ago = random.randint(0, 90)
-    hours_ago = random.randint(0, 23)
-    minutes_ago = random.randint(0, 59)
+    earth_radius = 6_371_000
 
-    return now - timedelta(
-        days=days_ago,
-        hours=hours_ago,
-        minutes=minutes_ago,
+    distance = random.uniform(0, max_distance_meters)
+    angle = random.uniform(0, 2 * math.pi)
+
+    latitude_change = (
+        distance * math.cos(angle)
+    ) / earth_radius
+
+    longitude_change = (
+        distance * math.sin(angle)
+    ) / (
+        earth_radius * math.cos(math.radians(latitude))
     )
+
+    new_latitude = latitude + math.degrees(latitude_change)
+    new_longitude = longitude + math.degrees(longitude_change)
+
+    return new_latitude, new_longitude
 
 
 def random_location():
-    """
-    Generate a random point around Nairobi CBD.
+    """Generate a random location around central Nairobi."""
 
-    This is synthetic geographic data.
-    """
-    latitude = CENTER_LATITUDE + random.uniform(
-        -LATITUDE_RANGE,
-        LATITUDE_RANGE,
+    latitude = random.uniform(
+        CENTER_LATITUDE - LATITUDE_RANGE,
+        CENTER_LATITUDE + LATITUDE_RANGE,
     )
 
-    longitude = CENTER_LONGITUDE + random.uniform(
-        -LONGITUDE_RANGE,
-        LONGITUDE_RANGE,
+    longitude = random.uniform(
+        CENTER_LONGITUDE - LONGITUDE_RANGE,
+        CENTER_LONGITUDE + LONGITUDE_RANGE,
     )
 
     return latitude, longitude
 
 
-def nearby_location(latitude, longitude, max_distance_meters=80):
-    """
-    Generate a point near an existing point.
+def random_status():
+    """Choose a realistic status using weighted probabilities."""
 
-    Used to deliberately create duplicate reports.
+    return random.choices(
+        STATUSES,
+        weights=STATUS_WEIGHTS,
+        k=1,
+    )[0]
 
-    The result is approximate, which is sufficient for creating
-    synthetic test data.
-    """
 
-    # Approximate metres per degree at Nairobi's latitude.
-    meters_per_latitude_degree = 111_000
+def random_created_at():
+    """Generate a timestamp within the previous 90 days."""
 
-    meters_per_longitude_degree = (
-        111_000 * math.cos(math.radians(latitude))
+    days_ago = random.uniform(0, 90)
+
+    timestamp = (
+        datetime.now(timezone.utc)
+        - timedelta(days=days_ago)
     )
 
-    distance = random.uniform(10, max_distance_meters)
-    angle = random.uniform(0, 2 * math.pi)
-
-    north_offset = math.cos(angle) * distance
-    east_offset = math.sin(angle) * distance
-
-    latitude_offset = (
-        north_offset / meters_per_latitude_degree
-    )
-
-    longitude_offset = (
-        east_offset / meters_per_longitude_degree
-    )
-
-    return (
-        latitude + latitude_offset,
-        longitude + longitude_offset,
-    )
-
-
-def create_description(category):
-    """Generate a description appropriate for the category."""
-    return random.choice(
-        CATEGORY_DESCRIPTIONS[category]
-    )
+    return timestamp.isoformat()
 
 
 def create_report(
+    seed_id,
     category,
     latitude,
     longitude,
@@ -285,173 +268,148 @@ def create_report(
     """Create one synthetic report."""
 
     return {
+        "seed_id": seed_id,
+
+        # Category name is useful for standalone duplicate testing.
         "category": category,
 
-        # Temporary category ID mapping.
-        # This will be converted into category_id below.
-        "category_id": CATEGORY_IDS[category],
+        # category_id is intentionally left as None here.
+        # The database seeder will look up Category by name.
+        "category_id": None,
 
-        "description": create_description(category),
+        "description": random.choice(
+            CATEGORY_DESCRIPTIONS[category]
+        ),
 
         "status": random_status(),
 
         "latitude": round(latitude, 7),
         "longitude": round(longitude, 7),
 
-        "area_id": random.choice(AREA_IDS),
+        # Optional according to the schema.
+        "area_id": DEFAULT_AREA_ID,
 
         # Required by the database schema.
-        # For synthetic data we use a placeholder path.
-        "photo_path": f"seed/photos/{category}_placeholder.jpg",
+        "photo_path": PLACEHOLDER_PHOTO,
 
-        "created_by": random.choice(CREATED_BY_USER_IDS),
+        # The database seeder will resolve this email
+        # to an actual User ID.
+        "created_by_email": SEED_USER_EMAIL,
 
-        # Leave assignment functionality for Task 14.
         "assigned_to": None,
         "due_date": None,
 
-        # IMPORTANT:
-        # These remain empty because Task 13 should discover
-        # duplicates rather than us pre-labeling them.
+        # Task 13 starts with these unset.
         "duplicate_of": None,
         "duplicate_score": None,
-
         "report_count": 1,
 
-        # AI functionality belongs to Task 19/20.
         "ai_category_id": None,
         "ai_confidence": None,
 
-        "created_at": random_datetime().isoformat(),
+        "created_at": random_created_at(),
+        "updated_at": None,
     }
 
 
 # ============================================================
-# GENERATE NORMAL REPORTS
+# GENERATE DATA
 # ============================================================
 
-def generate_normal_reports(number_of_reports):
-    """Generate independent reports distributed around Nairobi."""
+def generate_reports():
+    """Generate the complete synthetic report dataset."""
+
+    random.seed(RANDOM_SEED)
 
     reports = []
 
-    categories = list(CATEGORY_IDS.keys())
+    seed_id = 1
 
-    for _ in range(number_of_reports):
-        category = random.choice(categories)
+    # --------------------------------------------------------
+    # Normal reports
+    # --------------------------------------------------------
+
+    duplicate_report_count = sum(
+        cluster["number_of_reports"]
+        for cluster in DUPLICATE_CLUSTERS
+    )
+
+    normal_report_count = (
+        NUMBER_OF_REPORTS - duplicate_report_count
+    )
+
+    for _ in range(normal_report_count):
+
+        category = random.choice(CATEGORIES)
 
         latitude, longitude = random_location()
 
-        reports.append(
-            create_report(
-                category,
-                latitude,
-                longitude,
-            )
+        report = create_report(
+            seed_id=seed_id,
+            category=category,
+            latitude=latitude,
+            longitude=longitude,
         )
 
-    return reports
+        reports.append(report)
 
+        seed_id += 1
 
-# ============================================================
-# GENERATE DELIBERATE DUPLICATE REPORTS
-# ============================================================
-
-def generate_duplicate_reports():
-    """
-    Generate reports deliberately located close together.
-
-    These are NOT labelled as duplicates.
-
-    Task 13 should discover them.
-    """
-
-    reports = []
+    # --------------------------------------------------------
+    # Deliberate duplicate clusters
+    # --------------------------------------------------------
 
     for cluster in DUPLICATE_CLUSTERS:
-
-        category = cluster["category"]
-
-        center_latitude = cluster["latitude"]
-        center_longitude = cluster["longitude"]
 
         for _ in range(cluster["number_of_reports"]):
 
             latitude, longitude = nearby_location(
-                center_latitude,
-                center_longitude,
+                cluster["latitude"],
+                cluster["longitude"],
                 max_distance_meters=80,
             )
 
-            reports.append(
-                create_report(
-                    category,
-                    latitude,
-                    longitude,
-                )
+            report = create_report(
+                seed_id=seed_id,
+                category=cluster["category"],
+                latitude=latitude,
+                longitude=longitude,
             )
 
-    return reports
+            reports.append(report)
 
+            seed_id += 1
 
-# ============================================================
-# MAIN
-# ============================================================
-
-def generate_dataset():
-    """Generate the complete synthetic CivicPulse dataset."""
-
-    random.seed(RANDOM_SEED)
-
-    duplicate_reports = generate_duplicate_reports()
-
-    number_of_normal_reports = (
-        NUMBER_OF_REPORTS - len(duplicate_reports)
-    )
-
-    normal_reports = generate_normal_reports(
-        number_of_normal_reports
-    )
-
-    reports = normal_reports + duplicate_reports
-
-    # Shuffle so duplicate reports aren't all together.
+    # Shuffle so duplicate clusters are not simply grouped
+    # together in the JSON file.
     random.shuffle(reports)
-
-    # Add a local seed identifier for easier testing.
-    for index, report in enumerate(reports, start=1):
-        report["seed_id"] = index
 
     return reports
 
 
 def main():
-    reports = generate_dataset()
+    """Generate and save the seed dataset."""
 
-    OUTPUT_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    reports = generate_reports()
 
     with open(
         OUTPUT_FILE,
         "w",
         encoding="utf-8",
     ) as file:
-
         json.dump(
             reports,
             file,
             indent=2,
         )
 
-    print(
-        f"Generated {len(reports)} synthetic CivicPulse reports."
-    )
-
-    print(
-        f"Saved to: {OUTPUT_FILE}"
-    )
+    print("CivicPulse seed data generated successfully.")
+    print(f"Reports generated: {len(reports)}")
+    print(f"Output file: {OUTPUT_FILE}")
+    print(f"Seed user: {SEED_USER_EMAIL}")
+    print(f"Photo placeholder: {PLACEHOLDER_PHOTO}")
+    print(f"Categories: {len(CATEGORIES)}")
+    print(f"Statuses: {len(STATUSES)}")
 
 
 if __name__ == "__main__":
