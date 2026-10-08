@@ -2,6 +2,7 @@ from .constants import TRANSITION_ROLES, TRANSITIONS, can_transition
 from .errors import ApiError
 from .extensions import db
 from .models import StatusEvent
+from .notifications import notify_reassigned, notify_status_change
 
 
 def change_status(report, new_status, user, note=None, via_assign=False, updates=None):
@@ -31,6 +32,7 @@ def change_status(report, new_status, user, note=None, via_assign=False, updates
         setattr(report, field, value)
     db.session.add(StatusEvent(report_id=report.id, status=new_status, changed_by=user.id, note=note))
     report.status = new_status
+    notify_status_change(report, new_status, user, note)
     db.session.commit()
     return report
 
@@ -46,8 +48,10 @@ def reassign(report, user, updates, note):
                        409, {'status': report.status})
     if user.role not in TRANSITION_ROLES[('verified', 'assigned')]:
         raise ApiError('forbidden', 'Your role cannot make this change', 403)
+    old_assignee = report.assigned_to
     for field, value in updates.items():
         setattr(report, field, value)
     db.session.add(StatusEvent(report_id=report.id, status='assigned', changed_by=user.id, note=note))
+    notify_reassigned(report, old_assignee, user)
     db.session.commit()
     return report

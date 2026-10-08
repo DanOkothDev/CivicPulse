@@ -292,9 +292,14 @@ paths:
     get:
       tags: [Notifications]
       summary: Current user's notifications, newest first
+      description: |
+        Created automatically when a report's status changes (to its author, followers, and authors of
+        reports merged into it, but never to the person who made the change), when a report is assigned
+        or reassigned (to the assignee, and the old assignee), and when a report is merged into another.
       parameters:
         - {name: unread, in: query, schema: {type: boolean}}
         - {name: page, in: query, schema: {type: integer, default: 1}}
+        - {name: per_page, in: query, schema: {type: integer, default: 50, maximum: 200}}
       responses:
         '200':
           description: Notifications
@@ -310,7 +315,27 @@ paths:
       parameters:
         - {name: id, in: path, required: true, schema: {type: integer}}
       responses:
-        '204': {description: Marked read}
+        '204': {description: Marked read (safe to repeat)}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Number of unread notifications (for the bell badge)
+      responses:
+        '200':
+          description: The count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: {type: integer}
+  /notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark every notification as read
+      responses:
+        '204': {description: All marked read}
   /categories:
     get:
       tags: [Reference]
