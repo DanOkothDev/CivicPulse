@@ -76,6 +76,21 @@ CREATE INDEX ix_reports_category ON reports (category_id);
 CREATE INDEX ix_reports_duplicate_of ON reports (duplicate_of);
 CREATE INDEX ix_reports_status_created ON reports (status, created_at);
 
+CREATE TABLE duplicate_suggestions (
+	id SERIAL NOT NULL, 
+	report_id INTEGER NOT NULL, 
+	candidate_id INTEGER NOT NULL, 
+	score FLOAT NOT NULL, 
+	reasons JSON, 
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_duplicate_suggestion UNIQUE (report_id, candidate_id), 
+	CONSTRAINT ck_duplicate_score CHECK (score >= 0 AND score <= 1), 
+	FOREIGN KEY(report_id) REFERENCES reports (id) ON DELETE CASCADE, 
+	FOREIGN KEY(candidate_id) REFERENCES reports (id) ON DELETE CASCADE
+);
+CREATE INDEX ix_duplicate_suggestions_report ON duplicate_suggestions (report_id, score);
+
 CREATE TABLE follows (
 	user_id INTEGER NOT NULL, 
 	report_id INTEGER NOT NULL, 

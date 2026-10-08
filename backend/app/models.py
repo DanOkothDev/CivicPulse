@@ -119,3 +119,20 @@ class Hotspot(db.Model):
     report_count = db.Column(db.Integer, nullable=False)
     top_category_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
     computed_at = db.Column(db.DateTime(timezone=True), default=now, nullable=False)
+
+
+class DuplicateSuggestion(db.Model):
+    """The AI's guesses that a report duplicates another one, with the reasons (Task 13 / 20).
+    The verifier reads these, then merges or ignores them."""
+    __tablename__ = 'duplicate_suggestions'
+    id = db.Column(db.Integer, primary_key=True)
+    report_id = db.Column(db.Integer, db.ForeignKey('reports.id', ondelete='CASCADE'), nullable=False)
+    candidate_id = db.Column(db.Integer, db.ForeignKey('reports.id', ondelete='CASCADE'), nullable=False)
+    score = db.Column(db.Float, nullable=False)
+    reasons = db.Column(db.JSON)  # e.g. {"location": 0.8, "category": 1, "time": 0.96, "photo": null}
+    created_at = db.Column(db.DateTime(timezone=True), default=now, nullable=False)
+    __table_args__ = (
+        db.UniqueConstraint('report_id', 'candidate_id', name='uq_duplicate_suggestion'),
+        db.CheckConstraint('score >= 0 AND score <= 1', name='ck_duplicate_score'),
+        db.Index('ix_duplicate_suggestions_report', 'report_id', 'score'),
+    )

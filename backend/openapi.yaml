@@ -236,6 +236,7 @@ paths:
     get:
       tags: [Duplicates]
       summary: AI duplicate suggestions for a report (verifier, admin)
+      description: Stored by the AI worker after each new report. The reasons show why two reports match.
       responses:
         '200':
           description: Suggestions, best score first
@@ -250,6 +251,12 @@ paths:
     post:
       tags: [Duplicates]
       summary: Confirm a duplicate by merging into a parent (verifier, admin)
+      description: |
+        The report in the path (the child) is folded into parent_id. Only reported or verified reports can be
+        merged, into a parent that is still open. Reports already merged into the child move to the parent,
+        so merging stays one level deep. Followers and the author of the child follow the parent.
+        report_count on the parent is recomputed. Errors (409 codes): self_merge, already_merged,
+        parent_is_duplicate, child_not_mergeable, parent_not_open.
       requestBody:
         required: true
         content:
@@ -265,13 +272,16 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Report'}
+        '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Invalid'}
   /reports/{id}/unmerge:
     parameters:
       - {$ref: '#/components/parameters/ReportId'}
     post:
       tags: [Duplicates]
       summary: Split a wrongly merged report back out (verifier, admin)
+      description: Returns 409 not_merged if the report was not merged. The parent's report_count is recomputed.
       responses:
         '200':
           description: The report is its own case again

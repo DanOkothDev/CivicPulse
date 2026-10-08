@@ -4,8 +4,8 @@ Flask API for CivicPulse. The full contract is in `openapi.yaml`: build to match
 
 ## Status
 
-**Working now:** project setup, database schema, authentication and roles, report submission with photos, report listing with filters, following reports, status workflow with history, assignment and the authority list.
-**Next:** duplicate endpoints, notifications (Task 15), job queue (Task 16) and AI hooks.
+**Working now:** project setup, database schema, authentication and roles, report submission with photos, report listing with filters, following reports, status workflow with history, assignment, the authority list, duplicate suggestions and merging.
+**Next:** notifications (Task 15), job queue (Task 16) and AI hooks.
 
 | Task | What | State |
 |---|---|---|
@@ -16,6 +16,7 @@ Flask API for CivicPulse. The full contract is in `openapi.yaml`: build to match
 | 6 | Report endpoints and photo upload | Done |
 | 7 | Status workflow and history | Done |
 | 14 | Assignment and authority list | Done |
+| - | Duplicate endpoints (suggestions, merge, unmerge) | Done |
 
 ## API endpoints
 
@@ -38,6 +39,9 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 | PATCH | `/reports/{id}/status` | Verifier, authority, admin | Move a report to its next status (rules below) |
 | GET | `/reports/{id}/history` | Logged in | The status trail, oldest first |
 | POST | `/reports/{id}/assign` | Verifier, authority, admin | Assign a verified report to an authority user, with an optional due date |
+| GET | `/reports/{id}/duplicates` | Verifier, admin | The AI's duplicate suggestions for a report, best first, with reasons |
+| POST | `/reports/{id}/merge` | Verifier, admin | Fold this report into `parent_id`. Returns the parent |
+| POST | `/reports/{id}/unmerge` | Verifier, admin | Split a wrongly merged report back out |
 | GET | `/users` | Verifier, authority, admin | List users. Admins can filter any `role`; others only get authority users, without emails |
 | POST | `/reports/{id}/follow` | Logged in | Follow a report (safe to repeat) |
 | DELETE | `/reports/{id}/follow` | Logged in | Stop following |
@@ -47,7 +51,6 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 
 | Method | Path | Task |
 |---|---|---|
-| GET | `/reports/{id}/duplicates`, POST `/reports/{id}/merge`, POST `/reports/{id}/unmerge` | 13, 17 |
 | GET | `/notifications`, POST `/notifications/{id}/read` | 15 |
 | GET | `/analytics/summary`, `/analytics/hotspots` | 21, 22 |
 | PATCH | `/users/{id}/role` | Admin tools |
@@ -67,6 +70,13 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 **Assigning:** `POST /reports/{id}/assign` with `{"assignee_id": 7, "due_date": "2026-10-20"}` (the date is optional and can't be in the past). The assignee must be an authority user. A report that is assigned but not started can be reassigned with the same call; once work starts (`in_progress`) it can't (409 `cannot_reassign`).
 
 `rejected` and `resolved` are final. Errors: 409 `invalid_transition` (the response lists the allowed next statuses), 409 `use_assign_endpoint`, 409 `is_duplicate` (a merged report must be updated through its parent), 403 `forbidden` or `not_assignee`, 422 for a missing reason or unknown status.
+
+### Duplicates
+
+- **Suggestions** are written by the AI worker (Task 20) with `save_suggestions(report_id, find_duplicates(report))` from `app/duplicate_service.py`, and read by the verifier with `GET /reports/{id}/duplicates`. Each has `report_id`, `score` (0 to 1) and `reasons`.
+- **Merge** (`POST /reports/{id}/merge` with `{"parent_id": 5}`): the report in the path is the duplicate, `parent_id` is the main one. Only `reported` or `verified` reports can be merged, into a parent that is still open (not resolved or rejected). Reports already merged into the duplicate move to the parent, so merging is always one level deep. Whoever followed the duplicate, plus its author, now follows the parent. Each side gets a history note (`Merged into #5`).
+- **`report_count`** on the parent is recomputed as 1 plus its duplicates after every merge or unmerge, so it never drifts.
+- Errors (409): `self_merge`, `already_merged`, `parent_is_duplicate`, `child_not_mergeable`, `parent_not_open`, `not_merged` (unmerge).
 
 ### Examples
 
@@ -103,7 +113,7 @@ Use Python 3.12 or 3.13. Commands are for Windows PowerShell.
 6. Create your first admin: `flask --app wsgi create-user --name "Your Name" --email you@example.com --role admin`
 7. Start the server: `flask --app wsgi run`
 8. Check it: open http://localhost:5000/api/v1/health (should show `"status": "ok"` and the PostGIS version)
-9. Run the tests: `pytest` (38 tests; they need the database running and seeded)
+9. Run the tests: `pytest` (44 tests; they need the database running and seeded)
 
 Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break GeoAlchemy2.
 
@@ -119,8 +129,9 @@ Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break Ge
 | `app/errors.py` | Turns every error into the contract format. Use `raise ApiError(code, message, status)` |
 | `app/auth_utils.py` | `@login_required`, `@roles_required(...)` and `current_user()` |
 | `app/storage.py` | Checks and saves uploaded photos |
+| `app/duplicate_service.py` | Saving AI suggestions, merging and unmerging duplicates |
 | `app/status_flow.py` | `change_status()`: the one place where status rules are enforced. Notifications (Task 15) hook in here |
-| `app/api/` | One file per group of endpoints: `auth`, `reports`, `workflow`, `users`, `reference`, `health`, `media`. Register new ones in `app/api/__init__.py` |
+| `app/api/` | One file per group of endpoints: `auth`, `reports`, `workflow`, `users`, `duplicates`, `reference`, `health`, `media`. Register new ones in `app/api/__init__.py` |
 | `app/cli.py` | `init-db`, `seed` and `create-user` commands |
 | `docs/schema.sql` | Plain SQL version of the schema, for reading |
 | `tests/` | Automated tests. Test users and reports clean up after themselves |
@@ -140,7 +151,7 @@ def change_status(id):
 
 Roles: `resident`, `verifier`, `authority`, `admin`. The role is read from the database on every request, so role changes apply immediately.
 
-## The schema (8 tables)
+## The schema (9 tables)
 
 - `users`: name, email, password hash, role, area
 - `areas`: name and optional boundary polygon
@@ -149,6 +160,7 @@ Roles: `resident`, `verifier`, `authority`, `admin`. The role is read from the d
 - `status_events`: one row per status change (who, when, note), used to calculate days to resolve
 - `follows`: which user follows which report
 - `notifications`: messages for users about reports
+- `duplicate_suggestions`: the AI's duplicate guesses per report, with score and reasons
 - `hotspots`: results of the clustering job
 
 Statuses: `reported`, `verified`, `rejected`, `assigned`, `in_progress`, `resolved`.
@@ -157,7 +169,7 @@ Statuses: `reported`, `verified`, `rejected`, `assigned`, `in_progress`, `resolv
 
 - **`location` is a Geography column** [a map-aware type that measures distances in real metres]. Queries like `ST_DWithin(location, point, 50)` mean "within 50 metres". A spatial index is created automatically so they stay fast.
 - **Coordinate order:** PostGIS points are written longitude first: `POINT(lon lat)`. The API's `location` object uses `{lat, lon}`.
-- **Duplicates:** a duplicate report stores `duplicate_of` (its parent). The parent's `report_count` counts everyone. Keep that number updated when merging or unmerging.
+- **Duplicates:** a duplicate report stores `duplicate_of` (its parent). The parent's `report_count` is recomputed by `recount()` whenever reports are merged or unmerged.
 - **Status and role are text with a check rule**, not database enums, so they are easier to change later.
 - **Photos** are saved under a random name in `uploads/reports/`. The path is stored in `photo_path` and the API returns a full `photo_url`.
 - **`init-db` vs migrations:** `flask init-db` is the quick way for development. When the schema must change without wiping data, use migrations [versioned database changes]: `flask --app wsgi db init`, `flask --app wsgi db migrate -m initial`, then add `import geoalchemy2` at the top of the generated file in `migrations/versions/`, then `flask --app wsgi db upgrade`.
@@ -165,4 +177,4 @@ Statuses: `reported`, `verified`, `rejected`, `assigned`, `in_progress`, `resolv
 ## For teammates
 
 - **Frontend:** build against `openapi.yaml`. Log in, store the token, send it as `Authorization: Bearer <token>`. Photos load from `photo_url`.
-- **AI and data:** write seed data using category names to look up ids, not hardcoded numbers. `photo_path` cannot be empty. Write coordinates longitude first.
+- **AI and data:** `save_suggestions(report_id, suggestions)` is how `find_duplicates` output gets stored. Seed data: write seed data using category names to look up ids, not hardcoded numbers. `photo_path` cannot be empty. Write coordinates longitude first.
