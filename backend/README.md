@@ -4,8 +4,8 @@ Flask API for CivicPulse. The full contract is in `openapi.yaml`: build to match
 
 ## Status
 
-**Working now:** project setup, database schema, authentication and roles, report submission with photos, report listing with filters, following reports, status workflow with history, assignment, the authority list, duplicate suggestions and merging.
-**Next:** notifications (Task 15), job queue (Task 16) and AI hooks.
+**Working now:** project setup, database schema, authentication and roles, report submission with photos, report listing with filters, following reports, status workflow with history, assignment, the authority list, duplicate suggestions and merging, notifications.
+**Next:** job queue and worker (Task 16), then connecting the AI functions (Task 20).
 
 | Task | What | State |
 |---|---|---|
@@ -17,6 +17,7 @@ Flask API for CivicPulse. The full contract is in `openapi.yaml`: build to match
 | 7 | Status workflow and history | Done |
 | 14 | Assignment and authority list | Done |
 | - | Duplicate endpoints (suggestions, merge, unmerge) | Done |
+| 15 | Notifications | Done |
 
 ## API endpoints
 
@@ -42,6 +43,10 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 | GET | `/reports/{id}/duplicates` | Verifier, admin | The AI's duplicate suggestions for a report, best first, with reasons |
 | POST | `/reports/{id}/merge` | Verifier, admin | Fold this report into `parent_id`. Returns the parent |
 | POST | `/reports/{id}/unmerge` | Verifier, admin | Split a wrongly merged report back out |
+| GET | `/notifications` | Logged in | Your notifications, newest first (`?unread=true`, `page`, `per_page`) |
+| GET | `/notifications/unread-count` | Logged in | `{"count": 3}` for the bell badge |
+| POST | `/notifications/{id}/read` | Logged in | Mark one as read (safe to repeat) |
+| POST | `/notifications/read-all` | Logged in | Mark all as read |
 | GET | `/users` | Verifier, authority, admin | List users. Admins can filter any `role`; others only get authority users, without emails |
 | POST | `/reports/{id}/follow` | Logged in | Follow a report (safe to repeat) |
 | DELETE | `/reports/{id}/follow` | Logged in | Stop following |
@@ -51,7 +56,6 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 
 | Method | Path | Task |
 |---|---|---|
-| GET | `/notifications`, POST `/notifications/{id}/read` | 15 |
 | GET | `/analytics/summary`, `/analytics/hotspots` | 21, 22 |
 | PATCH | `/users/{id}/role` | Admin tools |
 
@@ -77,6 +81,18 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 - **Merge** (`POST /reports/{id}/merge` with `{"parent_id": 5}`): the report in the path is the duplicate, `parent_id` is the main one. Only `reported` or `verified` reports can be merged, into a parent that is still open (not resolved or rejected). Reports already merged into the duplicate move to the parent, so merging is always one level deep. Whoever followed the duplicate, plus its author, now follows the parent. Each side gets a history note (`Merged into #5`).
 - **`report_count`** on the parent is recomputed as 1 plus its duplicates after every merge or unmerge, so it never drifts.
 - Errors (409): `self_merge`, `already_merged`, `parent_is_duplicate`, `child_not_mergeable`, `parent_not_open`, `not_merged` (unmerge).
+
+### Notifications
+
+Created automatically inside the same save as the change that caused them (see `app/notifications.py`). Nobody is notified about their own action.
+
+| Event | Who is notified |
+|---|---|
+| Status changes (verified, rejected, assigned, in progress, resolved) | The report's author, its followers, and the authors and followers of reports merged into it. A rejection includes the reason |
+| Assigned or reassigned | The assignee ("assigned to you", with the due date), and the previous assignee ("reassigned to someone else") |
+| Merged into another report | The merged report's author, with a link (`report_id`) to the main report |
+
+Someone who is both author and follower gets one message, not two.
 
 ### Examples
 
@@ -113,7 +129,7 @@ Use Python 3.12 or 3.13. Commands are for Windows PowerShell.
 6. Create your first admin: `flask --app wsgi create-user --name "Your Name" --email you@example.com --role admin`
 7. Start the server: `flask --app wsgi run`
 8. Check it: open http://localhost:5000/api/v1/health (should show `"status": "ok"` and the PostGIS version)
-9. Run the tests: `pytest` (44 tests; they need the database running and seeded)
+9. Run the tests: `pytest` (52 tests; they need the database running and seeded)
 
 Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break GeoAlchemy2.
 
@@ -129,9 +145,10 @@ Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break Ge
 | `app/errors.py` | Turns every error into the contract format. Use `raise ApiError(code, message, status)` |
 | `app/auth_utils.py` | `@login_required`, `@roles_required(...)` and `current_user()` |
 | `app/storage.py` | Checks and saves uploaded photos |
+| `app/notifications.py` | Creates notification rows. Called from `change_status()`, `reassign()` and merging |
 | `app/duplicate_service.py` | Saving AI suggestions, merging and unmerging duplicates |
 | `app/status_flow.py` | `change_status()`: the one place where status rules are enforced. Notifications (Task 15) hook in here |
-| `app/api/` | One file per group of endpoints: `auth`, `reports`, `workflow`, `users`, `duplicates`, `reference`, `health`, `media`. Register new ones in `app/api/__init__.py` |
+| `app/api/` | One file per group of endpoints: `auth`, `reports`, `workflow`, `users`, `duplicates`, `notifications`, `reference`, `health`, `media`. Register new ones in `app/api/__init__.py` |
 | `app/cli.py` | `init-db`, `seed` and `create-user` commands |
 | `docs/schema.sql` | Plain SQL version of the schema, for reading |
 | `tests/` | Automated tests. Test users and reports clean up after themselves |

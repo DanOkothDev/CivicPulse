@@ -1,6 +1,7 @@
 from .errors import ApiError
 from .extensions import db
 from .models import DuplicateSuggestion, Follow, Report, StatusEvent
+from .notifications import notify_merged
 
 OPEN_STATUSES = ('reported', 'verified', 'assigned', 'in_progress')  # a report can absorb duplicates
 MERGEABLE_STATUSES = ('reported', 'verified')                         # a report can be absorbed
@@ -73,6 +74,7 @@ def merge_reports(child_id, parent_id, user):
 
     db.session.add(StatusEvent(report_id=child.id, status=child.status, changed_by=user.id,
                                note=f'Merged into #{parent.id}'))
+    notify_merged(child, parent, user)
     recount(parent)
     db.session.commit()
     return parent
