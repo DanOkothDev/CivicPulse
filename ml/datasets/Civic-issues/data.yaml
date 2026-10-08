@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 5
+names: ['fallen_tree', 'garbage', 'pothole', 'streetlight', 'water_leak']
+
+roboflow:
+  workspace: elsie-oscar
+  project: civic-issues-6qw5e-okeog
+  version: 1
+  license: CC BY 4.0
+  url: https://app.roboflow.com/elsie-oscar/civic-issues-6qw5e-okeog/1
