@@ -14,7 +14,8 @@ DOMAIN = '@test.civicpulse'
 
 @pytest.fixture
 def app(tmp_path):
-    app = create_app({'UPLOAD_FOLDER': str(tmp_path)})  # test photos go to a temp folder
+    app = create_app({'UPLOAD_FOLDER': str(tmp_path),  # test photos go to a temp folder
+                      'QUEUE_MODE': 'inline'})        # tests need no worker
 
     @app.get('/api/v1/_test/verifier-only')
     @roles_required('verifier', 'admin')

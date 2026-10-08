@@ -1,6 +1,6 @@
 import math
 
-from flask import Blueprint, jsonify, request, url_for
+from flask import Blueprint, current_app, jsonify, request, url_for
 from geoalchemy2 import Geography, Geometry
 from geoalchemy2.elements import WKTElement
 from sqlalchemy import and_, cast, func
@@ -10,6 +10,8 @@ from ..auth_utils import current_user, login_required
 from ..constants import STATUSES
 from ..errors import ApiError
 from ..extensions import db
+from ..jobqueue import enqueue
+from ..jobs import process_new_report
 from ..models import Area, Category, Follow, Report, StatusEvent
 from ..storage import delete_photo, photo_extension, save_photo
 
@@ -123,6 +125,10 @@ def create_report():
         db.session.rollback()
         delete_photo(photo_path)  # don't leave an orphan photo behind
         raise
+    try:  # AI checks run in the background. A queue problem must never stop a resident's report.
+        enqueue(process_new_report, report.id)
+    except Exception:
+        current_app.logger.exception('Could not queue processing for report %s', report.id)
     return jsonify(_one(report.id, user.id)), 201
 
 

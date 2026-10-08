@@ -1,0 +1,538 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R 9 0 R 11 0 R 13 0 R] /Count 6 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 15 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 3697 >>
+stream
+BT
+/F1 18 Tf
+50 810 Td
+(CivicPulse) Tj
+0 -22 Td
+/F1 11 Tf
+() Tj
+0 -16 Td
+(CivicPulse Project Overview) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(CivicPulse is a Flask-based civic reporting application built to let residents report local) Tj
+0 -16 Td
+(infrastructure problems such as potholes, streetlights, drainage issues, garbage, water leaks,) Tj
+0 -16 Td
+(and public facility defects. The project is backend-first: the repository contains the API,) Tj
+0 -16 Td
+(database model, PostGIS spatial logic, and duplicate-detection logic. The README also expects a) Tj
+0 -16 Td
+(separate frontend to consume the API contract in openapi.yaml, which is the contract for mobile) Tj
+0 -16 Td
+(or web clients.) Tj
+0 -16 Td
+(This repository is organized around a Python backend in the backend/app directory, with) Tj
+0 -16 Td
+(Postgres/PostGIS for storage and geospatial filtering, Redis for supporting infrastructure, and) Tj
+0 -16 Td
+(Docker Compose for local setup. The project is designed for an operational workflow in which a) Tj
+0 -16 Td
+(resident reports an issue, a verifier checks it, an authority user takes action, and the system) Tj
+0 -16 Td
+(tracks status, duplicate reports, and notifications through the full lifecycle.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(1. Registration and login from the resident viewpoint) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(The user journey starts at signup. A new person submits their name, email, and password, and the) Tj
+0 -16 Td
+(system validates the input before creating an account. The registration endpoint rejects missing) Tj
+0 -16 Td
+(names, malformed email addresses, weak passwords shorter than eight characters, and invalid area) Tj
+0 -16 Td
+(IDs. If the email is already in use, the API returns an email_taken error. Importantly, even if) Tj
+0 -16 Td
+(a client sends a role in the registration payload, the server ignores it and always creates a) Tj
+0 -16 Td
+(resident account. That makes the role assignment explicit and safe, with higher roles created) Tj
+0 -16 Td
+(through admin or CLI tools rather than by self-registration.) Tj
+0 -16 Td
+(After signup, the API returns a JWT access token and a user object. The token is later added to) Tj
+0 -16 Td
+(requests as an Authorization header. The login endpoint validates the email and password using) Tj
+0 -16 Td
+(Werkzeug password hashing, matches the user record in PostgreSQL, and returns a fresh token. The) Tj
+0 -16 Td
+(/auth/me endpoint lets an authenticated user fetch their own profile and confirms the client is) Tj
+0 -16 Td
+(logged in. This is how the app enforces access control: the token identifies the current user,) Tj
+0 -16 Td
+(and each protected route checks the user role and session context before allowing the action.) Tj
+0 -16 Td
+(The user model stores id, name, email, password_hash, role, area_id, and creation timestamp. The) Tj
+0 -16 Td
+(role is constrained to resident, verifier, authority, or admin. The database is designed so role) Tj
+0 -16 Td
+(changes can be applied immediately on each request, rather than forcing a system restart or) Tj
+0 -16 Td
+(hardcoded session state.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(2. Core roles and permissions) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(The system has four user roles. Residents submit and follow reports. Verifiers review reports,) Tj
+0 -16 Td
+(approve or reject them, assign cases, and manage duplicate merges. Authorities are the service) Tj
+0 -16 Td
+(providers who take ownership of assigned issues and move them from assigned to in progress to) Tj
+0 -16 Td
+(resolved. Admins have the broadest permissions and can handle verification, assignments, full) Tj
+0 -16 Td
+(user listing, and system administration. The README explicitly states that role checks are) Tj
+0 -16 Td
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 15 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 3653 >>
+stream
+BT
+/F1 18 Tf
+50 810 Td
+(CivicPulse) Tj
+0 -22 Td
+/F1 11 Tf
+(enforced per request and are not just during login. This is implemented by decorators such as) Tj
+0 -16 Td
+(login_required and roles_required, which verify the current user and the requested role before) Tj
+0 -16 Td
+(access is granted.) Tj
+0 -16 Td
+(The core role logic is stored in app/constants.py. Roles are defined in a single tuple, and the) Tj
+0 -16 Td
+(allowed status transitions are defined as a transition map. For example, reported reports can) Tj
+0 -16 Td
+(move to verified or rejected, verified reports can move to assigned, assigned reports to) Tj
+0 -16 Td
+(in_progress, and in_progress reports to resolved. The permission table also checks who is) Tj
+0 -16 Td
+(allowed to make each move, using role names rather than raw database enums, making future) Tj
+0 -16 Td
+(changes easier.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(3. Reference data: areas and categories) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(The app uses reference tables for civic reporting. Categories are seeded as six built-in problem) Tj
+0 -16 Td
+(types: pothole, streetlight, drainage, garbage, water leak, and public facility. They are served) Tj
+0 -16 Td
+(through GET /categories. Areas are stored in a separate table and may include optional polygon) Tj
+0 -16 Td
+(boundaries; the system uses them to map reports to a geographic area or ward/zone. The areas) Tj
+0 -16 Td
+(endpoint exposes the list of named areas. This is important because reports are filtered and) Tj
+0 -16 Td
+(organized by area, and a symptom can be assigned to a zone automatically when a boundary is) Tj
+0 -16 Td
+(present.) Tj
+0 -16 Td
+(A report is also tied to a user-selected category and a spatial point. The database uses PostGIS) Tj
+0 -16 Td
+(to store the report location as a Geography POINT with SRID 4326, so the app can measure) Tj
+0 -16 Td
+(distances in metres and query within a bounding box or near a point. The project documentation) Tj
+0 -16 Td
+(calls out the coordinate order detail: PostGIS stores points as longitude, latitude, while the) Tj
+0 -16 Td
+(API returns them as {lat, lon}.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(4. Reporting a problem: submission and validation) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Once the user is signed in, the main action is submitting a civic issue. The report endpoint) Tj
+0 -16 Td
+(accepts multipart form data rather than raw JSON because it includes a photo file plus standard) Tj
+0 -16 Td
+(fields. The client sends category_id, lat, lon, description, and photo. The server validates) Tj
+0 -16 Td
+(every field strongly: category_id must be a valid category, lat must be between -90 and 90, lon) Tj
+0 -16 Td
+(between -180 and 180, description under 500 characters, and the uploaded photo must be a JPEG or) Tj
+0 -16 Td
+(PNG under 5 MB.) Tj
+0 -16 Td
+(The photo is saved to a local uploads folder by the storage layer, which ensures file type is) Tj
+0 -16 Td
+(valid and rejects dangerous paths. The path is stored in the reports table, and the API returns) Tj
+0 -16 Td
+(a photo_url for the frontend to display. The report also gets a point object created from the) Tj
+0 -16 Td
+(coordinates, and the system automatically checks whether the point falls inside any area) Tj
+0 -16 Td
+(boundary. If so, the report is assigned to that area automatically. This is a strong feature) Tj
+0 -16 Td
+(because it reduces data-entry effort and helps local agencies understand where issues are) Tj
+0 -16 Td
+(happening.) Tj
+0 -16 Td
+(When a report is created, the status is set to reported and a status event row is created) Tj
+0 -16 Td
+(immediately. This creates the first audit trail for the issue, capturing who changed the status) Tj
+0 -16 Td
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 15 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 369 >>
+stream
+BT
+/F1 18 Tf
+50 810 Td
+(CivicPulse) Tj
+0 -22 Td
+/F1 11 Tf
+(and when. The report record includes category, description, created_by, assigned_to, due_date,) Tj
+0 -16 Td
+(duplicate status, report_count, AI-suggested category metadata, and timestamps. It is intended) Tj
+0 -16 Td
+(to support both operational workflow and reporting analytics.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 15 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 3801 >>
+stream
+BT
+/F1 18 Tf
+50 810 Td
+(CivicPulse) Tj
+0 -22 Td
+/F1 11 Tf
+() Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(5. Listing, filtering, sorting, and following reports) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(The app exposes GET /reports for authenticated users. It supports a wide set of filters and) Tj
+0 -16 Td
+(pagination options. These include a bounding box \(bbox\), category_id, status, area_id,) Tj
+0 -16 Td
+(mine=true, following=true, include_duplicates=true, page, and per_page. The backend uses a) Tj
+0 -16 Td
+(SQLAlchemy query builder with PostGIS geometry intersection checks to filter reports by) Tj
+0 -16 Td
+(geographic area. This means the app can answer map-centered queries such as ?show all reported) Tj
+0 -16 Td
+(issues in this ward? or ?show all reports in this bounding box.?) Tj
+0 -16 Td
+(The response format is structured as {items, page, per_page, total}. For each report, the API) Tj
+0 -16 Td
+(returns the category details, description, status, geographic coordinates, area_id, photo_url,) Tj
+0 -16 Td
+(creator, assignee, due date, report_count, duplicate_of, AI suggestions, follow state, and) Tj
+0 -16 Td
+(created/updated times. The follow feature is implemented as a separate table that stores user_id) Tj
+0 -16 Td
+(and report_id pairs. A user can follow a report or unfollow it with dedicated endpoints, and the) Tj
+0 -16 Td
+(backend prevents duplicate follow rows.) Tj
+0 -16 Td
+(The design allows both personal and collaborative monitoring. A resident can keep an eye on the) Tj
+0 -16 Td
+(cases they care about, and the system can notify them whenever an issue changes. This makes the) Tj
+0 -16 Td
+(platform more than a simple ticketing app; it supports engagement and accountability around) Tj
+0 -16 Td
+(public-service problems.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(6. Workflow: verification, assignment, and status progression) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(The operational heart of CivicPulse is the status workflow. A report starts as reported, then) Tj
+0 -16 Td
+(can be moved to verified or rejected by a verifier or admin. The status rules are centralized in) Tj
+0 -16 Td
+(app/status_flow.py so the status logic is consistent and not scattered across routes. For) Tj
+0 -16 Td
+(example, a report cannot move to an invalid status, cannot jump around the workflow, and cannot) Tj
+0 -16 Td
+(be reassigned improperly once work has started.) Tj
+0 -16 Td
+(The allowed transitions are reported -> verified or rejected; verified -> assigned; assigned ->) Tj
+0 -16 Td
+(in_progress; in_progress -> resolved. Final states are rejected and resolved. Rejections require) Tj
+0 -16 Td
+(a note explaining why the report is invalid. Once a report is assigned, it cannot be reassigned) Tj
+0 -16 Td
+(as long as the work has started in_progress. This is enforced by the reassign logic and the) Tj
+0 -16 Td
+(business rule that in-progress reports are protected from reassignment.) Tj
+0 -16 Td
+(Assignment is done through POST /reports/{id}/assign. The endpoint accepts assignee_id and an) Tj
+0 -16 Td
+(optional due_date. The assignee must be an authority user, the due date must be today or in the) Tj
+0 -16 Td
+(future, and the endpoint is used instead of direct status change when moving a report into) Tj
+0 -16 Td
+(assigned. The assigned or in-progress report keeps the history of changes through status_events,) Tj
+0 -16 Td
+(which records each transition with the actor, timestamp, and note.) Tj
+0 -16 Td
+(The workflow routes also provide GET /reports/{id}/history to fetch status history. This creates) Tj
+0 -16 Td
+(a visible audit trail for case managers, allows after-the-fact reasoning, and makes it possible) Tj
+0 -16 Td
+(to compute service-time metrics. The project explicitly notes that status_events is intended to) Tj
+0 -16 Td
+(support ?days to resolve? reporting and operational analytics in the future.) Tj
+0 -16 Td
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 15 0 R >> >> /Contents 12 0 R >>
+endobj
+12 0 obj
+<< /Length 3696 >>
+stream
+BT
+/F1 18 Tf
+50 810 Td
+(CivicPulse) Tj
+0 -22 Td
+/F1 11 Tf
+() Tj
+0 -16 Td
+(7. Notifications and case communication) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Notifications are a first-class feature, not an afterthought. The notifications model tracks a) Tj
+0 -16 Td
+(user_id, report_id, message, read flag, and creation timestamp. It is created in the same) Tj
+0 -16 Td
+(transaction as the status change or assignment that triggers it, so the application never) Tj
+0 -16 Td
+(creates a notification for an action that later fails. The system intentionally does not notify) Tj
+0 -16 Td
+(the actor about their own action, reducing noise and preserving a cleaner activity stream.) Tj
+0 -16 Td
+(Notifications are generated for several classes of events. When a report is verified, rejected,) Tj
+0 -16 Td
+(assigned, moved to in_progress, or resolved, the author and followers of that case are notified.) Tj
+0 -16 Td
+(When a report is merged into another, the author of the merged report gets a message telling) Tj
+0 -16 Td
+(them the case has been combined. When a report is reassigned, both the new assignee and the) Tj
+0 -16 Td
+(previous assignee can receive specific messages. This keeps the user informed without needing to) Tj
+0 -16 Td
+(poll or check the case manually.) Tj
+0 -16 Td
+(The unread notifications count is exposed through GET /notifications/unread-count, and users can) Tj
+0 -16 Td
+(read one item or all items through dedicated endpoints. This is a polished operational feature) Tj
+0 -16 Td
+(and shows that CivicPulse is meant to support a workflow with multiple stakeholders rather than) Tj
+0 -16 Td
+(simply storing reports.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(8. Duplicate detection, merging, and report count logic) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(The repository contains a dedicated duplicate detection module in ml/duplicates/detector.py. The) Tj
+0 -16 Td
+(current implementation is rule-based, not a fully trained AI model: it compares reports by) Tj
+0 -16 Td
+(category and by distance, and marks them as duplicates when the same category appears within 200) Tj
+0 -16 Td
+(metres. The backend stores duplicate suggestions separately as a duplicate_suggestions table,) Tj
+0 -16 Td
+(with a score between 0 and 1 and JSON reasons such as location, category, and time. This is how) Tj
+0 -16 Td
+(the app can present ?possible duplicates? to a verifier before merging takes place.) Tj
+0 -16 Td
+(Duplicate handling follows a parent-child pattern. A duplicate report stores duplicate_of as the) Tj
+0 -16 Td
+(parent report id. The parent?s report_count is recomputed so that it reflects the parent plus) Tj
+0 -16 Td
+(all merged child cases. This avoids drift and ensures the count is always accurate. When) Tj
+0 -16 Td
+(combining reports, the system moves any already-merged children up to the parent so the merge) Tj
+0 -16 Td
+(tree remains shallow and consistent. The verifier can see duplicate suggestions with GET) Tj
+0 -16 Td
+(/reports/{id}/duplicates, then approve the merge with POST /reports/{id}/merge or reverse it) Tj
+0 -16 Td
+(with POST /reports/{id}/unmerge.) Tj
+0 -16 Td
+(The merge operation enforces strict rules: a report cannot merge into itself, a parent cannot) Tj
+0 -16 Td
+(already be a duplicate, only reported or verified reports can be merged, and the parent must) Tj
+0 -16 Td
+(still be in an open status. Once a report is merged, it cannot be edited in the usual way;) Tj
+0 -16 Td
+(instead, the main parent report becomes the one to update. This is a strong data-integrity) Tj
+0 -16 Td
+(safeguard and prevents duplicate issues from being treated as independent cases after the fact.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(9. Architecture, infrastructure, and project setup) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 15 0 R >> >> /Contents 14 0 R >>
+endobj
+14 0 obj
+<< /Length 3437 >>
+stream
+BT
+/F1 18 Tf
+50 810 Td
+(CivicPulse) Tj
+0 -22 Td
+/F1 11 Tf
+(The application is built with Flask, SQLAlchemy, Flask-JWT-Extended, Flask-CORS, and) Tj
+0 -16 Td
+(Postgres/PostGIS. The app factory creates the configured Flask app in app/__init__.py, loads) Tj
+0 -16 Td
+(settings from app/config.py, initializes the database, JWT, CORS, and migration tools, and) Tj
+0 -16 Td
+(registers the API blueprints. The API is split into clear modules: auth, reports, workflow,) Tj
+0 -16 Td
+(users, duplicates, notifications, media, health, and reference. This modular structure makes the) Tj
+0 -16 Td
+(backend easy to extend without scattering route logic.) Tj
+0 -16 Td
+(The schema contains nine primary tables: users, areas, categories, reports, status_events,) Tj
+0 -16 Td
+(follows, notifications, duplicate_suggestions, and hotspots. The database schema and the) Tj
+0 -16 Td
+(application model are aligned, and the README explicitly says the model is the source of truth.) Tj
+0 -16 Td
+(The schema uses PostGIS Geography columns for points and polygons, plus GiST indexes, which) Tj
+0 -16 Td
+(makes geospatial queries efficient and suitable for map-based civic reporting.) Tj
+0 -16 Td
+(The repository includes command-line setup helpers: flask init-db initializes PostGIS and) Tj
+0 -16 Td
+(creates tables, flask seed loads default categories and a default area, and flask create-user) Tj
+0 -16 Td
+(creates a user with a chosen role. The README also gives a recommended local runtime setup using) Tj
+0 -16 Td
+(Docker Desktop, a Python virtual environment, .env configuration, strong secret keys, and) Tj
+0 -16 Td
+(pytest. The project expects Python 3.12 or 3.13 and notes that SQLAlchemy 2.0.54 must be kept) Tj
+0 -16 Td
+(pinned because newer versions can break GeoAlchemy2.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(10. What is complete and what is still planned) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(The README clearly separates completed work from future work. The backend supports project) Tj
+0 -16 Td
+(setup, database schema, authentication and roles, report submission with photos, report listing) Tj
+0 -16 Td
+(with filters, following and status workflows, assignment, authority list, duplicate suggestions) Tj
+0 -16 Td
+(and merging, and notifications. Planned next steps include a job queue and worker for background) Tj
+0 -16 Td
+(tasks, followed by AI integration for smarter duplicate detection and analytics endpoints such) Tj
+0 -16 Td
+(as summary and hotspot calculations. There are also explicit notes that analytics summary and) Tj
+0 -16 Td
+(hotspot APIs are not yet built, and the user-role patch endpoint is still planned.) Tj
+0 -16 Td
+(In summary, CivicPulse is a civic issue-oversight system designed for operational reporting and) Tj
+0 -16 Td
+(resolution. A resident signs up, logs in, and reports a local problem with a photo and) Tj
+0 -16 Td
+(coordinates. The system validates the issue, identifies geographic area, creates the case, then) Tj
+0 -16 Td
+(passes it through a strict lifecycle involving verification, assignment, work in progress, and) Tj
+0 -16 Td
+(final resolution or rejection. Duplicate reports are detected and merged under admin oversight,) Tj
+0 -16 Td
+(while all participants receive focused notifications. The project is a strong example of a) Tj
+0 -16 Td
+(modern civic service system that pairs geographic intelligence, workflow management, and user) Tj
+0 -16 Td
+(notifications into a single backend-driven pipeline.) Tj
+0 -16 Td
+ET
+endstream
+endobj
+15 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 16
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000153 00000 n 
+0000000280 00000 n 
+0000004029 00000 n 
+0000004156 00000 n 
+0000007861 00000 n 
+0000007988 00000 n 
+0000008408 00000 n 
+0000008536 00000 n 
+0000012390 00000 n 
+0000012519 00000 n 
+0000016268 00000 n 
+0000016397 00000 n 
+0000019887 00000 n 
+trailer
+<< /Size 16 /Root 1 0 R >>
+startxref
+19958
+%%EOF

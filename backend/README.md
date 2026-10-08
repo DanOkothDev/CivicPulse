@@ -4,8 +4,8 @@ Flask API for CivicPulse. The full contract is in `openapi.yaml`: build to match
 
 ## Status
 
-**Working now:** project setup, database schema, authentication and roles, report submission with photos, report listing with filters, following reports, status workflow with history, assignment, the authority list, duplicate suggestions and merging, notifications.
-**Next:** job queue and worker (Task 16), then connecting the AI functions (Task 20).
+**Working now:** project setup, database schema, authentication and roles, report submission with photos, report listing with filters, following reports, status workflow with history, assignment, the authority list, duplicate suggestions and merging, notifications, background job queue and worker.
+**Next:** connecting Teammate 3's real AI functions (Task 20), then analytics endpoints.
 
 | Task | What | State |
 |---|---|---|
@@ -18,6 +18,7 @@ Flask API for CivicPulse. The full contract is in `openapi.yaml`: build to match
 | 14 | Assignment and authority list | Done |
 | - | Duplicate endpoints (suggestions, merge, unmerge) | Done |
 | 15 | Notifications | Done |
+| 16 | Redis job queue and worker | Done |
 
 ## API endpoints
 
@@ -120,7 +121,7 @@ The report starts as `reported` and gets its first status event. If an area has 
 
 Use Python 3.12 or 3.13. Commands are for Windows PowerShell.
 
-1. Start the database and Redis (Docker Desktop must be running): `docker compose up -d`
+1. Start the database, Redis and the background worker (Docker Desktop must be running): `docker compose up -d --build`
 2. Create a virtual environment and install packages:
    `python -m venv venv`, then `.\venv\Scripts\Activate.ps1`, then `pip install -r requirements.txt`
 3. Copy settings: `Copy-Item .env.example .env`
@@ -129,7 +130,7 @@ Use Python 3.12 or 3.13. Commands are for Windows PowerShell.
 6. Create your first admin: `flask --app wsgi create-user --name "Your Name" --email you@example.com --role admin`
 7. Start the server: `flask --app wsgi run`
 8. Check it: open http://localhost:5000/api/v1/health (should show `"status": "ok"` and the PostGIS version)
-9. Run the tests: `pytest` (52 tests; they need the database running and seeded)
+9. Run the tests: `pytest` (60 tests; they need the database running and seeded)
 
 Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break GeoAlchemy2.
 
@@ -145,6 +146,9 @@ Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break Ge
 | `app/errors.py` | Turns every error into the contract format. Use `raise ApiError(code, message, status)` |
 | `app/auth_utils.py` | `@login_required`, `@roles_required(...)` and `current_user()` |
 | `app/storage.py` | Checks and saves uploaded photos |
+| `app/jobqueue.py` | Puts jobs on the Redis queue (`enqueue`) and reports queue health |
+| `app/jobs.py` | The background jobs the worker runs, including `process_new_report` |
+| `Dockerfile` | Builds the worker container (runs `rq worker`) |
 | `app/notifications.py` | Creates notification rows. Called from `change_status()`, `reassign()` and merging |
 | `app/duplicate_service.py` | Saving AI suggestions, merging and unmerging duplicates |
 | `app/status_flow.py` | `change_status()`: the one place where status rules are enforced. Notifications (Task 15) hook in here |
@@ -153,6 +157,40 @@ Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break Ge
 | `docs/schema.sql` | Plain SQL version of the schema, for reading |
 | `tests/` | Automated tests. Test users and reports clean up after themselves |
 | `uploads/` | Saved photos (created automatically, not committed to git) |
+
+## Background jobs (Task 16)
+
+Slow work must not make a resident wait, so the API saves the report, answers immediately, and puts a job on a Redis queue. A separate **worker** process picks it up.
+
+```
+POST /reports -> saved -> job queued -> response sent
+                              |
+                    worker runs process_new_report(report_id)
+                              -> classifier: stores ai_category_id and ai_confidence
+                              -> find_duplicates: stores suggestions for the verifier
+```
+
+- **The worker runs in Docker.** The queue library (RQ) cannot run workers on Windows, so `docker compose up -d --build` also starts a Linux `worker` container. It shares your `uploads/` folder, so it sees the same photos. After changing backend code, run `docker compose up -d --build` again so the worker picks it up. Watch it with `docker compose logs -f worker`.
+- **See what is happening:** `GET /api/v1/health` includes `queue` (mode, pending jobs, failed jobs, number of workers), and `flask --app wsgi queue-status` prints the same. If `pending` keeps growing and `workers` is 0, the worker is not running.
+- **No worker?** Set `QUEUE_MODE=inline` in `.env` and jobs run inside the request instead (slower, but needs nothing extra). The default is `redis`.
+- **A queue problem never blocks a report.** If Redis is down or a job crashes, the resident's report is still saved. Failed jobs are retried 3 times (after 10 s, 60 s and 5 min) and then kept in the failed list for a week.
+- **Run the checks on existing reports** (for example the seeded demo data): `flask --app wsgi process-reports --all`, or `flask --app wsgi process-reports 12 13`.
+
+### Plugging in Teammate 3's functions (Task 20)
+
+Set these in `.env` (the worker reads them too), as `module:function`:
+
+```
+AI_CLASSIFIER=ml.classifier:classify
+AI_DUPLICATES=ml.duplicates:find_duplicates
+```
+
+| Function | Receives | Must return |
+|---|---|---|
+| `classify(photo_path)` | Full path to the saved photo | `{"category_id": 3, "confidence": 0.91}` |
+| `find_duplicates(report)` | `{id, lat, lon, category_id, created_at, photo_path}` | `[{"report_id": 42, "score": 0.83, "reasons": {...}}]` |
+
+Unset means that step is skipped. Out-of-range or malformed classifier output is ignored with a log warning. Jobs can be run twice safely (results are replaced, not duplicated).
 
 ## Protecting routes
 
@@ -188,6 +226,7 @@ Statuses: `reported`, `verified`, `rejected`, `assigned`, `in_progress`, `resolv
 - **Coordinate order:** PostGIS points are written longitude first: `POINT(lon lat)`. The API's `location` object uses `{lat, lon}`.
 - **Duplicates:** a duplicate report stores `duplicate_of` (its parent). The parent's `report_count` is recomputed by `recount()` whenever reports are merged or unmerged.
 - **Status and role are text with a check rule**, not database enums, so they are easier to change later.
+- **Queue names:** the worker listens on the `default` queue, which matches `QUEUE_NAME`. Tests use a private queue name so they never touch real jobs.
 - **Photos** are saved under a random name in `uploads/reports/`. The path is stored in `photo_path` and the API returns a full `photo_url`.
 - **`init-db` vs migrations:** `flask init-db` is the quick way for development. When the schema must change without wiping data, use migrations [versioned database changes]: `flask --app wsgi db init`, `flask --app wsgi db migrate -m initial`, then add `import geoalchemy2` at the top of the generated file in `migrations/versions/`, then `flask --app wsgi db upgrade`.
 
