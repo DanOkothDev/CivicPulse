@@ -195,6 +195,10 @@ paths:
     post:
       tags: [Workflow]
       summary: Assign to an authority user (verifier, authority, admin)
+      description: |
+        The report must be verified. assignee_id must be a user with the authority role (422 otherwise).
+        due_date is optional and cannot be in the past. A report that is assigned but not started can be
+        reassigned with the same call; once in_progress it cannot (409 cannot_reassign).
       requestBody:
         required: true
         content:
@@ -350,7 +354,10 @@ paths:
   /users:
     get:
       tags: [Admin]
-      summary: List users (admin)
+      summary: List users (admin, or verifier/authority for authority users only)
+      description: |
+        Admins can filter any role and see emails. Verifiers and authorities always get only authority users
+        (for the assign dropdown), without emails, and asking for another role returns 403.
       parameters:
         - {name: role, in: query, schema: {$ref: '#/components/schemas/Role'}}
         - {name: page, in: query, schema: {type: integer, default: 1}}

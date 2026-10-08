@@ -4,8 +4,8 @@ Flask API for CivicPulse. The full contract is in `openapi.yaml`: build to match
 
 ## Status
 
-**Working now:** project setup, database schema, authentication and roles, report submission with photos, report listing with filters, following reports, status workflow with history.
-**Next:** assignment (Task 14), notifications (Task 15), job queue and AI hooks.
+**Working now:** project setup, database schema, authentication and roles, report submission with photos, report listing with filters, following reports, status workflow with history, assignment and the authority list.
+**Next:** duplicate endpoints, notifications (Task 15), job queue (Task 16) and AI hooks.
 
 | Task | What | State |
 |---|---|---|
@@ -15,6 +15,7 @@ Flask API for CivicPulse. The full contract is in `openapi.yaml`: build to match
 | 5 | PostgreSQL/PostGIS schema | Done |
 | 6 | Report endpoints and photo upload | Done |
 | 7 | Status workflow and history | Done |
+| 14 | Assignment and authority list | Done |
 
 ## API endpoints
 
@@ -36,6 +37,8 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 | GET | `/reports/{id}` | Logged in | One report |
 | PATCH | `/reports/{id}/status` | Verifier, authority, admin | Move a report to its next status (rules below) |
 | GET | `/reports/{id}/history` | Logged in | The status trail, oldest first |
+| POST | `/reports/{id}/assign` | Verifier, authority, admin | Assign a verified report to an authority user, with an optional due date |
+| GET | `/users` | Verifier, authority, admin | List users. Admins can filter any `role`; others only get authority users, without emails |
 | POST | `/reports/{id}/follow` | Logged in | Follow a report (safe to repeat) |
 | DELETE | `/reports/{id}/follow` | Logged in | Stop following |
 | GET | `/uploads/{path}` | Anyone | Serves saved photos (no `/api/v1` prefix) |
@@ -44,11 +47,10 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 
 | Method | Path | Task |
 |---|---|---|
-| POST | `/reports/{id}/assign` | 14 |
 | GET | `/reports/{id}/duplicates`, POST `/reports/{id}/merge`, POST `/reports/{id}/unmerge` | 13, 17 |
 | GET | `/notifications`, POST `/notifications/{id}/read` | 15 |
 | GET | `/analytics/summary`, `/analytics/hotspots` | 21, 22 |
-| GET | `/users`, PATCH `/users/{id}/role` | Admin tools |
+| PATCH | `/users/{id}/role` | Admin tools |
 
 ### Status rules
 
@@ -58,9 +60,11 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 |---|---|
 | reported to verified | Verifier, admin |
 | reported to rejected (a `note` with the reason is required) | Verifier, admin |
-| verified to assigned | Through `POST /reports/{id}/assign` only (Task 14), because it needs an assignee |
+| verified to assigned | Through `POST /reports/{id}/assign` only, because it needs an assignee |
 | assigned to in_progress | The assigned authority, or admin |
 | in_progress to resolved | The assigned authority, or admin |
+
+**Assigning:** `POST /reports/{id}/assign` with `{"assignee_id": 7, "due_date": "2026-10-20"}` (the date is optional and can't be in the past). The assignee must be an authority user. A report that is assigned but not started can be reassigned with the same call; once work starts (`in_progress`) it can't (409 `cannot_reassign`).
 
 `rejected` and `resolved` are final. Errors: 409 `invalid_transition` (the response lists the allowed next statuses), 409 `use_assign_endpoint`, 409 `is_duplicate` (a merged report must be updated through its parent), 403 `forbidden` or `not_assignee`, 422 for a missing reason or unknown status.
 
@@ -99,7 +103,7 @@ Use Python 3.12 or 3.13. Commands are for Windows PowerShell.
 6. Create your first admin: `flask --app wsgi create-user --name "Your Name" --email you@example.com --role admin`
 7. Start the server: `flask --app wsgi run`
 8. Check it: open http://localhost:5000/api/v1/health (should show `"status": "ok"` and the PostGIS version)
-9. Run the tests: `pytest` (30 tests; they need the database running and seeded)
+9. Run the tests: `pytest` (38 tests; they need the database running and seeded)
 
 Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break GeoAlchemy2.
 
@@ -116,7 +120,7 @@ Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break Ge
 | `app/auth_utils.py` | `@login_required`, `@roles_required(...)` and `current_user()` |
 | `app/storage.py` | Checks and saves uploaded photos |
 | `app/status_flow.py` | `change_status()`: the one place where status rules are enforced. Notifications (Task 15) hook in here |
-| `app/api/` | One file per group of endpoints: `auth`, `reports`, `workflow`, `reference`, `health`, `media`. Register new ones in `app/api/__init__.py` |
+| `app/api/` | One file per group of endpoints: `auth`, `reports`, `workflow`, `users`, `reference`, `health`, `media`. Register new ones in `app/api/__init__.py` |
 | `app/cli.py` | `init-db`, `seed` and `create-user` commands |
 | `docs/schema.sql` | Plain SQL version of the schema, for reading |
 | `tests/` | Automated tests. Test users and reports clean up after themselves |
