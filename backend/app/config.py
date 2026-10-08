@@ -16,4 +16,10 @@ class Config:
     REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB photo limit, matches the API contract
+    # 'redis': a separate worker runs background jobs. 'inline': jobs run inside the request (no worker needed).
+    QUEUE_MODE = os.getenv('QUEUE_MODE', 'redis')
+    QUEUE_NAME = os.getenv('QUEUE_NAME', 'default')
+    # Teammate 3's functions as 'module:function', e.g. ml.classifier:classify. Empty means skipped.
+    AI_CLASSIFIER = os.getenv('AI_CLASSIFIER', '')
+    AI_DUPLICATES = os.getenv('AI_DUPLICATES', '')
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:5173').split(',')
