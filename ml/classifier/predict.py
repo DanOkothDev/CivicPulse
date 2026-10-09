@@ -1,125 +1,60 @@
-"""
-CivicPulse Photo Classifier Prediction
-
-Provides a simple classify(image_path) function
-that the backend can eventually import.
-"""
-
 from pathlib import Path
-
 import numpy as np
 import tensorflow as tf
 
-
 IMAGE_SIZE = (224, 224)
+MODEL_PATH = Path(__file__).parent / "saved_model" / "civicpulse_classifier.keras"
+CLASS_NAMES_PATH = Path(__file__).parent / "saved_model" / "class_names.txt"
 
-MODEL_PATH = (
-    Path(__file__).parent
-    / "saved_model"
-    / "civicpulse_classifier.keras"
-)
+# Mapping dataset directory names to backend Category IDs (from constants.py seeding order)
+CATEGORY_ID_MAP = {
+    "pothole": 1,
+    "streetlight": 2,
+    "drainage": 3,
+    "garbage": 4,
+    "water_leak": 5,
+    "public_facility": 6,
+}
 
-CLASS_NAMES_PATH = (
-    Path(__file__).parent
-    / "saved_model"
-    / "class_names.txt"
-)
+_MODEL = None
+_CLASS_NAMES = None
 
+def load_resources():
+    global _MODEL, _CLASS_NAMES
+    if _MODEL is None:
+        _MODEL = tf.keras.models.load_model(MODEL_PATH)
+    if _CLASS_NAMES is None:
+        with open(CLASS_NAMES_PATH, "r", encoding="utf-8") as file:
+            _CLASS_NAMES = [line.strip() for line in file if line.strip()]
 
-def load_model():
-    """Load the trained CivicPulse model."""
-
-    return tf.keras.models.load_model(
-        MODEL_PATH
-    )
-
-
-def load_class_names():
-    """Load the class names used during training."""
-
-    with open(
-        CLASS_NAMES_PATH,
-        "r",
-        encoding="utf-8",
-    ) as file:
-
-        return [
-            line.strip()
-            for line in file
-            if line.strip()
-        ]
-
-
-def classify(image_path):
+def classify(photo_path):
     """
-    Classify a civic issue photo.
-
-    Returns:
-        {
-            "category": "...",
-            "confidence": 0.0
-        }
+    Classifies a civic issue photo.
+    Returns: {"category_id": int, "confidence": float}
     """
+    load_resources()
 
-    model = load_model()
+    image = tf.keras.utils.load_img(photo_path, target_size=IMAGE_SIZE)
+    image_array = tf.keras.utils.img_to_array(image)
+    image_array = tf.expand_dims(image_array, axis=0)
 
-    class_names = load_class_names()
-
-    image = tf.keras.utils.load_img(
-        image_path,
-        target_size=IMAGE_SIZE,
-    )
-
-    image_array = tf.keras.utils.img_to_array(
-        image
-    )
-
-    image_array = tf.expand_dims(
-        image_array,
-        axis=0,
-    )
-
-    predictions = model.predict(
-        image_array,
-        verbose=0,
-    )
-
+    predictions = _MODEL.predict(image_array, verbose=0)
     probabilities = predictions[0]
+    predicted_index = int(np.argmax(probabilities))
+    confidence = float(probabilities[predicted_index])
 
-    predicted_index = int(
-        np.argmax(probabilities)
-    )
-
-    confidence = float(
-        probabilities[predicted_index]
-    )
+    predicted_name = _CLASS_NAMES[predicted_index]
+    category_id = CATEGORY_ID_MAP.get(predicted_name)
 
     return {
-        "category": class_names[predicted_index],
-        "confidence": round(
-            confidence,
-            4,
-        ),
+        "category_id": category_id,
+        "confidence": round(confidence, 4),
     }
 
-
 if __name__ == "__main__":
-
     import sys
-
     if len(sys.argv) != 2:
-
-        print(
-            "Usage: python predict.py "
-            "<image_path>"
-        )
-
+        print("Usage: python predict.py <image_path>")
         raise SystemExit(1)
-
-    image_path = sys.argv[1]
-
-    result = classify(
-        image_path
-    )
-
+    result = classify(sys.argv[1])
     print(result)
