@@ -21,8 +21,8 @@ def who(client, make_user):
     return _who
 
 
-def submit(client, headers):
-    data = {'category_id': '1', 'lat': '-1.2921', 'lon': '36.8219', 'photo': (io.BytesIO(JPEG), 'a.jpg')}
+def submit(client, headers, lat='10.0', lon='10.0'):  # a remote spot, so real or seeded reports never interfere
+    data = {'category_id': '1', 'lat': lat, 'lon': lon, 'photo': (io.BytesIO(JPEG), 'a.jpg')}
     return client.post('/api/v1/reports', data=data, headers=headers, content_type='multipart/form-data')
 
 
@@ -41,8 +41,8 @@ def test_job_stores_ai_results(client, app, who, monkeypatch):
         seen['photo'] = photo_path
         return {'category_id': 3, 'confidence': 0.91}
 
-    def find(report):
-        seen['report'] = report
+    def find(report, candidates):
+        seen['report'], seen['candidates'] = report, candidates
         return [{'report_id': other, 'score': 0.83, 'reasons': {'location': 0.8}}]
 
     fake_hooks(monkeypatch, classify, find)
@@ -56,8 +56,48 @@ def test_job_stores_ai_results(client, app, who, monkeypatch):
     suggestions = client.get(f'/api/v1/reports/{rid}/duplicates', headers=verifier).json
     assert [s['report_id'] for s in suggestions] == [other] and suggestions[0]['reasons'] == {'location': 0.8}
     assert os.path.exists(seen['photo'])                        # the classifier gets a real file path
-    assert seen['report']['id'] == rid and seen['report']['lat'] == pytest.approx(-1.2921)
-    assert seen['report']['lon'] == pytest.approx(36.8219) and seen['report']['category_id'] == 1
+    assert seen['report']['id'] == rid and seen['report']['lat'] == pytest.approx(10.0)
+    assert seen['report']['lon'] == pytest.approx(10.0) and seen['report']['category_id'] == 1
+    assert seen['report']['category'] == 'Pothole'
+    assert [c['id'] for c in seen['candidates']] == [other]      # the older nearby report is handed over
+    assert seen['candidates'][0]['distance_m'] == 0 and seen['candidates'][0]['category'] == 'Pothole'
+
+
+def test_only_sensible_candidates_are_passed_on(client, app, who, monkeypatch):
+    from app.extensions import db
+    from app.models import Report
+    resident = who('resident')
+    near_a = submit(client, resident).json['id']
+    near_b = submit(client, resident, lat='10.00045', lon='10.0').json['id']      # about 50 m away
+    far = submit(client, resident, lat='10.5', lon='10.5').json['id']          # tens of km away
+    merged, resolved = submit(client, resident).json['id'], submit(client, resident).json['id']
+    with app.app_context():
+        db.session.get(Report, merged).duplicate_of = near_a
+        db.session.get(Report, resolved).status = 'resolved'
+        db.session.commit()
+    new = submit(client, resident).json['id']
+    newer = submit(client, resident).json['id']                                      # created later: not a candidate
+    seen = {}
+    fake_hooks(monkeypatch, find=lambda report, candidates: seen.setdefault('c', candidates) and [])
+    with app.app_context():
+        process_new_report(new)
+    ids = [c['id'] for c in seen['c']]
+    assert set(ids) == {near_a, near_b} and ids[0] == near_a                         # closest first
+    assert far not in ids and merged not in ids and resolved not in ids and newer not in ids
+
+
+def test_malformed_duplicate_suggestions_are_skipped(client, app, who, monkeypatch):
+    resident, verifier = who('resident'), who('verifier')
+    a, b, c, d = (submit(client, resident).json['id'] for _ in range(4))
+    answer = [{'report_id': a, 'score': 0.5, 'reasons': {'location': 0.5}},
+              {'report_id': 'x'}, {'report_id': b, 'score': 7}, {'score': 0.4},
+              {'report_id': c, 'score': 0.6, 'distance_meters': 12.0, 'reason': 'same category'}]  # simple style
+    fake_hooks(monkeypatch, find=lambda report, candidates: answer)
+    with app.app_context():
+        assert process_new_report(d)['duplicates_saved'] == 2
+    saved = {s['report_id']: s for s in client.get(f'/api/v1/reports/{d}/duplicates', headers=verifier).json}
+    assert set(saved) == {a, c}
+    assert saved[c]['reasons'] == {'reason': 'same category', 'distance_meters': 12.0}
 
 
 def test_unusable_classifier_output_is_ignored(client, app, who, monkeypatch):

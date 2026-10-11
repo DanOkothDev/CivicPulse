@@ -22,4 +22,7 @@ class Config:
     # Teammate 3's functions as 'module:function', e.g. ml.classifier:classify. Empty means skipped.
     AI_CLASSIFIER = os.getenv('AI_CLASSIFIER', '')
     AI_DUPLICATES = os.getenv('AI_DUPLICATES', '')
+    # Which existing reports are handed to find_duplicates as candidates.
+    DUPLICATE_CANDIDATE_RADIUS_M = int(os.getenv('DUPLICATE_CANDIDATE_RADIUS_M', '200'))
+    DUPLICATE_WINDOW_DAYS = int(os.getenv('DUPLICATE_WINDOW_DAYS', '30'))
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:5173').split(',')

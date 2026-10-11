@@ -6,19 +6,18 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.auth_utils import roles_required
-from app.config import Config
 from app.extensions import db
 from app.models import Report, User
 
 DOMAIN = '@test.civicpulse'
-TEST_PASSWORD_HASH = generate_password_hash('password123')
 
 
-@pytest.fixture(scope='session')
-def app(tmp_path_factory):
-    upload_folder = tmp_path_factory.mktemp('civicpulse-uploads')
-    app = create_app({'UPLOAD_FOLDER': str(upload_folder),
-                      'QUEUE_MODE': 'inline'})
+@pytest.fixture
+def app(tmp_path):
+    app = create_app({'UPLOAD_FOLDER': str(tmp_path),  # test photos go to a temp folder
+                      'QUEUE_MODE': 'inline',            # tests need no worker
+                      'AI_CLASSIFIER': '',               # and never use the AI functions named in .env
+                      'AI_DUPLICATES': ''})
 
     @app.get('/api/v1/_test/verifier-only')
     @roles_required('verifier', 'admin')
@@ -26,19 +25,6 @@ def app(tmp_path_factory):
         return jsonify(ok=True)
 
     yield app
-
-
-@pytest.fixture
-def client(app, tmp_path):
-    app.config.update(
-        UPLOAD_FOLDER=str(tmp_path),
-        QUEUE_MODE='inline',
-        REDIS_URL=Config.REDIS_URL,
-        QUEUE_NAME=Config.QUEUE_NAME,
-    )
-    with app.test_client() as client:
-        yield client
-
     with app.app_context():  # remove everything the test created
         ids = [u.id for u in User.query.filter(User.email.like('%' + DOMAIN)).all()]
         if ids:
@@ -48,13 +34,18 @@ def client(app, tmp_path):
 
 
 @pytest.fixture
+def client(app):
+    return app.test_client()
+
+
+@pytest.fixture
 def make_user(app):
     """Create a user with any role directly in the database; returns (email, password)."""
     def _make(role='resident'):
         email = f'{uuid.uuid4().hex[:10]}{DOMAIN}'
         with app.app_context():
             db.session.add(User(name='Test', email=email, role=role,
-                                password_hash=TEST_PASSWORD_HASH))
+                                password_hash=generate_password_hash('password123')))
             db.session.commit()
         return email, 'password123'
     return _make
