@@ -70,6 +70,28 @@ def test_unusable_classifier_output_is_ignored(client, app, who, monkeypatch):
     assert client.get(f'/api/v1/reports/{rid}', headers=resident).json['ai_suggested_category'] is None
 
 
+def test_classifier_may_return_a_category_name(client, app, who, monkeypatch):
+    resident = who('resident')
+    rid = submit(client, resident).json['id']
+
+    def stored():
+        return client.get(f'/api/v1/reports/{rid}', headers=resident).json['ai_suggested_category']
+
+    for answer, expected in (({'category': 'water_leak', 'confidence': 0.8}, 5),
+                             ({'category': 'Public Facility', 'confidence': 0.6}, 6),
+                             ({'category': 'DRAINAGE', 'confidence': 0.9}, 3),
+                             ({'category': 'garbage', 'category_id': 2, 'confidence': 0.5}, 2)):  # id wins
+        fake_hooks(monkeypatch, classify=lambda path, a=answer: a)
+        with app.app_context():
+            assert process_new_report(rid)['classifier'] == 'saved'
+        assert stored()['category_id'] == expected
+
+    fake_hooks(monkeypatch, classify=lambda path: {'category': 'banana', 'confidence': 0.9})
+    with app.app_context():
+        assert process_new_report(rid)['classifier'].startswith('ignored')
+    assert stored()['category_id'] == 2                                       # unchanged
+
+
 def test_nothing_configured_and_missing_report(client, app, who):
     rid = submit(client, who('resident')).json['id']
     with app.app_context():
@@ -119,17 +141,6 @@ def test_report_puts_a_job_on_the_redis_queue(client, who, redis_queue):
 
 
 def test_redis_being_down_never_blocks_a_report(client, app, who):
-    import time
-
-    app.config.update(QUEUE_MODE='redis', REDIS_URL='redis://localhost:1/0')
-
-    start = time.perf_counter()
-    response = submit(client, who('resident'))
-    print(f'\nREPORT SUBMIT: {time.perf_counter() - start:.3f}s')
-
-    start = time.perf_counter()
-    health = client.get('/api/v1/health')
-    print(f'HEALTH CHECK: {time.perf_counter() - start:.3f}s')
-
-    assert response.status_code == 201
-    assert health.json['queue']['error'] == 'Redis is not reachable'
+    app.config.update(QUEUE_MODE='redis', REDIS_URL='redis://localhost:1/0')  # nothing listens here
+    assert submit(client, who('resident')).status_code == 201
+    assert client.get('/api/v1/health').json['queue']['error'] == 'Redis is not reachable'
