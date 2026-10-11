@@ -3,17 +3,22 @@ import importlib
 import logging
 import os
 from contextlib import contextmanager, nullcontext
+from datetime import timedelta
 
 from flask import current_app, has_app_context
-from geoalchemy2 import Geometry
+from geoalchemy2 import Geography, Geometry
+from geoalchemy2.elements import WKTElement
 from sqlalchemy import cast, func
+from sqlalchemy.orm import joinedload
 
-from .duplicate_service import save_suggestions
+from .duplicate_service import OPEN_STATUSES, save_suggestions
 from .extensions import db
 from .models import Category, Report
 
 logger = logging.getLogger(__name__)
 _app = None
+LON = func.ST_X(cast(Report.location, Geometry))
+LAT = func.ST_Y(cast(Report.location, Geometry))
 
 
 @contextmanager
@@ -37,7 +42,7 @@ def app_context():
 
 
 def load_hook(config_key):
-    """Teammate 3's functions, named in settings like AI_CLASSIFIER=ml.classifier:classify.
+    """Teammate 3's functions, named in settings like AI_CLASSIFIER=ml.classifier.predict:classify.
     Returns None when not configured. A wrong path raises, so the mistake shows up as a failed job."""
     path = current_app.config.get(config_key)
     if not path:
@@ -46,12 +51,53 @@ def load_hook(config_key):
     return getattr(importlib.import_module(module), name)
 
 
-def _report_dict(report):
-    lat, lon = db.session.query(func.ST_Y(cast(Report.location, Geometry)),
-                                func.ST_X(cast(Report.location, Geometry))).filter(Report.id == report.id).one()
-    return {'id': report.id, 'lat': lat, 'lon': lon, 'category_id': report.category_id,
-            'created_at': report.created_at.isoformat(),
+def _as_dict(report, lat, lon, distance_m=None):
+    data = {'id': report.id, 'lat': lat, 'lon': lon, 'category_id': report.category_id,
+            'category': report.category.name, 'created_at': report.created_at.isoformat(),
             'photo_path': os.path.join(current_app.config['UPLOAD_FOLDER'], report.photo_path)}
+    if distance_m is not None:
+        data['distance_m'] = round(distance_m, 1)
+    return data
+
+
+def _position(report):
+    return db.session.query(LAT, LON).filter(Report.id == report.id).one()
+
+
+def _candidates(report, lat, lon):
+    """Older, still-open, not-yet-merged reports near this one: the only ones worth comparing with."""
+    config = current_app.config
+    point = cast(WKTElement(f'POINT({lon} {lat})', srid=4326), Geography)
+    distance = func.ST_Distance(Report.location, point)
+    window = timedelta(days=config['DUPLICATE_WINDOW_DAYS'])
+    rows = (db.session.query(Report, LAT, LON, distance).options(joinedload(Report.category))
+            .filter(Report.id != report.id, Report.duplicate_of.is_(None),
+                    Report.status.in_(OPEN_STATUSES),
+                    Report.created_at <= report.created_at, Report.created_at >= report.created_at - window,
+                    func.ST_DWithin(Report.location, point, config['DUPLICATE_CANDIDATE_RADIUS_M']))
+            .order_by(distance).limit(50).all())
+    return [_as_dict(r, la, lo, d) for r, la, lo, d in rows]
+
+
+def _clean_suggestions(report_id, raw):
+    """Keep well-formed suggestions only; log and skip the rest (a bad answer must not crash the job)."""
+    clean = []
+    for item in raw or []:
+        try:
+            score = float(item['score'])
+            entry = {'report_id': int(item['report_id']), 'score': score}
+        except (TypeError, KeyError, ValueError):
+            logger.warning('Report %s: skipped unusable duplicate suggestion %r', report_id, item)
+            continue
+        if not 0 <= score <= 1:
+            logger.warning('Report %s: skipped suggestion with score out of range: %r', report_id, item)
+            continue
+        reasons = item.get('reasons')
+        if not isinstance(reasons, dict):  # also accept the simple {'reason': ..., 'distance_meters': ...} style
+            reasons = {k: item[k] for k in ('reason', 'distance_meters') if k in item}
+        entry['reasons'] = reasons
+        clean.append(entry)
+    return clean
 
 
 def _normalize(name):
@@ -101,5 +147,8 @@ def process_new_report(report_id):
             outcome['classifier'] = _apply_classification(report, classify(photo))
         find_duplicates = load_hook('AI_DUPLICATES')
         if find_duplicates:
-            outcome['duplicates_saved'] = save_suggestions(report.id, find_duplicates(_report_dict(report)))
+            lat, lon = _position(report)
+            candidates = _candidates(report, lat, lon)
+            raw = find_duplicates(_as_dict(report, lat, lon), candidates) if candidates else []
+            outcome['duplicates_saved'] = save_suggestions(report.id, _clean_suggestions(report.id, raw))
         return outcome or {'note': 'no AI functions configured'}

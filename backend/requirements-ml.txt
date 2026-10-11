@@ -1,0 +1,6 @@
+# Extra libraries Elsie's AI code needs inside the worker container.
+# Only installed when you build with INSTALL_ML=1 (see README). Pin tensorflow-cpu to the
+# version she trained the model with, or the saved .keras file may not load.
+tensorflow-cpu
+numpy
+pillow

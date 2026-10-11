@@ -3,7 +3,7 @@ services:
     image: postgis/postgis:16-3.4
     environment:
       POSTGRES_USER: civicpulse
-      POSTGRES_PASSWORD: DanPostgres2026!
+      POSTGRES_PASSWORD: civicpulse
       POSTGRES_DB: civicpulse
     ports: ["5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
@@ -11,14 +11,21 @@ services:
     image: redis:7-alpine
     ports: ["6379:6379"]
   worker:
-    build: .
+    build:
+      context: .
+      args:
+        INSTALL_ML: ${INSTALL_ML:-0}       # set INSTALL_ML=1 in .env to include TensorFlow
     environment:
-      DATABASE_URL: postgresql+psycopg2://civicpulse:DanPostgres2026!@db:5432/civicpulse
+      # The worker's own database login, read from .env (so a different password never goes into git).
+      # If WORKER_DATABASE_URL is not set, it falls back to the default login of the db container below.
+      DATABASE_URL: ${WORKER_DATABASE_URL:-postgresql+psycopg2://civicpulse:civicpulse@db:5432/civicpulse}
       REDIS_URL: redis://redis:6379/0
       UPLOAD_FOLDER: /app/uploads          # the same photos the API saves, shared from ./uploads
       AI_CLASSIFIER: ${AI_CLASSIFIER:-}
       AI_DUPLICATES: ${AI_DUPLICATES:-}
-    volumes: ["./uploads:/app/uploads"]
+    volumes:
+      - ./uploads:/app/uploads
+      - ${ML_DIR:-../ml}:/app/ml:ro        # Elsie's ml/ folder (sits next to backend/ in the repo)
     depends_on: [db, redis]
     restart: unless-stopped
 volumes:

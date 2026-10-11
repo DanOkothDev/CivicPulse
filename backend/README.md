@@ -78,7 +78,7 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 
 ### Duplicates
 
-- **Suggestions** are written by the AI worker (Task 20) with `save_suggestions(report_id, find_duplicates(report))` from `app/duplicate_service.py`, and read by the verifier with `GET /reports/{id}/duplicates`. Each has `report_id`, `score` (0 to 1) and `reasons`.
+- **Suggestions** are written by the AI worker (Task 20) with `save_suggestions(report_id, ...)` from `app/duplicate_service.py`, and read by the verifier with `GET /reports/{id}/duplicates`. Each has `report_id`, `score` (0 to 1) and `reasons`.
 - **Merge** (`POST /reports/{id}/merge` with `{"parent_id": 5}`): the report in the path is the duplicate, `parent_id` is the main one. Only `reported` or `verified` reports can be merged, into a parent that is still open (not resolved or rejected). Reports already merged into the duplicate move to the parent, so merging is always one level deep. Whoever followed the duplicate, plus its author, now follows the parent. Each side gets a history note (`Merged into #5`).
 - **`report_count`** on the parent is recomputed as 1 plus its duplicates after every merge or unmerge, so it never drifts.
 - Errors (409): `self_merge`, `already_merged`, `parent_is_duplicate`, `child_not_mergeable`, `parent_not_open`, `not_merged` (unmerge).
@@ -130,7 +130,7 @@ Use Python 3.12 or 3.13. Commands are for Windows PowerShell.
 6. Create your first admin: `flask --app wsgi create-user --name "Your Name" --email you@example.com --role admin`
 7. Start the server: `flask --app wsgi run`
 8. Check it: open http://localhost:5000/api/v1/health (should show `"status": "ok"` and the PostGIS version)
-9. Run the tests: `pytest` (61 tests; they need the database running and seeded)
+9. Run the tests: `pytest` (63 tests; they need the database running and seeded)
 
 Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break GeoAlchemy2.
 
@@ -148,7 +148,7 @@ Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break Ge
 | `app/storage.py` | Checks and saves uploaded photos |
 | `app/jobqueue.py` | Puts jobs on the Redis queue (`enqueue`) and reports queue health |
 | `app/jobs.py` | The background jobs the worker runs, including `process_new_report` |
-| `Dockerfile` | Builds the worker container (runs `rq worker`) |
+| `Dockerfile`, `requirements-ml.txt` | Builds the worker container (runs `rq worker`); the AI libraries are optional |
 | `app/notifications.py` | Creates notification rows. Called from `change_status()`, `reassign()` and merging |
 | `app/duplicate_service.py` | Saving AI suggestions, merging and unmerging duplicates |
 | `app/status_flow.py` | `change_status()`: the one place where status rules are enforced. Notifications (Task 15) hook in here |
@@ -178,17 +178,21 @@ POST /reports -> saved -> job queued -> response sent
 
 ### Plugging in Teammate 3's functions (Task 20)
 
-Set these in `.env` (the worker reads them too), as `module:function`:
+Set these in `.env` (the Docker worker reads them too), as `module:function`. The `ml/` folder sits next to `backend/` in the repo:
 
 ```
-AI_CLASSIFIER=ml.classifier:classify
-AI_DUPLICATES=ml.duplicates:find_duplicates
+AI_CLASSIFIER=ml.classifier.predict:classify
+AI_DUPLICATES=ml.duplicates.detector:find_duplicates
 ```
 
 | Function | Receives | Must return |
 |---|---|---|
 | `classify(photo_path)` | Full path to the saved photo | `{"category_id": 3, "confidence": 0.91}` or `{"category": "Drainage", "confidence": 0.91}` (names match the database names, ignoring capitals, `_` and `-`) |
-| `find_duplicates(report)` | `{id, lat, lon, category_id, created_at, photo_path}` | `[{"report_id": 42, "score": 0.83, "reasons": {...}}]` |
+| `find_duplicates(report, candidates)` | `report` and a list of `candidates`, each shaped `{id, lat, lon, category_id, category, created_at, photo_path}` (candidates also have `distance_m`) | `[{"report_id": 42, "score": 0.83, "reasons": {...}}]`, best match first |
+
+**Candidates:** the backend does the database work. It passes every report that is still open, not already merged, created before this one (within the last 30 days) and within 200 m, closest first, at most 50. So `find_duplicates` is plain Python with no database access. Change the limits with `DUPLICATE_CANDIDATE_RADIUS_M` and `DUPLICATE_WINDOW_DAYS`. If there are no candidates, the function is not called. Suggestions without a `report_id` or with a `score` outside 0 to 1 are skipped with a log warning. A `reasons` dict is stored as given; the simple `{"reason": ..., "distance_meters": ...}` style is also accepted.
+
+**TensorFlow in the worker:** the AI libraries are large (a few GB), so they are optional. Put `INSTALL_ML=1` in `.env`, then run `docker compose up -d --build`. `requirements-ml.txt` lists them (pin `tensorflow-cpu` to the version the model was trained with). The worker sees the repo's `ml/` folder (including `saved_model/`) through a read-only shared folder; if yours is elsewhere, set `ML_DIR` in `.env`. The worker runs jobs in one process (`SimpleWorker`), so the model is loaded once and reused: load it at module level in `predict.py`, not inside `classify()`.
 
 Unset means that step is skipped. Out-of-range or malformed classifier output is ignored with a log warning. Jobs can be run twice safely (results are replaced, not duplicated).
 
