@@ -54,14 +54,31 @@ def _report_dict(report):
             'photo_path': os.path.join(current_app.config['UPLOAD_FOLDER'], report.photo_path)}
 
 
+def _normalize(name):
+    return ' '.join(str(name).lower().replace('_', ' ').replace('-', ' ').split())
+
+
+def _category_id(result):
+    """Accepts {'category_id': 3} or {'category': 'Water leak'}. Names match the database names
+    ignoring capitals, underscores and dashes (so 'water_leak' works). Returns None if unknown."""
+    if result.get('category_id') is not None:
+        return int(result['category_id'])
+    wanted = _normalize(result['category'])
+    for category in Category.query.all():
+        if _normalize(category.name) == wanted:
+            return category.id
+    return None
+
+
 def _apply_classification(report, result):
-    """result should look like {'category_id': 3, 'confidence': 0.91}. Bad output is ignored, not fatal."""
+    """result looks like {'category_id': 3, 'confidence': 0.91} or {'category': 'Drainage', 'confidence': 0.91}.
+    Bad output is ignored, not fatal."""
     try:
-        category_id, confidence = int(result['category_id']), float(result['confidence'])
-    except (TypeError, KeyError, ValueError):
+        category_id, confidence = _category_id(result), float(result['confidence'])
+    except (TypeError, KeyError, ValueError, AttributeError):
         logger.warning('Report %s: classifier returned an unusable result: %r', report.id, result)
         return 'ignored: unusable result'
-    if not 0 <= confidence <= 1 or db.session.get(Category, category_id) is None:
+    if category_id is None or not 0 <= confidence <= 1 or db.session.get(Category, category_id) is None:
         logger.warning('Report %s: classifier result out of range: %r', report.id, result)
         return 'ignored: out of range'
     report.ai_category_id, report.ai_confidence = category_id, confidence

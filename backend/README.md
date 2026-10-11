@@ -130,7 +130,7 @@ Use Python 3.12 or 3.13. Commands are for Windows PowerShell.
 6. Create your first admin: `flask --app wsgi create-user --name "Your Name" --email you@example.com --role admin`
 7. Start the server: `flask --app wsgi run`
 8. Check it: open http://localhost:5000/api/v1/health (should show `"status": "ok"` and the PostGIS version)
-9. Run the tests: `pytest` (60 tests; they need the database running and seeded)
+9. Run the tests: `pytest` (61 tests; they need the database running and seeded)
 
 Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break GeoAlchemy2.
 
@@ -187,7 +187,7 @@ AI_DUPLICATES=ml.duplicates:find_duplicates
 
 | Function | Receives | Must return |
 |---|---|---|
-| `classify(photo_path)` | Full path to the saved photo | `{"category_id": 3, "confidence": 0.91}` |
+| `classify(photo_path)` | Full path to the saved photo | `{"category_id": 3, "confidence": 0.91}` or `{"category": "Drainage", "confidence": 0.91}` (names match the database names, ignoring capitals, `_` and `-`) |
 | `find_duplicates(report)` | `{id, lat, lon, category_id, created_at, photo_path}` | `[{"report_id": 42, "score": 0.83, "reasons": {...}}]` |
 
 Unset means that step is skipped. Out-of-range or malformed classifier output is ignored with a log warning. Jobs can be run twice safely (results are replaced, not duplicated).
