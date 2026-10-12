@@ -16,6 +16,10 @@ import RegisterPage from './pages/auth/RegisterPage';
 
 // Report Form Screen (Task 10)
 import ReportIssuePage from './pages/resident/ReportIssuePage';
+
+// Community Map Screen (Task 11)
+import CommunityMapPage from './pages/resident/CommunityMapPage';
+
 import NotFoundPage from './pages/common/NotFoundPage';
 import ForbiddenPage from './pages/common/ForbiddenPage';
 
@@ -29,6 +33,7 @@ export default function App() {
             <Route element={<PublicLayout />}>
               <Route path="/" element={<LandingPage />} />
               <Route path="/about" element={<AboutPage />} />
+              <Route path="/map" element={<CommunityMapPage />} />
               <Route path="/faq" element={<FAQPage />} />
             </Route>
 
@@ -39,7 +44,8 @@ export default function App() {
             {/* 3. Operational Application Portal Layout */}
             <Route element={<AppLayout />}>
               <Route path="/report/new" element={<ReportIssuePage />} />
-              <Route path="/dashboard" element={<Navigate to="/report/new" replace />} />
+              <Route path="/community-map" element={<CommunityMapPage />} />
+              <Route path="/dashboard" element={<Navigate to="/community-map" replace />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
