@@ -1,6 +1,8 @@
+from .analytics import bp as analytics_bp
 from .auth import bp as auth_bp
 from .duplicates import bp as duplicates_bp
 from .health import bp as health_bp
+from .hotspots import bp as hotspots_bp
 from .media import bp as media_bp
 from .notifications import bp as notifications_bp
 from .reference import bp as reference_bp
@@ -12,8 +14,17 @@ API_PREFIX = '/api/v1'
 
 
 def register_blueprints(app):
-    # Add new blueprints here (analytics...).
-    for bp in (health_bp, reference_bp, auth_bp, reports_bp, workflow_bp, users_bp, duplicates_bp,
-               notifications_bp):
+    for bp in (
+        health_bp,
+        reference_bp,
+        auth_bp,
+        reports_bp,
+        workflow_bp,
+        users_bp,
+        duplicates_bp,
+        notifications_bp,
+        analytics_bp,
+        hotspots_bp,
+    ):
         app.register_blueprint(bp, url_prefix=API_PREFIX)
-    app.register_blueprint(media_bp)  # photos are served at /uploads/..., outside /api/v1
+    app.register_blueprint(media_bp)  # photos served outside /api/v1
