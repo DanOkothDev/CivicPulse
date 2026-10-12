@@ -27,6 +27,9 @@ import VerifierDashboardPage from './pages/verifier/VerifierDashboardPage';
 import AuthorityDashboardPage from './pages/authority/AuthorityDashboardPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 
+// Analytics & Visuals (Task 23)
+import AnalyticsDashboardPage from './pages/analytics/AnalyticsDashboardPage';
+
 import NotFoundPage from './pages/common/NotFoundPage';
 import ForbiddenPage from './pages/common/ForbiddenPage';
 
@@ -91,7 +94,17 @@ export default function App() {
                 }
               />
 
-              <Route path="/dashboard" element={<Navigate to="/authority/assigned" replace />} />
+              {/* Analytics & Hotspots (Task 23) */}
+              <Route
+                path="/analytics"
+                element={
+                  <RoleRoute roles={['authority', 'admin', 'verifier', 'resident']}>
+                    <AnalyticsDashboardPage />
+                  </RoleRoute>
+                }
+              />
+
+              <Route path="/dashboard" element={<Navigate to="/analytics" replace />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
