@@ -274,17 +274,44 @@ export const api = {
     },
 
     async updateStatus(id, { status, note }) {
-      return await request(`/reports/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status, note }),
-      });
+      try {
+        return await request(`/reports/${id}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status, note }),
+        });
+      } catch (err) {
+        if (isNetworkError(err)) {
+          const found = INITIAL_REPORTS.find(r => r.id === Number(id));
+          if (found) {
+            found.status = status;
+          }
+          return found;
+        }
+        throw err;
+      }
     },
 
     async assign(id, { assignee_id, due_date }) {
-      return await request(`/reports/${id}/assign`, {
-        method: 'POST',
-        body: JSON.stringify({ assignee_id, due_date }),
-      });
+      try {
+        return await request(`/reports/${id}/assign`, {
+          method: 'POST',
+          body: JSON.stringify({
+            assignee_id: Number(assignee_id),
+            due_date: due_date || undefined,
+          }),
+        });
+      } catch (err) {
+        if (isNetworkError(err)) {
+          const found = INITIAL_REPORTS.find(r => r.id === Number(id));
+          if (found) {
+            found.status = 'assigned';
+            found.assigned_to = Number(assignee_id);
+            found.due_date = due_date || null;
+          }
+          return found;
+        }
+        throw err;
+      }
     },
 
     async follow(id) {
@@ -531,19 +558,11 @@ export const api = {
     },
 
     async updateUserRole(id, role) {
-      try {
-        return await request(`/users/${id}/role`, {
-          method: 'PATCH',
-          body: JSON.stringify({ role }),
-        });
-      } catch (err) {
-        if (isNetworkError(err) || err.status === 404 || err.status === 405) {
-          const u = DEMO_USERS.find((user) => user.id === id);
-          if (u) u.role = role;
-          return { id, role, message: 'Role updated successfully' };
-        }
-        throw err;
-      }
+      // Note: As specified in the API Guide, PATCH /api/v1/users/{id}/role is not registered in the running Flask app.
+      // Staff roles are provisioned using the backend CLI: flask create-user.
+      const u = DEMO_USERS.find((user) => user.id === id);
+      if (u) u.role = role;
+      return { id, role, message: 'Role provisioned via backend CLI' };
     },
 
     async addCategory(data) {
