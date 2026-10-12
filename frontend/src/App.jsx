@@ -23,6 +23,10 @@ import CommunityMapPage from './pages/resident/CommunityMapPage';
 // Verifier Screen (Task 17)
 import VerifierDashboardPage from './pages/verifier/VerifierDashboardPage';
 
+// Authority & Admin Screens (Task 18)
+import AuthorityDashboardPage from './pages/authority/AuthorityDashboardPage';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+
 import NotFoundPage from './pages/common/NotFoundPage';
 import ForbiddenPage from './pages/common/ForbiddenPage';
 
@@ -57,7 +61,7 @@ export default function App() {
               <Route path="/report/new" element={<ReportIssuePage />} />
               <Route path="/community-map" element={<CommunityMapPage />} />
               
-              {/* Verifier Screens (Guarded to verifier & admin) */}
+              {/* Verifier Screens (Task 17) */}
               <Route
                 path="/verifier/queue"
                 element={
@@ -67,7 +71,27 @@ export default function App() {
                 }
               />
 
-              <Route path="/dashboard" element={<Navigate to="/verifier/queue" replace />} />
+              {/* Authority Screens (Task 18) */}
+              <Route
+                path="/authority/assigned"
+                element={
+                  <RoleRoute roles={['authority', 'admin']}>
+                    <AuthorityDashboardPage />
+                  </RoleRoute>
+                }
+              />
+
+              {/* Admin Screens (Task 18) */}
+              <Route
+                path="/admin"
+                element={
+                  <RoleRoute roles={['admin']}>
+                    <AdminDashboardPage />
+                  </RoleRoute>
+                }
+              />
+
+              <Route path="/dashboard" element={<Navigate to="/authority/assigned" replace />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
