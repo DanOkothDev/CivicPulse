@@ -48,6 +48,9 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 | GET | `/notifications/unread-count` | Logged in | `{"count": 3}` for the bell badge |
 | POST | `/notifications/{id}/read` | Logged in | Mark one as read (safe to repeat) |
 | POST | `/notifications/read-all` | Logged in | Mark all as read |
+| GET | `/analytics/summary` | Authority, admin | Dashboard numbers: totals, `by_status`, `by_category`, `open_by_area`, `avg_days_to_resolve`. Optional `?area_id=` |
+| GET | `/analytics/categories`, `/analytics/statuses` | Authority, admin | The same counts as lists (optional `?area_id=`) |
+| GET | `/analytics/trends` | Authority, admin | Reports submitted per day (`?days=1..365`, default 30) |
 | GET | `/users` | Verifier, authority, admin | List users. Admins can filter any `role`; others only get authority users, without emails |
 | POST | `/reports/{id}/follow` | Logged in | Follow a report (safe to repeat) |
 | DELETE | `/reports/{id}/follow` | Logged in | Stop following |
@@ -57,7 +60,7 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 
 | Method | Path | Task |
 |---|---|---|
-| GET | `/analytics/summary`, `/analytics/hotspots` | 21, 22 |
+| GET | `/analytics/hotspots` | 21 (Elsie's branch) |
 | PATCH | `/users/{id}/role` | Admin tools |
 
 ### Status rules
@@ -82,6 +85,10 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 - **Merge** (`POST /reports/{id}/merge` with `{"parent_id": 5}`): the report in the path is the duplicate, `parent_id` is the main one. Only `reported` or `verified` reports can be merged, into a parent that is still open (not resolved or rejected). Reports already merged into the duplicate move to the parent, so merging is always one level deep. Whoever followed the duplicate, plus its author, now follows the parent. Each side gets a history note (`Merged into #5`).
 - **`report_count`** on the parent is recomputed as 1 plus its duplicates after every merge or unmerge, so it never drifts.
 - Errors (409): `self_merge`, `already_merged`, `parent_is_duplicate`, `child_not_mergeable`, `parent_not_open`, `not_merged` (unmerge).
+
+### Analytics
+
+Staff only (authority or admin): residents get 403 and anonymous requests get 401. Numbers count **cases**: a report merged into another is not counted twice. `trends` is the exception and counts every submitted report per day (UTC days). `avg_days_to_resolve` is the average time from submission to the `resolved` status event, and is `null` until something is resolved.
 
 ### Notifications
 
@@ -171,6 +178,7 @@ POST /reports -> saved -> job queued -> response sent
 ```
 
 - **The worker runs in Docker.** The queue library (RQ) cannot run workers on Windows, so `docker compose up -d --build` also starts a Linux `worker` container. It shares your `uploads/` folder, so it sees the same photos. After changing backend code, run `docker compose up -d --build` again so the worker picks it up. Watch it with `docker compose logs -f worker`.
+- **The worker's database login** comes from `WORKER_DATABASE_URL` in `.env`, and defaults to the `db` container's login (`civicpulse` / `civicpulse`). If your own `DATABASE_URL` uses a different user or password, copy it into `WORKER_DATABASE_URL` and change `localhost` to `db` (a database in the compose file) or to `host.docker.internal` (a database running directly on your Windows PC). Then run `docker compose up -d` so the worker picks it up.
 - **See what is happening:** `GET /api/v1/health` includes `queue` (mode, pending jobs, failed jobs, number of workers), and `flask --app wsgi queue-status` prints the same. If `pending` keeps growing and `workers` is 0, the worker is not running.
 - **No worker?** Set `QUEUE_MODE=inline` in `.env` and jobs run inside the request instead (slower, but needs nothing extra). The default is `redis`.
 - **A queue problem never blocks a report.** If Redis is down or a job crashes, the resident's report is still saved. Failed jobs are retried 3 times (after 10 s, 60 s and 5 min) and then kept in the failed list for a week.

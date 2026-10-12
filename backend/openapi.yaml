@@ -366,6 +366,10 @@ paths:
     get:
       tags: [Analytics]
       summary: Dashboard numbers (authority, admin)
+      description: |
+        Counts cases: a report merged into another one is not counted twice. by_status has every status
+        (0 when empty). by_category has every category name. avg_days_to_resolve is null until something
+        is resolved. Pass area_id to limit everything except hotspot_count to one area.
       parameters:
         - {name: area_id, in: query, schema: {type: integer}}
       responses:
@@ -374,6 +378,66 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AnalyticsSummary'}
+  /analytics/categories:
+    get:
+      tags: [Analytics]
+      summary: Cases per category (authority, admin)
+      parameters:
+        - {name: area_id, in: query, schema: {type: integer}}
+      responses:
+        '200':
+          description: One entry per category, including those with 0
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    category_id: {type: integer}
+                    category: {type: string}
+                    count: {type: integer}
+  /analytics/statuses:
+    get:
+      tags: [Analytics]
+      summary: Cases per status (authority, admin)
+      parameters:
+        - {name: area_id, in: query, schema: {type: integer}}
+      responses:
+        '200':
+          description: Only statuses that have at least one case
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    status: {$ref: '#/components/schemas/Status'}
+                    count: {type: integer}
+  /analytics/trends:
+    get:
+      tags: [Analytics]
+      summary: Reports submitted per day (authority, admin)
+      description: Counts every submitted report, duplicates included. Days are UTC days. Invalid days returns 400 invalid_days.
+      parameters:
+        - {name: days, in: query, schema: {type: integer, default: 30, minimum: 1, maximum: 365}}
+      responses:
+        '200':
+          description: One entry per day, oldest first, including days with 0
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  days: {type: integer}
+                  daily_reports:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date: {type: string, format: date}
+                        count: {type: integer}
   /analytics/hotspots:
     get:
       tags: [Analytics]
@@ -566,6 +630,9 @@ components:
       type: object
       properties:
         total_reports: {type: integer}
+        open_reports: {type: integer, description: 'Cases not yet resolved or rejected'}
+        resolved_reports: {type: integer}
+        hotspot_count: {type: integer}
         by_status:
           type: object
           additionalProperties: {type: integer}
@@ -577,7 +644,8 @@ components:
           items:
             type: object
             properties:
-              area_id: {type: integer}
+              area_id: {type: integer, nullable: true}
+              area: {type: string, description: 'Area name, or "No area"'}
               open: {type: integer}
         avg_days_to_resolve: {type: number, nullable: true}
     Hotspot:
