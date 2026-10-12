@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import AppLayout from './components/layout/AppLayout';
 
@@ -20,8 +20,19 @@ import ReportIssuePage from './pages/resident/ReportIssuePage';
 // Community Map Screen (Task 11)
 import CommunityMapPage from './pages/resident/CommunityMapPage';
 
+// Verifier Screen (Task 17)
+import VerifierDashboardPage from './pages/verifier/VerifierDashboardPage';
+
 import NotFoundPage from './pages/common/NotFoundPage';
 import ForbiddenPage from './pages/common/ForbiddenPage';
+
+function RoleRoute({ roles = [], children }) {
+  const { role } = useAuth();
+  if (roles.length > 0 && !roles.includes(role)) {
+    return <ForbiddenPage requiredRole={roles.join(' or ')} />;
+  }
+  return children;
+}
 
 export default function App() {
   return (
@@ -45,7 +56,18 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route path="/report/new" element={<ReportIssuePage />} />
               <Route path="/community-map" element={<CommunityMapPage />} />
-              <Route path="/dashboard" element={<Navigate to="/community-map" replace />} />
+              
+              {/* Verifier Screens (Guarded to verifier & admin) */}
+              <Route
+                path="/verifier/queue"
+                element={
+                  <RoleRoute roles={['verifier', 'admin']}>
+                    <VerifierDashboardPage />
+                  </RoleRoute>
+                }
+              />
+
+              <Route path="/dashboard" element={<Navigate to="/verifier/queue" replace />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
