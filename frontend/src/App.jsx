@@ -4,35 +4,32 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import AppLayout from './components/layout/AppLayout';
 
-// Public Pages & Layout (Task 9)
+// Public Pages & Layout
 import PublicLayout from './components/layout/PublicLayout';
 import LandingPage from './pages/public/LandingPage';
 import AboutPage from './pages/public/AboutPage';
 import FAQPage from './pages/public/FAQPage';
 
-// Auth Pages (Task 9)
+// Auth Pages
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 
-// Report Form Screen (Task 10)
+// Portal Screens
+import ResidentDashboardPage from './pages/resident/ResidentDashboardPage';
+import MyReportsPage from './pages/resident/MyReportsPage';
 import ReportIssuePage from './pages/resident/ReportIssuePage';
-
-// Community Map Screen (Task 11)
 import CommunityMapPage from './pages/resident/CommunityMapPage';
-
-// Verifier Screen (Task 17)
+import ReportDetailsPage from './pages/resident/ReportDetailsPage';
+import ResidentProfilePage from './pages/resident/ResidentProfilePage';
+import NotificationsPage from './pages/resident/NotificationsPage';
 import VerifierDashboardPage from './pages/verifier/VerifierDashboardPage';
-
-// Authority & Admin Screens (Task 18)
 import AuthorityDashboardPage from './pages/authority/AuthorityDashboardPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
-
-// Analytics & Visuals (Task 23)
 import AnalyticsDashboardPage from './pages/analytics/AnalyticsDashboardPage';
-
 import NotFoundPage from './pages/common/NotFoundPage';
 import ForbiddenPage from './pages/common/ForbiddenPage';
 
+// Role Guard Component (matching Flask @roles_required in Section 2 of PDF)
 function RoleRoute({ roles = [], children }) {
   const { role } = useAuth();
   if (roles.length > 0 && !roles.includes(role)) {
@@ -61,10 +58,16 @@ export default function App() {
 
             {/* 3. Operational Application Portal Layout */}
             <Route element={<AppLayout />}>
+              {/* Resident Screens */}
+              <Route path="/dashboard" element={<ResidentDashboardPage />} />
               <Route path="/report/new" element={<ReportIssuePage />} />
+              <Route path="/reports/:id" element={<ReportDetailsPage />} />
+              <Route path="/my-reports" element={<MyReportsPage />} />
               <Route path="/community-map" element={<CommunityMapPage />} />
-              
-              {/* Verifier Screens (Task 17) */}
+              <Route path="/profile" element={<ResidentProfilePage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+
+              {/* Verifier Screens (Guarded to verifier & admin) */}
               <Route
                 path="/verifier/queue"
                 element={
@@ -74,7 +77,7 @@ export default function App() {
                 }
               />
 
-              {/* Authority Screens (Task 18) */}
+              {/* Authority Screens (Guarded to authority & admin) */}
               <Route
                 path="/authority/assigned"
                 element={
@@ -84,7 +87,7 @@ export default function App() {
                 }
               />
 
-              {/* Admin Screens (Task 18) */}
+              {/* Admin Screens (Guarded strictly to admin) */}
               <Route
                 path="/admin"
                 element={
@@ -94,7 +97,7 @@ export default function App() {
                 }
               />
 
-              {/* Analytics & Hotspots (Task 23) */}
+              {/* Analytics & Hotspots */}
               <Route
                 path="/analytics"
                 element={
@@ -104,7 +107,7 @@ export default function App() {
                 }
               />
 
-              <Route path="/dashboard" element={<Navigate to="/analytics" replace />} />
+              {/* 404 & 403 Fallback */}
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
