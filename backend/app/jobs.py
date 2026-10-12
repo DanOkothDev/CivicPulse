@@ -2,6 +2,7 @@
 import importlib
 import logging
 import os
+import time
 from contextlib import contextmanager, nullcontext
 from datetime import timedelta
 
@@ -13,10 +14,12 @@ from sqlalchemy.orm import joinedload
 
 from .duplicate_service import OPEN_STATUSES, save_suggestions
 from .extensions import db
+from .hotspot_service import recompute_hotspots
 from .models import Category, Report
 
 logger = logging.getLogger(__name__)
 _app = None
+_last_hotspot_run = None
 LON = func.ST_X(cast(Report.location, Geometry))
 LAT = func.ST_Y(cast(Report.location, Geometry))
 
@@ -132,6 +135,23 @@ def _apply_classification(report, result):
     return 'saved'
 
 
+def _refresh_hotspots_if_due():
+    """New reports can create or grow hotspots, so re-cluster, but at most every HOTSPOT_REFRESH_MINUTES:
+    clustering compares every pair of reports, so it should not run for each single report.
+    A clustering problem is logged and never fails the report's AI job."""
+    global _last_hotspot_run
+    minutes = current_app.config['HOTSPOT_REFRESH_MINUTES']
+    now = time.monotonic()
+    if minutes <= 0 or (_last_hotspot_run is not None and now - _last_hotspot_run < minutes * 60):
+        return
+    _last_hotspot_run = now
+    try:
+        recompute_hotspots()
+    except Exception:
+        logger.exception('Hotspot refresh failed')
+        db.session.rollback()
+
+
 def process_new_report(report_id):
     """Runs after a report is submitted: ask the AI for a category and for duplicate candidates,
     and store the answers for the verifier."""
@@ -151,4 +171,5 @@ def process_new_report(report_id):
             candidates = _candidates(report, lat, lon)
             raw = find_duplicates(_as_dict(report, lat, lon), candidates) if candidates else []
             outcome['duplicates_saved'] = save_suggestions(report.id, _clean_suggestions(report.id, raw))
+        _refresh_hotspots_if_due()
         return outcome or {'note': 'no AI functions configured'}

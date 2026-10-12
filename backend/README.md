@@ -49,6 +49,8 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 | POST | `/notifications/{id}/read` | Logged in | Mark one as read (safe to repeat) |
 | POST | `/notifications/read-all` | Logged in | Mark all as read |
 | GET | `/analytics/summary` | Authority, admin | Dashboard numbers: totals, `by_status`, `by_category`, `open_by_area`, `avg_days_to_resolve`. Optional `?area_id=` |
+| GET | `/analytics/hotspots` | Authority, admin | Report clusters, biggest first: `center`, `radius_m`, `report_count`, `top_category` |
+| POST | `/analytics/hotspots/recompute` | Admin | Re-run the clustering now. Optional `{"eps_m": 250, "min_samples": 3}` |
 | GET | `/analytics/categories`, `/analytics/statuses` | Authority, admin | The same counts as lists (optional `?area_id=`) |
 | GET | `/analytics/trends` | Authority, admin | Reports submitted per day (`?days=1..365`, default 30) |
 | GET | `/users` | Verifier, authority, admin | List users. Admins can filter any `role`; others only get authority users, without emails |
@@ -60,7 +62,6 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 
 | Method | Path | Task |
 |---|---|---|
-| GET | `/analytics/hotspots` | 21 (Elsie's branch) |
 | PATCH | `/users/{id}/role` | Admin tools |
 
 ### Status rules
@@ -180,6 +181,7 @@ POST /reports -> saved -> job queued -> response sent
 - **The worker runs in Docker.** The queue library (RQ) cannot run workers on Windows, so `docker compose up -d --build` also starts a Linux `worker` container. It shares your `uploads/` folder, so it sees the same photos. After changing backend code, run `docker compose up -d --build` again so the worker picks it up. Watch it with `docker compose logs -f worker`.
 - **The worker's database login** comes from `WORKER_DATABASE_URL` in `.env`, and defaults to the `db` container's login (`civicpulse` / `civicpulse`). If your own `DATABASE_URL` uses a different user or password, copy it into `WORKER_DATABASE_URL` and change `localhost` to `db` (a database in the compose file) or to `host.docker.internal` (a database running directly on your Windows PC). Then run `docker compose up -d` so the worker picks it up.
 - **See what is happening:** `GET /api/v1/health` includes `queue` (mode, pending jobs, failed jobs, number of workers), and `flask --app wsgi queue-status` prints the same. If `pending` keeps growing and `workers` is 0, the worker is not running.
+- **Hotspots refresh themselves.** After a new report is processed, the clustering (`app/hotspot_service.py`) re-runs, at most every `HOTSPOT_REFRESH_MINUTES` (default 10; `0` turns it off). An admin can also run it on demand with `POST /analytics/hotspots/recompute`. A clustering error is logged and never fails the report's job.
 - **No worker?** Set `QUEUE_MODE=inline` in `.env` and jobs run inside the request instead (slower, but needs nothing extra). The default is `redis`.
 - **A queue problem never blocks a report.** If Redis is down or a job crashes, the resident's report is still saved. Failed jobs are retried 3 times (after 10 s, 60 s and 5 min) and then kept in the failed list for a week.
 - **Run the checks on existing reports** (for example the seeded demo data): `flask --app wsgi process-reports --all`, or `flask --app wsgi process-reports 12 13`.
