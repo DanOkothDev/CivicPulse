@@ -442,6 +442,7 @@ paths:
     get:
       tags: [Analytics]
       summary: Clusters of reports (authority, admin)
+      description: Hotspots found by the clustering job, biggest first. They refresh automatically after new reports (at most every HOTSPOT_REFRESH_MINUTES) and on demand with the recompute endpoint.
       responses:
         '200':
           description: Hotspots from the clustering job
@@ -450,6 +451,34 @@ paths:
               schema:
                 type: array
                 items: {$ref: '#/components/schemas/Hotspot'}
+  /analytics/hotspots/recompute:
+    post:
+      tags: [Analytics]
+      summary: Re-run the clustering now (admin)
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                eps_m: {type: number, default: 250, description: 'Reports closer than this (metres) can join a cluster. 1 to 20000'}
+                min_samples: {type: integer, default: 3, description: 'Reports needed to make a hotspot. 1 to 1000'}
+      responses:
+        '200':
+          description: What the run found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clusters_created: {type: integer}
+                  noise_reports: {type: integer, description: 'Reports not in any cluster'}
+                  reports_considered: {type: integer}
+                  eps_m: {type: number}
+                  min_samples: {type: integer}
+        '400': {description: 'invalid_parameters'}
+        '403': {$ref: '#/components/responses/Forbidden'}
   /users:
     get:
       tags: [Admin]
@@ -656,3 +685,5 @@ components:
         radius_m: {type: number}
         report_count: {type: integer}
         top_category_id: {type: integer}
+        top_category: {type: string, nullable: true, description: 'Name of the most common category'}
+        computed_at: {type: string, format: date-time}

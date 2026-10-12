@@ -17,7 +17,8 @@ def app(tmp_path):
     app = create_app({'UPLOAD_FOLDER': str(tmp_path),  # test photos go to a temp folder
                       'QUEUE_MODE': 'inline',            # tests need no worker
                       'AI_CLASSIFIER': '',               # and never use the AI functions named in .env
-                      'AI_DUPLICATES': ''})
+                      'AI_DUPLICATES': '',
+                      'HOTSPOT_REFRESH_MINUTES': 0})     # no background clustering during tests
 
     @app.get('/api/v1/_test/verifier-only')
     @roles_required('verifier', 'admin')
