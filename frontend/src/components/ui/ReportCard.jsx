@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, ThumbsUp, Building2, ArrowRight, Clock, Eye } from 'lucide-react';
+import { MapPin, ThumbsUp, Building2, ArrowRight, Clock } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 
 export default function ReportCard({ report, onUpvote, compact = false }) {
@@ -55,7 +55,8 @@ export default function ReportCard({ report, onUpvote, compact = false }) {
             className="block group-hover:text-blue-600 transition-colors"
           >
             <h3 className="text-base font-bold text-slate-900 line-clamp-1 mb-1.5">
-              {report.address ? `${report.category?.name} on ${report.address}` : report.description}
+              {report.category?.name}
+              {report.description ? `: ${report.description}` : ''}
             </h3>
             <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed mb-4">
               {report.description}
@@ -66,10 +67,10 @@ export default function ReportCard({ report, onUpvote, compact = false }) {
         {/* Bottom meta row */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
           <div className="flex flex-wrap items-center gap-4">
-            {report.address && (
+            {report.area_id != null && (
               <span className="flex items-center gap-1 font-medium text-slate-700">
                 <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <span className="truncate max-w-[200px]">{report.address}</span>
+                <span className="truncate max-w-[200px]">Area {report.area_id}</span>
               </span>
             )}
 
@@ -78,13 +79,13 @@ export default function ReportCard({ report, onUpvote, compact = false }) {
               className="flex items-center gap-1.5 hover:text-blue-600 transition-colors font-medium"
             >
               <ThumbsUp className={`w-3.5 h-3.5 ${report.is_following ? 'text-blue-600 fill-blue-50' : ''}`} />
-              <span>{report.report_count || 1} Upvotes</span>
+              <span>{report.is_following ? 'Following' : 'Follow'}</span>
             </button>
 
-            {report.assigned_name && (
+            {report.assigned_to != null && (
               <span className="hidden md:flex items-center gap-1 text-slate-500">
                 <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                <span>Assigned: {report.assigned_name}</span>
+                <span>Assigned to user #{report.assigned_to}</span>
               </span>
             )}
           </div>

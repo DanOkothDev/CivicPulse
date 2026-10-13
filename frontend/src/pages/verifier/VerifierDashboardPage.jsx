@@ -53,8 +53,8 @@ export default function VerifierDashboardPage() {
         setSelectedReport(null);
         setDuplicates([]);
       }
-    } catch {
-      toast.error('Could not load verifier queue');
+    } catch (error) {
+      toast.error(`Could not load verifier queue: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -65,8 +65,9 @@ export default function VerifierDashboardPage() {
     try {
       const dups = await api.reports.getDuplicates(report.id);
       setDuplicates(dups);
-    } catch {
+    } catch (error) {
       setDuplicates([]);
+      toast.error(`Could not load duplicate suggestions: ${error.message}`);
     }
   };
 
@@ -223,7 +224,11 @@ export default function VerifierDashboardPage() {
                       </p>
 
                       <div className="text-[10px] text-slate-400 flex items-center justify-between">
-                        <span>{item.address || 'Ward 4'}</span>
+                        <span>
+                          {item.location
+                            ? `${item.location.lat.toFixed(5)}, ${item.location.lon.toFixed(5)}`
+                            : 'Location unavailable'}
+                        </span>
                         <span>{new Date(item.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
@@ -388,25 +393,33 @@ export default function VerifierDashboardPage() {
                             <div className="p-2 bg-white rounded-lg border border-slate-100">
                               <span className="text-slate-400 block text-[10px]">Location Proximity</span>
                               <span className="font-bold text-emerald-600">
-                                {Math.round((dup.reasons?.location || 0.9) * 100)}% Match
+                                {dup.reasons?.location == null
+                                  ? 'Not provided'
+                                  : `${Math.round(dup.reasons.location * 100)}% Match`}
                               </span>
                             </div>
                             <div className="p-2 bg-white rounded-lg border border-slate-100">
                               <span className="text-slate-400 block text-[10px]">Category</span>
                               <span className="font-bold text-blue-600">
-                                {Math.round((dup.reasons?.category || 0.95) * 100)}% Match
+                                {dup.reasons?.category == null
+                                  ? 'Not provided'
+                                  : `${Math.round(dup.reasons.category * 100)}% Match`}
                               </span>
                             </div>
                             <div className="p-2 bg-white rounded-lg border border-slate-100">
                               <span className="text-slate-400 block text-[10px]">Time Window</span>
                               <span className="font-bold text-slate-700">
-                                {Math.round((dup.reasons?.time || 0.84) * 100)}% Match
+                                {dup.reasons?.time == null
+                                  ? 'Not provided'
+                                  : `${Math.round(dup.reasons.time * 100)}% Match`}
                               </span>
                             </div>
                             <div className="p-2 bg-white rounded-lg border border-slate-100">
                               <span className="text-slate-400 block text-[10px]">Photo Visual</span>
                               <span className="font-bold text-purple-600">
-                                {Math.round((dup.reasons?.photo || 0.76) * 100)}% Match
+                                {dup.reasons?.photo == null
+                                  ? 'Not provided'
+                                  : `${Math.round(dup.reasons.photo * 100)}% Match`}
                               </span>
                             </div>
                           </div>

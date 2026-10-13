@@ -118,6 +118,7 @@ paths:
         - {name: category_id, in: query, schema: {type: integer}}
         - {name: status, in: query, schema: {$ref: '#/components/schemas/Status'}}
         - {name: area_id, in: query, schema: {type: integer}}
+        - {name: search, in: query, description: Search report descriptions, categories, or exact report ids, schema: {type: string}}
         - {name: mine, in: query, description: 'Only reports created by the current user', schema: {type: boolean}}
         - {name: following, in: query, description: 'Only reports the current user follows', schema: {type: boolean}}
         - {name: include_duplicates, in: query, description: 'Default false: duplicates are hidden and counted in the parent', schema: {type: boolean}}
@@ -349,6 +350,28 @@ paths:
               schema:
                 type: array
                 items: {$ref: '#/components/schemas/Category'}
+    post:
+      tags: [Reference]
+      summary: Create a report category (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string, maxLength: 60}
+                icon: {type: string, maxLength: 40}
+      responses:
+        '201':
+          description: Category created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Category'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Invalid'}
   /areas:
     get:
       tags: [Reference]
@@ -362,6 +385,27 @@ paths:
               schema:
                 type: array
                 items: {$ref: '#/components/schemas/Area'}
+    post:
+      tags: [Reference]
+      summary: Create an area (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string, maxLength: 120}
+      responses:
+        '201':
+          description: Area created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Area'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Invalid'}
   /analytics/summary:
     get:
       tags: [Analytics]
@@ -518,6 +562,9 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/User'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Invalid'}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}

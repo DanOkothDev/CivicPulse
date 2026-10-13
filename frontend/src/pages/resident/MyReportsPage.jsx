@@ -35,8 +35,8 @@ export default function MyReportsPage() {
         search: searchVal || undefined,
       });
       setReports(res.items || []);
-    } catch {
-      toast.error('Failed to load your reports');
+    } catch (error) {
+      toast.error(`Could not load your reports: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -50,8 +50,8 @@ export default function MyReportsPage() {
     try {
       await api.reports.toggleFollow(id);
       fetchMyReports();
-    } catch {
-      toast.error('Could not update follow status');
+    } catch (error) {
+      toast.error(`Could not update follow status: ${error.message}`);
     }
   };
 

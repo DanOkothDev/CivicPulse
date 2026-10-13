@@ -41,7 +41,7 @@ export default function ReportDetailsPage() {
         setFollowing(rep.is_following);
         setHistory(hist);
       } catch (err) {
-        toast.error('Failed to load report dossier');
+        toast.error(`Could not load report details: ${err.message}`);
       } finally {
         setLoading(false);
       }
@@ -58,8 +58,8 @@ export default function ReportDetailsPage() {
         ...prev,
         is_following: nowFollowing,
       }));
-    } catch {
-      toast.error('Failed to update follow status');
+    } catch (error) {
+      toast.error(`Could not update follow status: ${error.message}`);
     }
   };
 
@@ -123,10 +123,7 @@ export default function ReportDetailsPage() {
             }`}
           >
             <ThumbsUp className={`w-4 h-4 ${following ? 'fill-white' : ''}`} />
-            <span>{following ? 'Following Incident' : 'Follow & Upvote'}</span>
-            <span className="bg-black/10 px-1.5 py-0.2 rounded text-[11px]">
-              {report.report_count || 1}
-            </span>
+            <span>{following ? 'Following Report' : 'Follow Report'}</span>
           </button>
         </div>
       </div>
@@ -143,7 +140,7 @@ export default function ReportDetailsPage() {
                 className="w-full h-full object-cover"
               />
               <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-white text-xs font-semibold px-3 py-1 rounded-lg">
-                Verified Field Evidence
+                Submitted photo
               </div>
             </div>
 
@@ -202,7 +199,9 @@ export default function ReportDetailsPage() {
             <div className="p-3 bg-slate-50 rounded-xl text-xs space-y-1">
               <div className="flex justify-between">
                 <span className="text-slate-500">Address:</span>
-                <span className="font-semibold text-slate-800 truncate max-w-[200px]">{report.address || 'Ward 4 Sector'}</span>
+                <span className="font-semibold text-slate-800 truncate max-w-[200px]">
+                  {report.area_id == null ? 'No service area assigned' : `Area ${report.area_id}`}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Coordinates:</span>
@@ -224,7 +223,7 @@ export default function ReportDetailsPage() {
                   Assigned Team
                 </span>
                 <span className="font-bold text-slate-900">
-                  {report.assigned_name || 'Triage Intake Pool'}
+                  {report.assigned_to == null ? 'Not assigned' : `User #${report.assigned_to}`}
                 </span>
               </div>
 
@@ -234,7 +233,7 @@ export default function ReportDetailsPage() {
                   Target SLA Date
                 </span>
                 <span className="font-bold text-slate-900">
-                  {report.due_date || 'Standard 48h Resolution'}
+                  {report.due_date || 'Not set'}
                 </span>
               </div>
 
@@ -244,7 +243,7 @@ export default function ReportDetailsPage() {
                   Filing Citizen
                 </span>
                 <span className="font-bold text-slate-900">
-                  {report.creator_name || 'Faith Wanjiku (Verified)'}
+                  {report.created_by == null ? 'Unavailable' : `User #${report.created_by}`}
                 </span>
               </div>
             </div>

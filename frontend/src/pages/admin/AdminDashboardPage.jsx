@@ -58,7 +58,6 @@ export default function AdminDashboardPage() {
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryDept, setNewCategoryDept] = useState('');
 
   const [areaModalOpen, setAreaModalOpen] = useState(false);
   const [newAreaName, setNewAreaName] = useState('');
@@ -76,8 +75,8 @@ export default function AdminDashboardPage() {
       setCategories(c || []);
       setAreas(a || []);
       setReports(r.items || []);
-    } catch {
-      toast.error('Failed to load administrative registries');
+    } catch (error) {
+      toast.error(`Could not load administrative data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -101,8 +100,8 @@ export default function AdminDashboardPage() {
       toast.success(`Updated ${selectedUser.name}'s role to ${newRole}`);
       setRoleModalOpen(false);
       loadData();
-    } catch {
-      toast.error('Failed to change role');
+    } catch (error) {
+      toast.error(`Could not change user role: ${error.message}`);
     }
   };
 
@@ -112,16 +111,14 @@ export default function AdminDashboardPage() {
     try {
       await api.admin.addCategory({
         name: newCategoryName,
-        department: newCategoryDept || 'Public Infrastructure',
         icon: 'facility',
       });
       toast.success(`Category "${newCategoryName}" created!`);
       setCategoryModalOpen(false);
       setNewCategoryName('');
-      setNewCategoryDept('');
       loadData();
-    } catch {
-      toast.error('Failed to add category');
+    } catch (error) {
+      toast.error(`Could not add category: ${error.message}`);
     }
   };
 
@@ -131,15 +128,13 @@ export default function AdminDashboardPage() {
     try {
       await api.admin.addArea({
         name: newAreaName,
-        population: '75,000',
-        openIssues: 0,
       });
       toast.success(`Ward "${newAreaName}" added!`);
       setAreaModalOpen(false);
       setNewAreaName('');
       loadData();
-    } catch {
-      toast.error('Failed to add area');
+    } catch (error) {
+      toast.error(`Could not add area: ${error.message}`);
     }
   };
 
@@ -147,7 +142,7 @@ export default function AdminDashboardPage() {
     setRecomputing(true);
     try {
       const res = await api.analytics.recomputeHotspots({ eps_m: 250, min_samples: 3 });
-      toast.success(`DBSCAN Clustering complete! Found ${res.clusters_created || 0} active spatial clusters.`);
+      toast.success(`DBSCAN clustering complete! Found ${res.clusters_created} active spatial clusters.`);
     } catch (err) {
       toast.error(err.message || 'Clustering recompute failed');
     } finally {
@@ -183,39 +178,39 @@ export default function AdminDashboardPage() {
       accessor: 'id',
       render: (r) => (
         <div className="flex items-center gap-3">
-          <img
-            src={r.image_url || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&q=80&w=200'}
-            alt=""
-            className="w-10 h-10 rounded-xl object-cover shrink-0 border border-slate-200"
-          />
+          {r.photo_url ? (
+            <img
+              src={r.photo_url}
+              alt=""
+              className="w-10 h-10 rounded-xl object-cover shrink-0 border border-slate-200"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 grid place-items-center shrink-0">
+              <FileText className="w-5 h-5" />
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-[11px] font-bold text-slate-400">#{r.id}</span>
               <span className="font-bold text-slate-900 text-xs truncate max-w-[220px] block">
-                {r.title || r.description?.slice(0, 35) || 'Community Report'}
+                {r.title || r.description?.slice(0, 35) || r.category?.name || 'Untitled report'}
               </span>
             </div>
             <span className="text-[11px] text-slate-400">
-              {r.created_at ? new Date(r.created_at).toLocaleDateString() : 'Recent'}
+              {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
             </span>
           </div>
         </div>
       ),
     },
     {
-      header: 'Category & Dept',
-      accessor: 'category_name',
+      header: 'Category',
+      accessor: 'category',
       render: (r) => {
-        const cat = categories.find((c) => c.id === r.category_id);
         return (
-          <div>
-            <span className="font-semibold text-xs text-slate-800 block">
-              {r.category_name || cat?.name || 'General Defect'}
-            </span>
-            <span className="text-[10px] text-slate-400">
-              {cat?.department || 'Municipal Dept'}
-            </span>
-          </div>
+          <span className="font-semibold text-xs text-slate-800">
+            {r.category?.name || 'Unknown category'}
+          </span>
         );
       },
     },
@@ -247,7 +242,7 @@ export default function AdminDashboardPage() {
       accessor: 'area_name',
       render: (r) => (
         <span className="text-xs text-slate-600">
-          {r.area_name || (r.area_id ? `Ward ${r.area_id}` : 'Ward 4')}
+          {r.area_name || (r.area_id ? `Area #${r.area_id}` : 'No area assigned')}
         </span>
       ),
     },
@@ -273,11 +268,9 @@ export default function AdminDashboardPage() {
       accessor: 'name',
       render: (u) => (
         <div className="flex items-center gap-2.5">
-          <img
-            src={u.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256'}
-            alt=""
-            className="w-8 h-8 rounded-full object-cover"
-          />
+          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 grid place-items-center font-bold text-xs">
+            {u.name?.charAt(0)?.toUpperCase() || '?'}
+          </div>
           <div>
             <span className="font-bold text-slate-900 block text-xs">{u.name}</span>
             <span className="text-[11px] text-slate-400 font-mono">{u.email}</span>
@@ -307,7 +300,11 @@ export default function AdminDashboardPage() {
     {
       header: 'Electoral Ward',
       accessor: 'area_id',
-      render: (u) => <span className="text-xs text-slate-600">Ward {u.area_id || 1}</span>,
+      render: (u) => (
+        <span className="text-xs text-slate-600">
+          {u.area_id == null ? 'No area' : `Area ${u.area_id}`}
+        </span>
+      ),
     },
     {
       header: 'Actions',
@@ -528,7 +525,7 @@ export default function AdminDashboardPage() {
                 Infrastructure Defect Taxonomy
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Categories configure automated dispatch routing across city departments.
+                Categories residents can select when filing a report.
               </p>
             </div>
             <button
@@ -547,7 +544,7 @@ export default function AdminDashboardPage() {
                   CATEGORY #{c.id}
                 </span>
                 <h4 className="text-sm font-bold text-slate-900 mb-1">{c.name}</h4>
-                <p className="text-xs text-slate-500">{c.department || 'Municipal Dept'}</p>
+                <p className="text-xs text-slate-500">Icon: {c.icon || 'Not set'}</p>
               </div>
             ))}
           </div>
@@ -560,10 +557,10 @@ export default function AdminDashboardPage() {
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                Municipal Wards & Geographic Sectors
+                Municipal Service Areas
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Geographic areas align spatial polygons with electoral ward boundaries.
+                Areas currently available for resident accounts and report assignment.
               </p>
             </div>
             <button
@@ -582,7 +579,6 @@ export default function AdminDashboardPage() {
                   AREA #{a.id}
                 </span>
                 <h4 className="text-sm font-bold text-slate-900 mb-1">{a.name}</h4>
-                <p className="text-xs text-slate-500">Population: {a.population || '80,000'}</p>
               </div>
             ))}
           </div>
@@ -740,16 +736,6 @@ export default function AdminDashboardPage() {
               onChange={(e) => setNewCategoryName(e.target.value)}
               placeholder="e.g. Traffic Sign Damage"
               required
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Department</label>
-            <input
-              type="text"
-              value={newCategoryDept}
-              onChange={(e) => setNewCategoryDept(e.target.value)}
-              placeholder="e.g. Nairobi City County - Transport & Roads"
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
             />
           </div>

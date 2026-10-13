@@ -32,7 +32,10 @@ export default function CommunityMapPage() {
 
   // Load categories and reports
   useEffect(() => {
-    api.reference.getCategories().then(setCategories).catch(() => {});
+    api.reference
+      .getCategories()
+      .then(setCategories)
+      .catch((error) => toast.error(`Could not load report categories: ${error.message}`));
   }, []);
 
   const loadReports = async () => {
@@ -44,8 +47,8 @@ export default function CommunityMapPage() {
         search: searchVal || undefined,
       });
       setReports(res.items || []);
-    } catch {
-      toast.error('Could not load map reports');
+    } catch (error) {
+      toast.error(`Could not load map reports: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -172,7 +175,11 @@ export default function CommunityMapPage() {
                 </p>
                 <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1 truncate">
                   <MapPin className="w-3 h-3 text-blue-600 shrink-0" />
-                  <span>{selectedReport.address || 'Metro Ward 4'}</span>
+                  <span>
+                    {selectedReport.location
+                      ? `${selectedReport.location.lat.toFixed(5)}, ${selectedReport.location.lon.toFixed(5)}`
+                      : 'Location unavailable'}
+                  </span>
                 </p>
               </div>
             </div>

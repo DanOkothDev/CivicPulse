@@ -1,22 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Bell,
   CheckCheck,
-  Sliders,
-  MapPin,
-  Clock,
-  Shield,
   ArrowRight,
-  ExternalLink,
-  CheckCircle2,
-  AlertTriangle,
-  Radio,
-  Building2,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
-import MapComponent from '../../components/ui/MapComponent';
 
 export default function NotificationsPage() {
   const toast = useToast();
@@ -24,19 +13,23 @@ export default function NotificationsPage() {
   const [selectedNotif, setSelectedNotif] = useState(null);
   const [filterTab, setFilterTab] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchNotifs = async () => {
     setLoading(true);
     try {
-      const data = await api.notifications.list({
+      const [data, unread] = await Promise.all([
+        api.notifications.list({
         unread: filterTab === 'unread' ? true : undefined,
-      });
+          per_page: 200,
+        }),
+        api.notifications.getUnreadCount(),
+      ]);
       setNotifications(data);
-      if (data.length > 0 && !selectedNotif) {
-        setSelectedNotif(data[0]);
-      }
-    } catch {
-      toast.error('Could not load notifications');
+      setUnreadCount(unread.count);
+      setSelectedNotif((current) => data.find((item) => item.id === current?.id) || data[0] || null);
+    } catch (error) {
+      toast.error(`Could not load notifications: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -47,25 +40,25 @@ export default function NotificationsPage() {
   }, [filterTab]);
 
   const handleMarkAllRead = async () => {
-    await api.notifications.markAllRead();
-    toast.success('All notifications marked as read');
-    fetchNotifs();
+    try {
+      await api.notifications.markAllRead();
+      toast.success('All notifications marked as read');
+      await fetchNotifs();
+    } catch (error) {
+      toast.error(`Could not mark notifications as read: ${error.message}`);
+    }
   };
 
   const handleMarkSingleRead = async (id, e) => {
     e?.stopPropagation();
-    await api.notifications.markRead(id);
-    toast.info('Notification marked read');
-    fetchNotifs();
+    try {
+      await api.notifications.markRead(id);
+      toast.info('Notification marked read');
+      await fetchNotifs();
+    } catch (error) {
+      toast.error(`Could not mark notification as read: ${error.message}`);
+    }
   };
-
-  const filteredItems = notifications.filter((n) => {
-    if (filterTab === 'unread') return !n.read;
-    if (filterTab === 'triage') return n.type?.includes('triage') || n.type?.includes('verified');
-    if (filterTab === 'crew') return n.type?.includes('dispatched') || n.type?.includes('assigned');
-    if (filterTab === 'alerts') return n.type?.includes('ward') || n.type?.includes('alert');
-    return true;
-  });
 
   return (
     <div className="space-y-6">
@@ -73,17 +66,17 @@ export default function NotificationsPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2 text-[11px] font-bold text-blue-700 tracking-wider uppercase mb-1">
-            <span>Public Safety & Infrastructure Feed</span>
+            <span>Report Updates</span>
             <span>•</span>
             <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold">
-              {notifications.filter((n) => !n.read).length} Unread
+              {unreadCount} Unread
             </span>
           </div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Notifications & Dispatch Alerts
+            Notifications
           </h1>
           <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
-            Real-time telemetric dispatch logs, community verifications, and ward municipal actions.
+            Updates related to reports you submitted or follow.
           </p>
         </div>
 
@@ -99,15 +92,12 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {/* Filter Tabs matching notification.png */}
+      {/* Filter tabs supported by the notifications API */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 sm:pb-0">
           {[
-            { id: 'all', label: 'All', count: 18 },
-            { id: 'unread', label: 'Unread', count: 3 },
-            { id: 'triage', label: 'Triage Updates', count: 8 },
-            { id: 'crew', label: 'Crew Dispatches', count: 4 },
-            { id: 'alerts', label: 'Ward Alerts', count: 3 },
+            { id: 'all', label: 'All', count: notifications.length },
+            { id: 'unread', label: 'Unread', count: unreadCount },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -131,12 +121,12 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {/* Two Column Layout matching notification.png */}
+      {/* Notification list and selected item */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left Column (7 cols): Notifications List */}
         <div className="lg:col-span-7 space-y-3">
-          {filteredItems.map((item) => {
+          {notifications.map((item) => {
             const isSelected = selectedNotif?.id === item.id;
             return (
               <div
@@ -156,31 +146,27 @@ export default function NotificationsPage() {
                 <div className="pl-3">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200">
-                        {item.badge}
+                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md border ${
+                        item.read
+                          ? 'bg-slate-50 text-slate-600 border-slate-200'
+                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                      }`}>
+                        {item.read ? 'Read' : 'Unread'}
                       </span>
                       <span className="font-mono text-[11px] font-bold text-slate-400">
-                        {item.ref}
+                        {item.report_id ? `Report #${item.report_id}` : `Notification #${item.id}`}
                       </span>
                     </div>
-                    <span className="text-xs text-slate-400">
-                      14m ago
-                    </span>
+                    <time className="text-xs text-slate-400" dateTime={item.created_at}>
+                      {new Date(item.created_at).toLocaleString()}
+                    </time>
                   </div>
 
-                  <h3 className="text-sm font-bold text-slate-900 mb-1">
-                    {item.title}
-                  </h3>
                   <p className="text-xs text-slate-600 leading-relaxed line-clamp-2 mb-3">
                     {item.message}
                   </p>
 
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
-                    <span className="text-slate-500 font-medium flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Assigned: {item.assigned || 'Unit Crew 4B'}</span>
-                    </span>
-
                     <div className="flex items-center gap-2">
                       {!item.read && (
                         <button
@@ -188,7 +174,7 @@ export default function NotificationsPage() {
                           onClick={(e) => handleMarkSingleRead(item.id, e)}
                           className="px-2.5 py-1 text-slate-600 hover:text-slate-900 text-xs font-semibold"
                         >
-                          Acknowledge
+                          Mark as read
                         </button>
                       )}
                       <button
@@ -206,86 +192,58 @@ export default function NotificationsPage() {
           })}
         </div>
 
-        {/* Right Column (5 cols): Selected Notification Detail Panel matching notification.png */}
+        {/* Selected notification details */}
         <div className="lg:col-span-5 sticky top-20 space-y-4">
           {selectedNotif ? (
             <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-5">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200">
-                    {selectedNotif.badge}
+                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-md border ${
+                    selectedNotif.read
+                      ? 'bg-slate-50 text-slate-600 border-slate-200'
+                      : 'bg-blue-50 text-blue-700 border-blue-200'
+                  }`}>
+                  {selectedNotif.read ? 'Read' : 'Unread'}
                   </span>
                   <span className="font-mono text-xs font-bold text-slate-400">
-                    {selectedNotif.ref}
+                    {selectedNotif.report_id
+                      ? `Report #${selectedNotif.report_id}`
+                      : `Notification #${selectedNotif.id}`}
                   </span>
                 </div>
-                <span className="text-xs text-slate-400">14 minutes ago</span>
+                <time className="text-xs text-slate-400" dateTime={selectedNotif.created_at}>
+                  {new Date(selectedNotif.created_at).toLocaleString()}
+                </time>
               </div>
 
               <div>
                 <h3 className="text-lg font-extrabold text-slate-900">
-                  {selectedNotif.title}
+                  Notification details
                 </h3>
-                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  <span>Limuru Road, Ward 4 - Eastleigh North</span>
-                </p>
               </div>
 
-              {/* Mini Map Snapshot */}
-              <div className="h-44 rounded-2xl overflow-hidden border border-slate-200 relative">
-                <MapComponent
-                  center={[-1.2580, 36.8210]}
-                  zoom={15}
-                  height="100%"
-                />
-                <div className="absolute bottom-2 left-2 z-10 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Field Unit GPS Active</span>
-                </div>
-              </div>
-
-              {/* 4-Box Telemetry Metrics */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-[11px] text-slate-400 block mb-0.5">Assigned Personnel</span>
-                  <span className="font-bold text-slate-800">{selectedNotif.assigned || 'Crew 4B (Rapid)'}</span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-[11px] text-slate-400 block mb-0.5">Est. Time to Resolve</span>
-                  <span className="font-bold text-rose-600">{selectedNotif.estTime || '1h 45m'}</span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-[11px] text-slate-400 block mb-0.5">Infrastructure Group</span>
-                  <span className="font-bold text-slate-800">{selectedNotif.group || 'Water Infrastructure'}</span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-[11px] text-slate-400 block mb-0.5">Triage Priority</span>
-                  <span className="font-bold text-rose-600">{selectedNotif.priority || 'Critical / Tier 1'}</span>
-                </div>
-              </div>
-
-              {/* Dispatch Synopsis */}
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                  Dispatch Synopsis
+                  Message
                 </h4>
-                <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-100">
-                  A pressurized primary line rupture has flooded the roadway and compromised adjacent curb infrastructure. Unit Crew 4B is physically on-site deploying high-volume sump extraction and isolating the quadrant backflow valve.
+                <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-100 break-words">
+                  {selectedNotif.message}
                 </p>
               </div>
 
-              <Link
-                to={selectedNotif.report_id ? `/reports/${selectedNotif.report_id}` : '/dashboard'}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3 px-4 rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2"
-              >
-                <span>Open Dedicated Incident Portal</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+              {selectedNotif.report_id && (
+                <Link
+                  to={`/reports/${selectedNotif.report_id}`}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3 px-4 rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2"
+                >
+                  <span>Open related report</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              )}
             </div>
           ) : (
             <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-xs text-slate-400">
-              Select an alert from the stream to inspect dispatch telemetry.
+              {loading ? 'Loading notifications...' : 'Select a notification to view its details.'}
             </div>
           )}
         </div>

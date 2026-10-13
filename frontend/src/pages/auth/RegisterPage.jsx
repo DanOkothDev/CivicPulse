@@ -4,7 +4,6 @@ import {
   Building2,
   User,
   Mail,
-  Phone,
   Lock,
   Eye,
   EyeOff,
@@ -21,10 +20,9 @@ export default function RegisterPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: '',
     password: '',
     confirmPassword: '',
-    area_id: 1,
+    area_id: '',
   });
   const [areas, setAreas] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
@@ -36,7 +34,10 @@ export default function RegisterPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.reference.getAreas().then(setAreas).catch(() => {});
+    api.reference
+      .getAreas()
+      .then(setAreas)
+      .catch((error) => toast.error(`Could not load service areas: ${error.message}`));
   }, []);
 
   const handleChange = (e) => {
@@ -67,9 +68,8 @@ export default function RegisterPage() {
       await register({
         name: formData.name,
         email: formData.email,
-        phone: formData.phone,
         password: formData.password,
-        area_id: Number(formData.area_id),
+        area_id: formData.area_id ? Number(formData.area_id) : undefined,
       });
       toast.success('Resident account created successfully! Welcome to CivicPulse.');
       navigate('/dashboard');
@@ -158,7 +158,7 @@ export default function RegisterPage() {
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    placeholder="e.g. Faith Wanjiku"
+                    placeholder="e.g. Amina Otieno"
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-blue-600 focus:outline-none transition-all"
                   />
                 </div>
@@ -184,22 +184,6 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Phone Number
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      placeholder="e.g. 0712 345 678"
-                      className="w-full pl-10 pr-3 py-2 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-blue-600 focus:outline-none transition-all"
-                    />
-                  </div>
-                </div>
               </div>
 
               {/* Residential Ward */}
@@ -215,6 +199,7 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-blue-600 focus:outline-none transition-all appearance-none cursor-pointer"
                   >
+                    <option value="">No area assigned</option>
                     {areas.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name}

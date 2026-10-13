@@ -29,7 +29,20 @@ import AnalyticsDashboardPage from './pages/analytics/AnalyticsDashboardPage';
 import NotFoundPage from './pages/common/NotFoundPage';
 import ForbiddenPage from './pages/common/ForbiddenPage';
 
-// Role Guard Component (matching Flask @roles_required in Section 2 of PDF)
+function RequireAuthentication({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">
+        Checking your CivicPulse session...
+      </div>
+    );
+  }
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return children;
+}
+
 function RoleRoute({ roles = [], children }) {
   const { role } = useAuth();
   if (roles.length > 0 && !roles.includes(role)) {
@@ -48,7 +61,14 @@ export default function App() {
             <Route element={<PublicLayout />}>
               <Route path="/" element={<LandingPage />} />
               <Route path="/about" element={<AboutPage />} />
-              <Route path="/map" element={<CommunityMapPage />} />
+              <Route
+                path="/map"
+                element={
+                  <RequireAuthentication>
+                    <CommunityMapPage />
+                  </RequireAuthentication>
+                }
+              />
               <Route path="/faq" element={<FAQPage />} />
             </Route>
 
@@ -57,7 +77,13 @@ export default function App() {
             <Route path="/register" element={<RegisterPage />} />
 
             {/* 3. Operational Application Portal Layout */}
-            <Route element={<AppLayout />}>
+            <Route
+              element={
+                <RequireAuthentication>
+                  <AppLayout />
+                </RequireAuthentication>
+              }
+            >
               {/* Resident Screens */}
               <Route path="/dashboard" element={<ResidentDashboardPage />} />
               <Route path="/report/new" element={<ReportIssuePage />} />
@@ -101,7 +127,7 @@ export default function App() {
               <Route
                 path="/analytics"
                 element={
-                  <RoleRoute roles={['authority', 'admin', 'verifier', 'resident']}>
+                  <RoleRoute roles={['authority', 'admin']}>
                     <AnalyticsDashboardPage />
                   </RoleRoute>
                 }

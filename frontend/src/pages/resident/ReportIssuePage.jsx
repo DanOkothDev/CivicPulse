@@ -8,15 +8,12 @@ import {
   Layers,
   RefreshCw,
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { api } from '../../services/api';
-import { DEMO_USERS } from '../../services/mockData';
 import ImageUploadComponent from '../../components/ui/ImageUploadComponent';
 import MapComponent from '../../components/ui/MapComponent';
 
 export default function ReportIssuePage() {
-  const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -36,15 +33,18 @@ export default function ReportIssuePage() {
 
   // Load categories and parse deep link query params
   useEffect(() => {
-    api.reference.getCategories().then((data) => {
-      setCategories(data);
-      const catParam = searchParams.get('category');
-      if (catParam) {
-        setCategoryId(Number(catParam));
-      } else if (data.length > 0 && !categoryId) {
-        setCategoryId(data[0].id);
-      }
-    }).catch(() => {});
+    api.reference
+      .getCategories()
+      .then((data) => {
+        setCategories(data);
+        const catParam = searchParams.get('category');
+        if (catParam) {
+          setCategoryId(Number(catParam));
+        } else if (data.length > 0 && !categoryId) {
+          setCategoryId(data[0].id);
+        }
+      })
+      .catch((error) => toast.error(`Could not load report categories: ${error.message}`));
 
     const latParam = searchParams.get('lat');
     const lonParam = searchParams.get('lon');
@@ -90,15 +90,8 @@ export default function ReportIssuePage() {
     setAddress(`Pinned location: ${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}`);
   };
 
-  const selectedCategory = categories.find((c) => c.id === Number(categoryId)) || categories[0];
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const activeUser = user || DEMO_USERS[0];
-    if (!user) {
-      toast.info('Submitting as demo citizen (Faith Wanjiku). You can sign in anytime to manage history.');
-    }
 
     if (!photo?.file) {
       toast.error('Please attach a photo of the incident (JPEG or PNG under 5 MB)');
@@ -200,9 +193,6 @@ export default function ReportIssuePage() {
                 <label className="text-xs font-bold text-slate-700">
                   Category <span className="text-rose-500">*</span>
                 </label>
-                <span className="text-[11px] text-slate-500 font-medium">
-                  Assigned to: {selectedCategory?.department || 'Local Department'}
-                </span>
               </div>
               <div className="relative">
                 <select

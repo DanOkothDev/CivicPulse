@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request
 from ..auth_utils import current_user, roles_required, serialize_user
 from ..constants import ROLES
 from ..errors import ApiError
+from ..extensions import db
 from ..models import User
 
 bp = Blueprint('users', __name__)
@@ -43,3 +44,21 @@ def list_users():
         for item in items:
             item.pop('email')
     return jsonify(items)
+
+
+@bp.patch('/users/<int:user_id>/role')
+@roles_required('admin')
+def update_user_role(user_id):
+    data = request.get_json(silent=True)
+    role = data.get('role') if isinstance(data, dict) else None
+    if role not in ROLES:
+        raise ApiError('validation_error', 'Choose a valid role', 422, {
+            'role': f'Allowed roles: {", ".join(ROLES)}',
+        })
+
+    user = db.session.get(User, user_id)
+    if user is None:
+        raise ApiError('not_found', 'User not found', 404)
+    user.role = role
+    db.session.commit()
+    return jsonify(serialize_user(user))
