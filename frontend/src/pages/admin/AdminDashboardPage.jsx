@@ -20,6 +20,7 @@ import {
   ArrowRight,
   Sliders,
   ExternalLink,
+  UserPlus,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -61,6 +62,19 @@ export default function AdminDashboardPage() {
 
   const [areaModalOpen, setAreaModalOpen] = useState(false);
   const [newAreaName, setNewAreaName] = useState('');
+
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [reportToAssign, setReportToAssign] = useState(null);
+  const [selectedAuthorityId, setSelectedAuthorityId] = useState('');
+  const [assignmentDueDate, setAssignmentDueDate] = useState('');
+  const [assigning, setAssigning] = useState(false);
+
+  const today = new Date();
+  const minAssignmentDate = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-');
 
   const loadData = async () => {
     setLoading(true);
@@ -135,6 +149,34 @@ export default function AdminDashboardPage() {
       loadData();
     } catch (error) {
       toast.error(`Could not add area: ${error.message}`);
+    }
+  };
+
+  const handleOpenAssignModal = (report) => {
+    setReportToAssign(report);
+    setSelectedAuthorityId('');
+    setAssignmentDueDate('');
+    setAssignModalOpen(true);
+  };
+
+  const handleAssignReport = async (e) => {
+    e.preventDefault();
+    if (!reportToAssign || !selectedAuthorityId) return;
+
+    setAssigning(true);
+    try {
+      await api.reports.assign(reportToAssign.id, {
+        assignee_id: Number(selectedAuthorityId),
+        due_date: assignmentDueDate || undefined,
+      });
+      toast.success(`Report #${reportToAssign.id} assigned successfully.`);
+      setAssignModalOpen(false);
+      setReportToAssign(null);
+      await loadData();
+    } catch (error) {
+      toast.error(`Could not assign report: ${error.message}`);
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -250,13 +292,25 @@ export default function AdminDashboardPage() {
       header: 'Actions',
       accessor: 'actions',
       render: (r) => (
-        <Link
-          to={`/reports/${r.id}`}
-          className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl inline-flex items-center gap-1 transition-colors"
-        >
-          <span>View Case</span>
-          <ArrowRight className="w-3 h-3" />
-        </Link>
+        <div className="flex items-center gap-1.5">
+          {r.status === 'verified' && (
+            <button
+              type="button"
+              onClick={() => handleOpenAssignModal(r)}
+              className="text-xs font-bold text-purple-700 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-2.5 py-1.5 rounded-xl inline-flex items-center gap-1 transition-colors"
+            >
+              <UserPlus className="w-3 h-3" />
+              <span>Assign</span>
+            </button>
+          )}
+          <Link
+            to={`/reports/${r.id}`}
+            className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl inline-flex items-center gap-1 transition-colors"
+          >
+            <span>View Case</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
       ),
     },
   ];
@@ -774,6 +828,74 @@ export default function AdminDashboardPage() {
               className="px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-xl"
             >
               Save Ward
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        title={`Assign Report #${reportToAssign?.id}`}
+        subtitle="Choose an authority account to handle this verified report."
+      >
+        <form onSubmit={handleAssignReport} className="space-y-4">
+          <div>
+            <label htmlFor="report-assignee" className="block text-xs font-bold text-slate-700 mb-1">
+              Authority
+            </label>
+            <select
+              id="report-assignee"
+              value={selectedAuthorityId}
+              onChange={(e) => setSelectedAuthorityId(e.target.value)}
+              required
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+            >
+              <option value="">Select an authority</option>
+              {users
+                .filter((candidate) => candidate.role === 'authority')
+                .map((authority) => (
+                  <option key={authority.id} value={authority.id}>
+                    {authority.name}
+                  </option>
+                ))}
+            </select>
+            {users.every((candidate) => candidate.role !== 'authority') && (
+              <p className="text-[11px] text-amber-700 mt-1">
+                No authority accounts are available. Change a user&apos;s role to Authority first.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="assignment-due-date" className="block text-xs font-bold text-slate-700 mb-1">
+              Due Date <span className="font-normal text-slate-500">(optional)</span>
+            </label>
+            <input
+              id="assignment-due-date"
+              type="date"
+              value={assignmentDueDate}
+              min={minAssignmentDate}
+              onChange={(e) => setAssignmentDueDate(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setAssignModalOpen(false)}
+              disabled={assigning}
+              className="px-4 py-2 text-xs font-semibold text-slate-600 rounded-xl border border-slate-200 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={assigning || !users.some((candidate) => candidate.role === 'authority')}
+              className="px-4 py-2 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-50"
+            >
+              {assigning ? 'Assigning...' : 'Confirm Assignment'}
             </button>
           </div>
         </form>
