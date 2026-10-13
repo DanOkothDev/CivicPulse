@@ -88,7 +88,7 @@ export default function LoginPage() {
           <div className="relative z-10 bg-slate-800/80 backdrop-blur-md rounded-2xl p-4 border border-slate-700/60 my-6">
             <p className="text-sm font-semibold text-white">Sign in with your CivicPulse account</p>
             <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-              Residents can register here. Verifier, authority, and admin accounts are created by a backend administrator.
+              Residents can register here.
             </p>
           </div>
 
