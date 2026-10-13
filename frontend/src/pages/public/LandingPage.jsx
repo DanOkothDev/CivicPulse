@@ -89,31 +89,6 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          <div className="max-w-4xl mx-auto mb-16 p-5 rounded-2xl backdrop-blur-md bg-white/80 border border-slate-200/80 shadow-xs text-left">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  CivicPulse API and database
-                </span>
-                <p className={`text-sm font-bold mt-1 ${apiError ? 'text-rose-600' : 'text-slate-900'}`}>
-                  {apiError
-                    ? 'Backend unavailable'
-                    : apiHealth
-                    ? 'Backend connected'
-                    : 'Checking backend connection...'}
-                </p>
-              </div>
-              {apiHealth && (
-                <div className="text-xs text-slate-600">
-                  <span>PostGIS: {apiHealth.postgis}</span>
-                  <span className="mx-2">•</span>
-                  <span>Queue workers: {apiHealth.queue?.workers ?? 'unknown'}</span>
-                </div>
-              )}
-            </div>
-            {apiError && <p className="text-xs text-rose-600 mt-2">{apiError}</p>}
-          </div>
-
           {/* Workflow Pipeline Container */}
           <div className="relative max-w-6xl mx-auto pt-4 pb-6">
             <div className="backdrop-blur-xl bg-white/80 border border-slate-200/80 rounded-3xl border border-slate-200/90 shadow-2xl p-6 sm:p-10 relative overflow-hidden text-left bg-gradient-to-b from-white/95 to-slate-50/80">
