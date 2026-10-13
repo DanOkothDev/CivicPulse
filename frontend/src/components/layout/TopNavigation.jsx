@@ -9,18 +9,17 @@ import {
   User,
   LogOut,
   Shield,
-  CheckCircle,
-  Globe,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 import SearchBar from '../ui/SearchBar';
 
 export default function TopNavigation({ onMenuClick }) {
-  const { user, role, logout, switchRole } = useAuth();
+  const { user, role, logout } = useAuth();
+  const toast = useToast();
   const [searchVal, setSearchVal] = useState('');
   const [profileOpen, setProfileOpen] = useState(false);
-  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
 
@@ -29,7 +28,7 @@ export default function TopNavigation({ onMenuClick }) {
       api.notifications
         .getUnreadCount()
         .then((data) => setUnreadCount(data?.count || 0))
-        .catch(() => {});
+        .catch((error) => toast.error(`Could not load notification count: ${error.message}`));
     }
   }, [user]);
 
@@ -65,57 +64,15 @@ export default function TopNavigation({ onMenuClick }) {
         </div>
       </div>
 
-      {/* Right: Ward Pill, Role Switcher, Notifications, and Profile */}
+      {/* Right: Ward Pill, Notifications, and Profile */}
       <div className="flex items-center gap-2.5 sm:gap-4">
         {/* Ward Selector Pill */}
         <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-blue-50/70 border border-blue-200 text-blue-900 rounded-xl text-xs font-semibold shadow-xs">
           <MapPin className="w-3.5 h-3.5 text-blue-600" />
-          <span>Nairobi • Westlands Ward</span>
+          <span>
+            {user?.area_id == null ? 'No service area' : `Service area #${user.area_id}`}
+          </span>
           <ChevronDown className="w-3.5 h-3.5 text-blue-500" />
-        </div>
-
-        {/* Quick Role Switcher for seamless testing of all 12 screens */}
-        <div className="relative">
-          <button
-            onClick={() => setRoleMenuOpen(!roleMenuOpen)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
-            title="Switch demo role to preview screens"
-          >
-            <Shield className="w-3.5 h-3.5 text-blue-600" />
-            <span className="capitalize">{role}</span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
-          </button>
-
-          {roleMenuOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50">
-              <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Switch Role Preview
-              </div>
-              {[
-                { r: 'resident', label: 'Resident View', desc: 'Faith Wanjiku' },
-                { r: 'verifier', label: 'Verifier View', desc: 'J. Otieno (Lead)' },
-                { r: 'authority', label: 'Authority View', desc: 'Eng. Brian (Roads)' },
-                { r: 'admin', label: 'Admin View', desc: 'Davis Maina (County)' },
-              ].map((item) => (
-                <button
-                  key={item.r}
-                  onClick={() => {
-                    switchRole(item.r);
-                    setRoleMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-50 transition-colors ${
-                    role === item.r ? 'font-bold text-blue-600 bg-blue-50/50' : 'text-slate-700'
-                  }`}
-                >
-                  <div>
-                    <div className="font-semibold">{item.label}</div>
-                    <div className="text-[11px] text-slate-400">{item.desc}</div>
-                  </div>
-                  {role === item.r && <CheckCircle className="w-4 h-4 text-blue-600" />}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Notifications Icon with Unread Badge */}
@@ -138,14 +95,9 @@ export default function TopNavigation({ onMenuClick }) {
             onClick={() => setProfileOpen(!profileOpen)}
             className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 transition-colors"
           >
-            <img
-              src={
-                user?.avatar ||
-                'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256'
-              }
-              alt={user?.name || 'User avatar'}
-              className="w-8 h-8 rounded-full object-cover ring-2 ring-blue-500/20"
-            />
+            <span className="w-8 h-8 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-sm font-bold ring-2 ring-blue-500/20">
+              {user?.name?.charAt(0)?.toUpperCase()}
+            </span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
           </button>
 

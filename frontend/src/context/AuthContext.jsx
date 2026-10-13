@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { DEMO_USERS } from '../services/mockData';
+import { useToast } from './ToastContext';
 
 const AuthContext = createContext(null);
 
@@ -8,36 +8,23 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const toast = useToast();
 
   useEffect(() => {
-    // Check if user has an existing saved session
     const savedToken = localStorage.getItem('civicpulse_token');
-    const savedUser = localStorage.getItem('civicpulse_current_user');
 
     if (savedToken) {
       setToken(savedToken);
-      if (savedUser) {
-        try {
-          setUser(JSON.parse(savedUser));
-        } catch {
-          // ignore corrupted json
-        }
-      }
-
-      // Verify the saved token against the backend
       api.auth
         .getCurrentUser()
         .then((freshUser) => {
           setUser(freshUser);
-          localStorage.setItem('civicpulse_current_user', JSON.stringify(freshUser));
         })
-        .catch((err) => {
-          if (err.status === 401) {
-            // Token expired or invalid
-            api.auth.logout();
-            setToken(null);
-            setUser(null);
-          }
+        .catch((error) => {
+          api.auth.logout();
+          setToken(null);
+          setUser(null);
+          toast.error(`Could not verify your saved session. Please sign in again. ${error.message}`);
         })
         .finally(() => {
           setLoading(false);
@@ -80,18 +67,6 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  // Helper for quick testing across roles
-  const switchRole = (newRole) => {
-    const targetUser = DEMO_USERS.find(u => u.role === newRole) || {
-      id: user?.id || 1,
-      name: `${newRole.toUpperCase()} User`,
-      email: `${newRole}@civicpulse.org`,
-      role: newRole,
-    };
-    setUser(targetUser);
-    localStorage.setItem('civicpulse_current_user', JSON.stringify(targetUser));
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -103,7 +78,6 @@ export function AuthProvider({ children }) {
         login,
         register,
         logout,
-        switchRole,
       }}
     >
       {children}

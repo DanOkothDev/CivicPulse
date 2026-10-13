@@ -6,12 +6,10 @@ import {
   ClipboardList,
   CheckSquare,
   MapPin,
-  Clock,
   ArrowRight,
   Filter,
   Search,
   Bell,
-  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -29,53 +27,27 @@ export default function ResidentDashboardPage() {
 
   const [activeTab, setActiveTab] = useState('my_reports');
   const [reports, setReports] = useState([]);
+  const [followingReports, setFollowingReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchVal, setSearchVal] = useState('');
 
-  // Following list items matching right column of dashboard.png
-  const followingWatchlist = [
-    {
-      ref: '#INC-4109',
-      ward: 'Ward 4',
-      badge: 'Crews En Route',
-      badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
-      title: 'Traffic Signal Failure at East Parkway',
-      updated: '12m ago',
-      reportId: 4109,
-    },
-    {
-      ref: '#INC-3882',
-      ward: 'Ward 4',
-      badge: 'Inspection',
-      badgeColor: 'bg-blue-100 text-blue-800 border-blue-300',
-      title: 'Stormwater Drainage Overflow at 6th St',
-      updated: '1h ago',
-      reportId: 7739,
-    },
-    {
-      ref: '#INC-3720',
-      ward: 'Ward 3',
-      badge: 'Work Completed',
-      badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-      title: 'Graffiti Abatement on Civic Library Annex',
-      updated: '3h ago',
-      reportId: 8902,
-    },
-  ];
-
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const res = await api.reports.list({
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        search: searchVal || undefined,
-        mine: activeTab === 'my_reports' ? true : undefined,
-        following: activeTab === 'following' ? true : undefined,
-      });
-      setReports(res.items || []);
+      const [response, followingResponse] = await Promise.all([
+        api.reports.list({
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          search: searchVal || undefined,
+          mine: activeTab === 'my_reports' ? true : undefined,
+          following: activeTab === 'following' ? true : undefined,
+        }),
+        api.reports.list({ following: true }),
+      ]);
+      setReports(response.items || []);
+      setFollowingReports(followingResponse.items || []);
     } catch (err) {
-      toast.error('Failed to load reports');
+      toast.error(`Could not load reports: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -86,9 +58,13 @@ export default function ResidentDashboardPage() {
   }, [statusFilter, searchVal, activeTab]);
 
   const handleUpvote = async (id) => {
-    await api.reports.toggleFollow(id);
-    toast.success('Updated follow / upvote status');
-    fetchReports();
+    try {
+      await api.reports.toggleFollow(id);
+      toast.success('Report follow status updated');
+      fetchReports();
+    } catch (error) {
+      toast.error(`Could not update follow status: ${error.message}`);
+    }
   };
 
   const statusCounts = {
@@ -104,14 +80,9 @@ export default function ResidentDashboardPage() {
       <div className="bg-white rounded-3xl border border-slate-200/90 p-5 sm:p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-4 sm:gap-5">
           <div className="relative">
-            <img
-              src={
-                user?.avatar ||
-                'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256'
-              }
-              alt={user?.name || 'Resident profile'}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-4 ring-blue-500/10 shadow-sm"
-            />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center text-xl font-bold ring-4 ring-blue-500/10 shadow-sm">
+              {user?.name?.charAt(0)?.toUpperCase()}
+            </div>
             <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-md">
               <CheckCircle2 className="w-3.5 h-3.5" />
             </div>
@@ -120,25 +91,19 @@ export default function ResidentDashboardPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-1">
               <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-                {user?.name || 'Faith Wanjiku'}
+                {user?.name}
               </h1>
-              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-emerald-600" />
-                <span>Ward 4 Verified Citizen</span>
+              <span className="bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-0.5 rounded-full capitalize">
+                {user?.role}
               </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-              <span className="font-mono font-semibold text-slate-700">#CP-8842-D4</span>
-              <span>•</span>
-              <span className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                <span>Citizen Member since {user?.memberSince || 'Oct 2021'}</span>
-              </span>
+              <span className="font-mono font-semibold text-slate-700">Account #{user?.id}</span>
               <span>•</span>
               <span className="flex items-center gap-1 text-slate-700 font-medium">
                 <MapPin className="w-3.5 h-3.5 text-blue-600" />
-                <span>Ward 4 - Eastleigh North</span>
+                <span>{user?.area_id ? `Service area #${user.area_id}` : 'No service area assigned'}</span>
               </span>
             </div>
           </div>
@@ -189,7 +154,7 @@ export default function ResidentDashboardPage() {
 
         <StatisticCard
           title="Followed Incidents"
-          value={String(followingWatchlist.length)}
+          value={String(followingReports.length)}
           subtext="Watchlist"
           footer="🔔 Live updates enabled"
           icon={Bell}
@@ -201,7 +166,7 @@ export default function ResidentDashboardPage() {
       <div className="flex items-center gap-2 border-b border-slate-200/90 pb-1 overflow-x-auto scrollbar-none">
         {[
           { id: 'my_reports', label: `My Reports (${reports.length})` },
-          { id: 'following', label: `Following Incidents (${followingWatchlist.length})` },
+          { id: 'following', label: `Following Incidents (${followingReports.length})` },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -273,7 +238,7 @@ export default function ResidentDashboardPage() {
           </div>
         </div>
 
-        {/* Right 4 Cols: Following Incidents Watchlist matching dashboard.png */}
+        {/* Right 4 Cols: Reports followed by this account */}
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
@@ -284,33 +249,33 @@ export default function ResidentDashboardPage() {
                 </h3>
               </div>
               <span className="text-[11px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
-                14 active
+                {followingReports.length} active
               </span>
             </div>
 
             <div className="space-y-3">
-              {followingWatchlist.map((item, idx) => (
+              {followingReports.slice(0, 3).map((report) => (
                 <div
-                  key={idx}
+                  key={report.id}
                   className="p-3.5 rounded-2xl border border-slate-100 bg-slate-50/60 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all group"
                 >
                   <div className="flex items-center justify-between gap-2 mb-1.5">
                     <span className="text-[11px] font-mono text-slate-400 font-semibold">
-                      {item.ref} • {item.ward}
+                      #RPT-{report.id}
                     </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${item.badgeColor}`}>
-                      {item.badge}
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-slate-200 bg-white capitalize">
+                      {report.status.replace('_', ' ')}
                     </span>
                   </div>
 
                   <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-2 group-hover:text-blue-600 transition-colors">
-                    {item.title}
+                    {report.description || report.category?.name}
                   </h4>
 
                   <div className="flex items-center justify-between text-[11px] text-slate-400">
-                    <span>Updated {item.updated}</span>
+                    <span>{report.category?.name}</span>
                     <Link
-                      to={`/reports/${item.reportId}`}
+                      to={`/reports/${report.id}`}
                       className="text-blue-600 font-bold hover:underline inline-flex items-center gap-0.5"
                     >
                       <span>Track Live</span>
@@ -319,38 +284,17 @@ export default function ResidentDashboardPage() {
                   </div>
                 </div>
               ))}
+              {!followingReports.length && !loading && (
+                <p className="text-xs text-slate-500">You are not following any reports yet.</p>
+              )}
             </div>
 
             <button
-              onClick={() => {
-                setActiveTab('following');
-                toast.info('Switched to complete followed incidents stream');
-              }}
+              onClick={() => setActiveTab('following')}
               className="w-full mt-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl transition-colors text-center"
             >
-              Manage All 14 Watchlist Items
+              View all followed reports
             </button>
-          </div>
-
-          {/* Quick Notification Preview Box */}
-          <div className="bg-gradient-to-br from-blue-900 to-slate-900 rounded-3xl p-5 text-white shadow-md">
-            <div className="flex items-center gap-2 mb-2 text-blue-300 text-xs font-bold uppercase tracking-wider">
-              <Bell className="w-4 h-4 text-blue-400" />
-              <span>County Field Update</span>
-            </div>
-            <h4 className="text-sm font-bold text-white mb-1">
-              Active Crew Dispatch
-            </h4>
-            <p className="text-xs text-slate-300 leading-relaxed mb-4">
-              Water pipeline maintenance underway in Ward 4. Road repair crews dispatched along First Avenue, Eastleigh.
-            </p>
-            <Link
-              to="/notifications"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-400 hover:text-blue-300"
-            >
-              <span>View live dispatch feed</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
           </div>
         </div>
 

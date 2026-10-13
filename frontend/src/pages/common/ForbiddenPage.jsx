@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldAlert, ArrowLeft, Home, RefreshCw } from 'lucide-react';
+import { ShieldAlert, Home } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ForbiddenPage({ requiredRole = 'higher authority' }) {
-  const { role, switchRole } = useAuth();
+  const { role } = useAuth();
 
   return (
     <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6">
@@ -20,29 +20,6 @@ export default function ForbiddenPage({ requiredRole = 'higher authority' }) {
       <p className="text-sm text-slate-500 max-w-md mb-6 leading-relaxed">
         Your current session is logged in as <span className="font-bold capitalize text-slate-800">{role}</span>. This operational view requires <span className="font-bold text-slate-800">{requiredRole}</span> clearance.
       </p>
-
-      {/* Demo helper to switch roles directly */}
-      <div className="bg-slate-100/80 border border-slate-200 rounded-2xl p-4 max-w-md w-full mb-8">
-        <p className="text-xs font-semibold text-slate-600 mb-3 flex items-center justify-center gap-1.5">
-          <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
-          <span>Switch demo role to view this screen:</span>
-        </p>
-        <div className="flex flex-wrap gap-2 justify-center">
-          {['resident', 'verifier', 'authority', 'admin'].map((r) => (
-            <button
-              key={r}
-              onClick={() => switchRole(r)}
-              className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all capitalize ${
-                role === r
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="flex items-center gap-3">
         <Link

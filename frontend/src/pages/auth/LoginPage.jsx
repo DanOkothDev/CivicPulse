@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { Sparkline } from '../../components/ui/Charts';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -44,21 +43,6 @@ export default function LoginPage() {
       navigate(routeForRole(loggedUser?.role));
     } catch (err) {
       toast.error(err.message || 'Login failed. Please check credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickLogin = async (roleEmail, targetRole) => {
-    setEmail(roleEmail);
-    setPassword('password123');
-    setLoading(true);
-    try {
-      const loggedUser = await login(roleEmail, 'password123');
-      toast.success(`Logged in as ${loggedUser?.role || targetRole}`);
-      navigate(routeForRole(loggedUser?.role || targetRole));
-    } catch (err) {
-      toast.error(err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -101,21 +85,11 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Metric widget */}
           <div className="relative z-10 bg-slate-800/80 backdrop-blur-md rounded-2xl p-4 border border-slate-700/60 my-6">
-            <div className="flex items-center justify-between text-xs mb-2">
-              <span className="text-slate-400 font-medium">Resolution Velocity (Last 24h)</span>
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                +18.4% faster
-              </span>
-            </div>
-            <div className="h-10 flex items-center mb-2">
-              <Sparkline data={[12, 18, 15, 24, 28, 38, 46]} color="#10b981" height={36} />
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-700/60 pt-2">
-              <span>Triage avg: <strong className="text-white">42m</strong></span>
-              <span>Workorders resolved: <strong className="text-white">1,429</strong></span>
-            </div>
+            <p className="text-sm font-semibold text-white">Sign in with your CivicPulse account</p>
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              Residents can register here. Verifier, authority, and admin accounts are created by a backend administrator.
+            </p>
           </div>
 
           {/* Footer security badges */}
@@ -226,28 +200,6 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
-
-            {/* Quick Demo Switcher Row for testing */}
-            <div className="mt-5 p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <span className="text-slate-500 font-medium text-[11px]">Demo quick access:</span>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { r: 'resident', label: 'Resident', email: 'resident@civicpulse.org' },
-                  { r: 'verifier', label: 'Verifier', email: 'verifier@civicpulse.org' },
-                  { r: 'authority', label: 'Authority', email: 'authority@civicpulse.org' },
-                  { r: 'admin', label: 'Admin', email: 'admin@civicpulse.org' },
-                ].map((item) => (
-                  <button
-                    key={item.r}
-                    type="button"
-                    onClick={() => handleQuickLogin(item.email, item.r)}
-                    className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-300 font-semibold text-[11px] transition-colors shadow-2xs"
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* Register Link Box */}
             <div className="mt-5 p-3.5 bg-blue-50/50 rounded-2xl border border-blue-100 text-center text-xs">

@@ -1,0 +1,288 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R 10 0 R 12 0 R 14 0 R] /Count 6 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 16 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 4411 >>
+stream
+BT /F2 17 Tf 1 0 0 1 48 736.0 Tm (CIVICPULSE API GUIDE) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 714.0 Tm (Endpoints first. Plain-language bullet explanations.) Tj ET
+BT /F2 11 Tf 1 0 0 1 48 679.0 Tm (AUTHENTICATION: HOW THE USERS WORK) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 660.0 Tm (There are four user role types in the code. This is not the number of registered accounts. The) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 648.0 Tm (actual account count depends on the current database; it cannot be determined from the source) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 636.0 Tm (code or this guide.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 619.0 Tm (- resident - the default role for anyone who registers. Can submit, browse and follow reports, and) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 607.0 Tm (  use personal notifications.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 591.0 Tm (- verifier - reviews reports, verifies or rejects them, assigns verified cases, reviews duplicate) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 579.0 Tm (  suggestions, and can list authority users.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 563.0 Tm (- authority - works on assigned cases, moves them to in_progress and resolved, views staff) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 551.0 Tm (  analytics, and can list authority users.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 535.0 Tm (- admin - staff role with broad access, including user listing, duplicate decisions, analytics and) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 523.0 Tm (  hotspot recomputation. Admin accounts are provisioned separately.) Tj ET
+BT /F2 11 Tf 1 0 0 1 48 502.0 Tm (SIGN-IN FLOW) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 483.0 Tm (- Registering creates a resident account only; a submitted role is not used. Email is normalized,) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 471.0 Tm (  passwords are stored as hashes, and duplicate emails are rejected.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 455.0 Tm (- Login checks the email and password, then returns a signed JWT token and user profile. The token) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 443.0 Tm (  lasts 7 days.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 427.0 Tm (- For protected endpoints, send Authorization: Bearer <token>. The backend validates the token and) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 415.0 Tm (  reloads the user and role from the database on each request.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 399.0 Tm (- 401 means the request is unauthenticated \(missing/invalid/expired token\). 403 means signed in,) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 387.0 Tm (  but the role is not allowed.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 371.0 Tm (- Roles are not self-selected at signup. Staff users can be created with the Flask CLI command) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 359.0 Tm (  `flask create-user` and the required role.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 343.0 Tm (- There is no live API route to change a user's role. The OpenAPI document lists PATCH) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 331.0 Tm (  /users/{id}/role, but the Flask app does not register it.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 313.0 Tm (POST /api/v1/auth/register  |  Public) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 300.0 Tm (- Input: name, email, password \(at least 8 characters\), optional area_id. Success: 201 with) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 288.0 Tm (  {token, user}; invalid data: 422; existing email: 409.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 270.0 Tm (POST /api/v1/auth/login  |  Public) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 257.0 Tm (- Input: email and password. Success: 200 with {token, user}; incorrect email or password returns) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 245.0 Tm (  401 with the same message.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 227.0 Tm (GET /api/v1/auth/me  |  Signed-in user) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 214.0 Tm (- Returns the current user's profile from the authenticated token and database.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 196.0 Tm (GET /api/v1/users  |  Verifier, authority, admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 183.0 Tm (- Admins can list users and filter by role. Verifiers and authorities only receive authority) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 171.0 Tm (  users, with email removed. Results are paginated.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 155.0 Tm (- This route does not return an account total. To know how many accounts exist, count records in) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 143.0 Tm (  the users table or add a dedicated count/reporting route.) Tj ET
+0.5 w
+48 39 m 564 39 l S
+BT /F1 8 Tf 1 0 0 1 48 25 Tm (CivicPulse API guide | Current backend behavior) Tj ET
+BT /F1 8 Tf 1 0 0 1 518 25 Tm (1) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 16 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 3262 >>
+stream
+BT /F2 11 Tf 1 0 0 1 48 731.0 Tm (REFERENCE DATA) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 710.0 Tm (GET /api/v1/categories  |  Public) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 697.0 Tm (- Returns available report categories and icons. The IDs are used by report submission.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 679.0 Tm (GET /api/v1/areas  |  Public) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 666.0 Tm (- Returns area IDs and names. A report is assigned an area only if its location falls inside a) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 654.0 Tm (  configured area boundary.) Tj ET
+BT /F2 11 Tf 1 0 0 1 48 633.0 Tm (REPORT CREATION AND DISCOVERY) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 612.0 Tm (POST /api/v1/reports  |  Signed-in user) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 599.0 Tm (- Send multipart form fields: category_id, lat, lon, photo \(JPEG or PNG required\), and optional) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 587.0 Tm (  description \(maximum 500 characters\).) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 571.0 Tm (- The API validates the category, coordinates and actual image signature; stores the photo; saves) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 559.0 Tm (  the report as reported; and records its first status event.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 543.0 Tm (- After saving, it queues optional AI processing. The resident gets the saved report without) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 531.0 Tm (  waiting for AI. Queue failure does not undo the report.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 513.0 Tm (GET /api/v1/reports  |  Signed-in user) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 500.0 Tm (- Returns a paginated list, newest first. Filters: bbox, category_id, area_id, status, mine=true,) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 488.0 Tm (  following=true, include_duplicates=true.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 472.0 Tm (- Merged duplicates are hidden by default and represented by their parent case. Page size defaults) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 460.0 Tm (  to 50 and is capped at 200.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 442.0 Tm (GET /api/v1/reports/{id}  |  Signed-in user) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 429.0 Tm (- Returns one report: category, status, coordinates, photo URL, creator/assignee IDs, due date,) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 417.0 Tm (  duplicate count/link, AI suggestion if present, and current user's following flag.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 399.0 Tm (POST /api/v1/reports/{id}/follow  |  Signed-in user) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 386.0 Tm (- Follows the report so the user can receive its updates. Safe to repeat; returns 204.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 368.0 Tm (DELETE /api/v1/reports/{id}/follow  |  Signed-in user) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 355.0 Tm (- Stops following the report. Safe when already unfollowed; returns 204.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 337.0 Tm (GET /uploads/{path}  |  Public; outside /api/v1) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 324.0 Tm (- Serves a saved report photo. Report responses provide the photo_url used to request it.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 308.0 Tm (- Coordinates in API responses use {lat, lon}; PostGIS storage writes points as longitude then) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 296.0 Tm (  latitude.) Tj ET
+0.5 w
+48 39 m 564 39 l S
+BT /F1 8 Tf 1 0 0 1 48 25 Tm (CivicPulse API guide | Current backend behavior) Tj ET
+BT /F1 8 Tf 1 0 0 1 518 25 Tm (2) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 16 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 2855 >>
+stream
+BT /F2 11 Tf 1 0 0 1 48 731.0 Tm (REPORT WORKFLOW) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 712.0 Tm (Normal path: reported -> verified -> assigned -> in_progress -> resolved. A verifier or admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 700.0 Tm (can reject a reported case instead. Rejected and resolved are final states.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 681.0 Tm (PATCH /api/v1/reports/{id}/status  |  Verifier, authority, admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 668.0 Tm (- JSON input: {status, note?}. Verifier/admin can verify or reject; rejecting requires a reason.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 652.0 Tm (- Only the assigned authority or an admin can move assigned -> in_progress -> resolved. Use the) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 640.0 Tm (  assign endpoint to enter assigned.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 624.0 Tm (- Each accepted change updates the report and adds a status-history event; interested users are) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 612.0 Tm (  notified in the same transaction.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 596.0 Tm (- Invalid transition returns 409. A merged duplicate cannot be changed directly; update its parent) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 584.0 Tm (  case.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 566.0 Tm (POST /api/v1/reports/{id}/assign  |  Verifier, authority, admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 553.0 Tm (- JSON input: {assignee_id, due_date?}. The selected user must have the authority role; due_date) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 541.0 Tm (  must be YYYY-MM-DD and not in the past.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 525.0 Tm (- Assigning a verified report moves it to assigned and records the assignee/due date. An assigned) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 513.0 Tm (  but not started report can be reassigned; in-progress work cannot.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 497.0 Tm (- Assignment is part of the workflow: it records an event and creates notifications for the new) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 485.0 Tm (  assignee and, when reassigned, the former assignee.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 467.0 Tm (GET /api/v1/reports/{id}/history  |  Signed-in user) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 454.0 Tm (- Returns status events in time order, including who changed the status and any note. Used as the) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 442.0 Tm (  case audit trail and to calculate resolution time.) Tj ET
+BT /F2 11 Tf 1 0 0 1 48 421.0 Tm (WHO CAN CHANGE STATUS?) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 402.0 Tm (- reported -> verified or rejected: verifier/admin.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 386.0 Tm (- verified -> assigned: verifier/authority/admin, through POST /assign.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 370.0 Tm (- assigned -> in_progress -> resolved: assigned authority or admin.) Tj ET
+0.5 w
+48 39 m 564 39 l S
+BT /F1 8 Tf 1 0 0 1 48 25 Tm (CivicPulse API guide | Current backend behavior) Tj ET
+BT /F1 8 Tf 1 0 0 1 518 25 Tm (3) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 16 0 R >> >> /Contents 11 0 R >>
+endobj
+11 0 obj
+<< /Length 2873 >>
+stream
+BT /F2 11 Tf 1 0 0 1 48 731.0 Tm (DUPLICATE REVIEW) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 712.0 Tm (AI produces suggestions; a human verifier/admin decides whether reports are actually the same) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 700.0 Tm (case. A merge does not delete the child report.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 681.0 Tm (GET /api/v1/reports/{id}/duplicates  |  Verifier, admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 668.0 Tm (- Returns saved candidate matches, highest score first, with reasons. Suggestions only exist after) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 656.0 Tm (  the duplicate AI hook has run successfully.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 638.0 Tm (POST /api/v1/reports/{id}/merge  |  Verifier, admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 625.0 Tm (- JSON input: {parent_id}. The path ID is the duplicate; parent_id is the main report to keep as) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 613.0 Tm (  the case.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 597.0 Tm (- Only reported/verified children can be merged, and the parent must still be open. Followers and) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 585.0 Tm (  the child's author follow the parent.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 569.0 Tm (- Updates duplicate links and parent report_count, writes an audit note, and alerts the child) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 557.0 Tm (  author. Default report lists then omit the child.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 539.0 Tm (POST /api/v1/reports/{id}/unmerge  |  Verifier, admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 526.0 Tm (- Restores a merged report as its own case, clears the duplicate link, adjusts the parent's count) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 514.0 Tm (  and records an audit note.) Tj ET
+BT /F2 11 Tf 1 0 0 1 48 493.0 Tm (BACKGROUND AI AND JOB QUEUE) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 474.0 Tm (- After report creation: API saves the report -> enqueues process_new_report -> worker can) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 462.0 Tm (  classify the photo and find nearby duplicate candidates -> results are saved for the) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 450.0 Tm (  report/staff review.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 434.0 Tm (- AI hooks are optional configuration. If not configured, classification and duplicate suggestions) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 422.0 Tm (  are skipped; an AI category is not guaranteed.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 406.0 Tm (- Duplicate matching considers eligible older, open, unmerged nearby reports. Hotspot refresh may) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 394.0 Tm (  also run in the background.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 378.0 Tm (- GET /api/v1/health exposes queue status. A growing pending count with no workers points to a) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 366.0 Tm (  worker/Redis issue, not a failed report save.) Tj ET
+0.5 w
+48 39 m 564 39 l S
+BT /F1 8 Tf 1 0 0 1 48 25 Tm (CivicPulse API guide | Current backend behavior) Tj ET
+BT /F1 8 Tf 1 0 0 1 518 25 Tm (4) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 16 0 R >> >> /Contents 13 0 R >>
+endobj
+13 0 obj
+<< /Length 2808 >>
+stream
+BT /F2 11 Tf 1 0 0 1 48 731.0 Tm (NOTIFICATIONS) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 712.0 Tm (The backend creates messages when relevant report actions happen. A user is not notified about) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 700.0 Tm (their own action. Notifications are scoped to the signed-in user.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 681.0 Tm (GET /api/v1/notifications  |  Signed-in user) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 668.0 Tm (- Returns the current user's notifications, newest first. Optional filters: unread=true, page,) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 656.0 Tm (  per_page.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 638.0 Tm (GET /api/v1/notifications/unread-count  |  Signed-in user) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 625.0 Tm (- Returns {count}; intended for the app's unread badge.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 607.0 Tm (POST /api/v1/notifications/{id}/read  |  Signed-in user) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 594.0 Tm (- Marks one of the current user's notifications read. A notification owned by someone else is) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 582.0 Tm (  treated as not found.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 564.0 Tm (POST /api/v1/notifications/read-all  |  Signed-in user) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 551.0 Tm (- Marks all of the current user's notifications read.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 535.0 Tm (- Status changes notify the report author/followers; assignment notifies the assignee;) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 523.0 Tm (  reassignment also notifies the former assignee; merge notifies the child author.) Tj ET
+BT /F2 11 Tf 1 0 0 1 48 502.0 Tm (STAFF ANALYTICS) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 483.0 Tm (All analytics routes below require authority or admin. Counts generally represent cases, so) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 471.0 Tm (merged duplicate children are not counted twice. Trends count every submission, including) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 459.0 Tm (duplicates.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 440.0 Tm (GET /api/v1/analytics/summary  |  Authority, admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 427.0 Tm (- Dashboard totals, open/resolved counts, hotspot count, category/status breakdowns, open cases by) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 415.0 Tm (  area, and average days to resolve. Optional area_id.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 397.0 Tm (GET /api/v1/analytics/categories  |  Authority, admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 384.0 Tm (- Case count for each category, including zero counts. Optional area_id.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 366.0 Tm (GET /api/v1/analytics/statuses  |  Authority, admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 353.0 Tm (- Case count by status for statuses that currently have cases. Optional area_id.) Tj ET
+0.5 w
+48 39 m 564 39 l S
+BT /F1 8 Tf 1 0 0 1 48 25 Tm (CivicPulse API guide | Current backend behavior) Tj ET
+BT /F1 8 Tf 1 0 0 1 518 25 Tm (5) Tj ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 16 0 R >> >> /Contents 15 0 R >>
+endobj
+15 0 obj
+<< /Length 3343 >>
+stream
+BT /F2 11 Tf 1 0 0 1 48 731.0 Tm (ANALYTICS, HOTSPOTS AND SERVICE STATUS) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 710.0 Tm (GET /api/v1/analytics/trends  |  Authority, admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 697.0 Tm (- Daily report submissions in UTC, with zero-count days included. days defaults to 30 and must be) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 685.0 Tm (  between 1 and 365. Duplicate submissions are included.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 667.0 Tm (GET /api/v1/analytics/hotspots  |  Authority, admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 654.0 Tm (- Returns saved geographic clusters, largest first: center, radius, report count, most common) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 642.0 Tm (  category and computation time.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 624.0 Tm (POST /api/v1/analytics/hotspots/recompute  |  Admin) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 611.0 Tm (- Rebuilds clusters on demand. Optional JSON: {eps_m, min_samples}; defaults are 250 metres and 3) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 599.0 Tm (  reports. Background report processing may refresh them automatically too.) Tj ET
+BT /F2 9.4 Tf 1 0 0 1 48 581.0 Tm (GET /api/v1/health  |  Public) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 568.0 Tm (- Checks API/database/PostGIS and reports queue mode/health where available. Useful for diagnosing) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 556.0 Tm (  backend or worker status.) Tj ET
+BT /F2 11 Tf 1 0 0 1 48 535.0 Tm (HOW THE PIECES CONNECT) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 516.0 Tm (- Auth identifies the caller and role. Reports use that identity as creator and gate staff actions) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 504.0 Tm (  by role.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 488.0 Tm (- Report status changes write status_events and trigger notifications; the history endpoint reads) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 476.0 Tm (  that audit trail.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 460.0 Tm (- Follow records decide who receives report updates. Merging moves the child audience to the) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 448.0 Tm (  parent case.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 432.0 Tm (- The worker enriches reports asynchronously with optional AI outputs and may refresh hotspots.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 420.0 Tm (  Staff analytics read persisted reports/events/hotspots.) Tj ET
+BT /F2 11 Tf 1 0 0 1 48 399.0 Tm (API CONVENTIONS AND ACCURACY NOTES) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 380.0 Tm (- Base path is /api/v1 except photo delivery at /uploads/{path}. Protected routes require a bearer) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 368.0 Tm (  token.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 352.0 Tm (- Errors follow {error: {code, message, details}}. Typical meanings: 401 unauthenticated, 403) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 340.0 Tm (  forbidden, 404 missing, 409 conflicting state, 422 invalid input.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 324.0 Tm (- Four role types are defined; the number of actual user accounts is database data. GET /users) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 312.0 Tm (  returns a page, not a total count.) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 296.0 Tm (- PATCH /api/v1/users/{id}/role is documented in OpenAPI but is not registered in the running) Tj ET
+BT /F1 9.2 Tf 1 0 0 1 48 284.0 Tm (  Flask app. Do not present it as available.) Tj ET
+0.5 w
+48 39 m 564 39 l S
+BT /F1 8 Tf 1 0 0 1 48 25 Tm (CivicPulse API guide | Current backend behavior) Tj ET
+BT /F1 8 Tf 1 0 0 1 518 25 Tm (6) Tj ET
+endstream
+endobj
+16 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+xref
+0 17
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000154 00000 n 
+0000000224 00000 n 
+0000000361 00000 n 
+0000004824 00000 n 
+0000004961 00000 n 
+0000008275 00000 n 
+0000008412 00000 n 
+0000011319 00000 n 
+0000011458 00000 n 
+0000014384 00000 n 
+0000014523 00000 n 
+0000017384 00000 n 
+0000017523 00000 n 
+0000020919 00000 n 
+trailer
+<< /Size 17 /Root 1 0 R >>
+startxref
+20995
+%%EOF

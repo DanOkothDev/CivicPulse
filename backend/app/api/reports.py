@@ -3,7 +3,7 @@ import math
 from flask import Blueprint, current_app, jsonify, request, url_for
 from geoalchemy2 import Geography, Geometry
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import and_, cast, func
+from sqlalchemy import and_, cast, func, or_
 from sqlalchemy.orm import joinedload
 
 from ..auth_utils import current_user, login_required
@@ -155,6 +155,16 @@ def list_reports():
         if args['status'] not in STATUSES:
             raise ApiError('validation_error', 'Unknown status', 422, {'allowed': list(STATUSES)})
         q = q.filter(Report.status == args['status'])
+    search = (args.get('search') or '').strip()
+    if search:
+        pattern = f'%{search}%'
+        filters = [
+            Report.description.ilike(pattern),
+            Report.category.has(Category.name.ilike(pattern)),
+        ]
+        if search.isdecimal():
+            filters.append(Report.id == int(search))
+        q = q.filter(or_(*filters))
     if _flag('mine'):
         q = q.filter(Report.created_by == user.id)
     if _flag('following'):

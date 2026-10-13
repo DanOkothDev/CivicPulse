@@ -21,7 +21,7 @@ export default defineConfig({
               res.end(JSON.stringify({
                 error: {
                   code: 'backend_offline',
-                  message: 'CivicPulse backend is not running on localhost:5000. Using frontend mock fallback data.',
+                  message: 'CivicPulse backend is not running on localhost:5000.',
                 },
               }));
             }

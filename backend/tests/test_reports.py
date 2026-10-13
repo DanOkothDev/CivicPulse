@@ -75,6 +75,8 @@ def test_list_filters_and_pagination(client, app, auth):
     page = client.get('/api/v1/reports?mine=true&per_page=1&page=2', headers=auth).json
     assert len(page['items']) == 1 and page['total'] == 2 and page['page'] == 2
     assert ids(client.get('/api/v1/reports?mine=true&status=reported', headers=auth)) == {a, b}
+    assert ids(client.get('/api/v1/reports?mine=true&search=Deep', headers=auth)) == {a, b}
+    assert ids(client.get(f'/api/v1/reports?mine=true&search={a}', headers=auth)) == {a}
     assert client.get('/api/v1/reports?status=bogus', headers=auth).status_code == 422
     assert client.get('/api/v1/reports?bbox=1,2,3', headers=auth).status_code == 422
 

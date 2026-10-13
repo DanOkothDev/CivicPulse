@@ -11,30 +11,25 @@ import {
   Building2,
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { INITIAL_REPORTS } from '../../services/mockData';
 
 export default function LandingPage() {
-  const [reports, setReports] = useState(INITIAL_REPORTS);
+  const [apiHealth, setApiHealth] = useState(null);
+  const [apiError, setApiError] = useState('');
 
   useEffect(() => {
     let isMounted = true;
-    api.reports
-      .list({})
-      .then((res) => {
-        if (isMounted && res?.items?.length) {
-          setReports(res.items);
-        }
+    api.health
+      .check()
+      .then((health) => {
+        if (isMounted) setApiHealth(health);
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (isMounted) setApiError(error.message);
+      });
     return () => {
       isMounted = false;
     };
   }, []);
-
-  const openIssuesCount = reports.filter(
-    (r) => r.status !== 'resolved' && r.status !== 'rejected'
-  ).length;
-  const resolvedIssuesCount = reports.filter((r) => r.status === 'resolved').length;
 
   return (
     <div className="relative overflow-x-hidden">
@@ -58,7 +53,7 @@ export default function LandingPage() {
 
           {/* Subtitle */}
           <p className="text-base sm:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed mb-10 font-normal">
-            A unified municipal intelligence platform. Report potholes, streetlights, and drainage issues in under 30 seconds. Powered by AI duplicate detection and transparent city workflows.
+            A municipal reporting platform for infrastructure issues. Submit a report with its location and photo, then follow its status through the staff workflow. Optional AI integrations can provide duplicate suggestions.
           </p>
 
           {/* Primary Action Buttons */}
@@ -94,55 +89,29 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          {/* Real-time KPI Stats Bar */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mb-16">
-            <div className="p-4 sm:p-5 rounded-2xl backdrop-blur-md bg-white/80 border border-slate-200/80 shadow-xs">
-              <span className="text-2xl sm:text-4xl font-black text-slate-900 block tracking-tight">
-                {reports.length}
-              </span>
-              <span className="text-xs font-semibold text-slate-500 block mt-1">
-                Total City Incidents
-              </span>
-              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mt-1 block">
-                Logged & Tracked
-              </span>
+          <div className="max-w-4xl mx-auto mb-16 p-5 rounded-2xl backdrop-blur-md bg-white/80 border border-slate-200/80 shadow-xs text-left">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  CivicPulse API and database
+                </span>
+                <p className={`text-sm font-bold mt-1 ${apiError ? 'text-rose-600' : 'text-slate-900'}`}>
+                  {apiError
+                    ? 'Backend unavailable'
+                    : apiHealth
+                    ? 'Backend connected'
+                    : 'Checking backend connection...'}
+                </p>
+              </div>
+              {apiHealth && (
+                <div className="text-xs text-slate-600">
+                  <span>PostGIS: {apiHealth.postgis}</span>
+                  <span className="mx-2">•</span>
+                  <span>Queue workers: {apiHealth.queue?.workers ?? 'unknown'}</span>
+                </div>
+              )}
             </div>
-
-            <div className="p-4 sm:p-5 rounded-2xl backdrop-blur-md bg-white/80 border border-slate-200/80 shadow-xs">
-              <span className="text-2xl sm:text-4xl font-black text-amber-600 block tracking-tight">
-                {openIssuesCount}
-              </span>
-              <span className="text-xs font-semibold text-slate-500 block mt-1">
-                Active in Pipeline
-              </span>
-              <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mt-1 block">
-                Verification / Dispatch
-              </span>
-            </div>
-
-            <div className="p-4 sm:p-5 rounded-2xl backdrop-blur-md bg-white/80 border border-slate-200/80 shadow-xs">
-              <span className="text-2xl sm:text-4xl font-black text-emerald-600 block tracking-tight">
-                {resolvedIssuesCount || 1}
-              </span>
-              <span className="text-xs font-semibold text-slate-500 block mt-1">
-                Verified Repairs
-              </span>
-              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mt-1 block">
-                Photo Closed
-              </span>
-            </div>
-
-            <div className="p-4 sm:p-5 rounded-2xl backdrop-blur-md bg-white/80 border border-slate-200/80 shadow-xs">
-              <span className="text-2xl sm:text-4xl font-black text-indigo-600 block tracking-tight">
-                6 Wards
-              </span>
-              <span className="text-xs font-semibold text-slate-500 block mt-1">
-                Active Coverage
-              </span>
-              <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mt-1 block">
-                Connected
-              </span>
-            </div>
+            {apiError && <p className="text-xs text-rose-600 mt-2">{apiError}</p>}
           </div>
 
           {/* Workflow Pipeline Container */}
@@ -164,7 +133,7 @@ export default function LandingPage() {
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Live Progress Tracking
+                    Workflow Overview
                   </span>
                 </div>
               </div>
@@ -183,7 +152,7 @@ export default function LandingPage() {
                     Residents Reporting Issues
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Snaps geo-tagged photo of road fissures or water leaks with sub-meter GPS lock.
+                    Submits a photo, location, category, and description for an infrastructure issue.
                   </p>
                 </div>
 
@@ -196,10 +165,10 @@ export default function LandingPage() {
                     Stage 02
                   </span>
                   <h3 className="text-sm font-bold text-slate-900 mb-1.5">
-                    AI Verification
+                    Optional Background Processing
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Machine learning groups duplicate reports within 200m and auto-classifies category.
+                    If configured, background integrations can classify reports and suggest possible duplicates.
                   </p>
                 </div>
 
@@ -215,7 +184,7 @@ export default function LandingPage() {
                     Authorities Responding
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Public Works workorders assigned to field crews with active SLA countdown timers.
+                    Authorized staff assign verified reports to authority users and may set a due date.
                   </p>
                 </div>
 
@@ -231,7 +200,7 @@ export default function LandingPage() {
                     Community Improvements
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Defect repaired, photo audit verified, and neighborhood followers notified instantly.
+                    Staff update the report status, and the author and followers receive in-app notifications.
                   </p>
                 </div>
               </div>

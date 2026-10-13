@@ -1,89 +1,60 @@
 import React, { useState, useEffect } from 'react';
-import {
-  User,
-  Phone,
-  MapPin,
-  CheckCircle2,
-  FileText,
-  Settings,
-  Bell,
-  Save,
-} from 'lucide-react';
+import { User, CheckCircle2, FileText, Settings, MapPin } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { api } from '../../services/api';
 import ReportCard from '../../components/ui/ReportCard';
 import StatisticCard from '../../components/ui/StatisticCard';
+import EmptyState from '../../components/ui/EmptyState';
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
 
 export default function ResidentProfilePage() {
   const { user } = useAuth();
   const toast = useToast();
-
   const [activeTab, setActiveTab] = useState('overview');
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Profile editable fields
-  const [name, setName] = useState(user?.name || '');
-  const [phone, setPhone] = useState(user?.phone || '');
-  const [notificationEmail, setNotificationEmail] = useState(true);
-  const [notificationPush, setNotificationPush] = useState(true);
-
   useEffect(() => {
-    if (user?.name) setName(user.name);
-    if (user?.phone) setPhone(user.phone);
-  }, [user]);
-
-  useEffect(() => {
-    api.reports.list({ mine: true }).then((res) => {
-      setReports(res.items || []);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    let mounted = true;
+    api.reports
+      .list({ mine: true })
+      .then((response) => {
+        if (mounted) setReports(response.items || []);
+      })
+      .catch((error) => {
+        if (mounted) toast.error(`Could not load your reports: ${error.message}`);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const handleSaveSettings = (e) => {
-    e.preventDefault();
-    toast.success('Resident profile settings updated successfully');
-  };
+  const resolvedCount = reports.filter((report) => report.status === 'resolved').length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Profile Header */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
-          <img
-            src={
-              user?.avatar ||
-              'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256'
-            }
-            alt={name}
-            className="w-20 h-20 rounded-2xl object-cover ring-4 ring-blue-500/20 shadow-md"
-          />
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-extrabold text-slate-900">{name}</h1>
-              <span className="bg-blue-50 text-blue-700 text-xs font-bold px-2.5 py-0.5 rounded-full capitalize">
-                {user?.role || 'Resident'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-1 flex items-center gap-3">
-              <span>{user?.email || 'resident@civicpulse.co.ke'}</span>
-              <span>•</span>
-              <span className="flex items-center gap-1 text-slate-700 font-medium">
-                <MapPin className="w-3.5 h-3.5 text-blue-600" />
-                <span>Ward 4 - Eastleigh North</span>
-              </span>
-            </p>
-          </div>
+      <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm flex items-center gap-5">
+        <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
+          <User className="w-8 h-8" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900">{user?.name}</h1>
+          <p className="text-xs text-slate-500 mt-1">{user?.email}</p>
+          <span className="inline-block mt-2 bg-blue-50 text-blue-700 text-xs font-bold px-2.5 py-0.5 rounded-full capitalize">
+            {user?.role}
+          </span>
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-1">
         {[
-          { id: 'overview', label: 'Personal Info & Stats', icon: User },
+          { id: 'overview', label: 'Account Overview', icon: User },
           { id: 'reports', label: `My Reports (${reports.length})`, icon: FileText },
-          { id: 'settings', label: 'Preferences & Settings', icon: Settings },
+          { id: 'settings', label: 'Settings', icon: Settings },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -100,128 +71,72 @@ export default function ResidentProfilePage() {
         ))}
       </div>
 
-      {/* Tab 1: Overview & Stats */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <StatisticCard
               title="Submitted Reports"
-              value={String(reports.length || 28)}
-              subtext="Total"
-              badgeText="Logged"
-              badgeType="success"
-              icon={CheckCircle2}
+              value={String(reports.length)}
+              subtext="From the backend"
+              badgeText="My account"
+              badgeType="primary"
+              icon={FileText}
             />
             <StatisticCard
-              title="Resolved Cases"
-              value={String(reports.filter(r => r.status === 'resolved').length || 19)}
-              subtext="Fixed"
-              badgeText="Completed"
-              badgeType="primary"
+              title="Resolved Reports"
+              value={String(resolvedCount)}
+              subtext="Current status"
+              badgeText="From the backend"
+              badgeType="success"
               icon={CheckCircle2}
             />
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-slate-900">
-              Verified Resident Profile Data
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <h2 className="text-sm font-bold text-slate-900">Account details</h2>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="text-slate-400 block mb-1">Citizen Member ID</span>
-                <span className="font-mono font-bold text-slate-800">#CP-8842-D4-2021</span>
+                <dt className="text-slate-400 mb-1">User ID</dt>
+                <dd className="font-mono font-bold text-slate-800">{user?.id}</dd>
               </div>
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="text-slate-400 block mb-1">Assigned Electoral Ward</span>
-                <span className="font-bold text-slate-800">Ward 4 - Eastleigh North</span>
+                <dt className="text-slate-400 mb-1">Role</dt>
+                <dd className="font-bold text-slate-800 capitalize">{user?.role}</dd>
               </div>
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="text-slate-400 block mb-1">Account Role</span>
-                <span className="font-bold text-slate-800 capitalize">{user?.role || 'Resident'} Account</span>
+                <dt className="text-slate-400 mb-1">Service area ID</dt>
+                <dd className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                  {user?.area_id ?? 'No area assigned'}
+                </dd>
               </div>
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="text-slate-400 block mb-1">Active Watchlist Incidents</span>
-                <span className="font-bold text-blue-600">14 Followed Incidents</span>
-              </div>
-            </div>
+            </dl>
           </div>
         </div>
       )}
 
-      {/* Tab 2: My Reports */}
       {activeTab === 'reports' && (
         <div className="space-y-4">
-          {reports.map((report) => (
-            <ReportCard key={report.id} report={report} />
-          ))}
+          {loading ? (
+            <LoadingSkeleton count={2} type="card" />
+          ) : reports.length ? (
+            reports.map((report) => <ReportCard key={report.id} report={report} />)
+          ) : (
+            <EmptyState
+              title="No reports yet"
+              description="Reports submitted by this account will appear here."
+            />
+          )}
         </div>
       )}
 
-      {/* Tab 3: Settings */}
       {activeTab === 'settings' && (
-        <form onSubmit={handleSaveSettings} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6">
-          <h3 className="text-sm font-bold text-slate-900">
-            Account Preferences & Notifications
-          </h3>
-
-          <div className="space-y-4 max-w-lg">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Display Name
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-blue-600"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Phone Number
-              </label>
-              <input
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-blue-600"
-              />
-            </div>
-
-            <div className="pt-2 space-y-3">
-              <label className="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={notificationEmail}
-                  onChange={(e) => setNotificationEmail(e.target.checked)}
-                  className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
-                />
-                <span>Email dispatch status alerts when reports are verified or resolved</span>
-              </label>
-
-              <label className="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={notificationPush}
-                  onChange={(e) => setNotificationPush(e.target.checked)}
-                  className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
-                />
-                <span>In-app push notifications for high-priority emergency municipal broadcasts</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 flex justify-end">
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-sm transition-colors flex items-center gap-2"
-            >
-              <Save className="w-4 h-4" />
-              <span>Save Preferences</span>
-            </button>
-          </div>
-        </form>
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-900">Account settings</h2>
+          <p className="text-xs text-slate-500 mt-2">
+            The backend does not currently provide profile editing or notification-preference endpoints.
+          </p>
+        </div>
       )}
     </div>
   );

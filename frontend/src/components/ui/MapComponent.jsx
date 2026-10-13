@@ -216,7 +216,7 @@ export default function MapComponent({
       circle.bindPopup(`
         <div style="font-family: Inter, sans-serif; font-size: 12px;">
           <b style="color: #ef4444;">Hotspot Cluster #${spot.id}</b><br/>
-          <span>${spot.name || 'DBSCAN Density Cluster'}</span><br/>
+          <span>${spot.top_category || `Hotspot #${spot.id}`}</span><br/>
           <span>Reports in radius: <b>${spot.report_count}</b></span>
         </div>
       `);

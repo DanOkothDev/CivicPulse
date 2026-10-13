@@ -36,13 +36,15 @@ export default function AuthorityDashboardPage() {
     setLoading(true);
     try {
       const res = await api.reports.list();
-      // Filter for items relevant to field crew (assigned or in_progress)
+      // Reports are shared across staff, so only show this authority's assignments.
       const fieldWork = (res.items || []).filter(
-        (r) => r.status === 'assigned' || r.status === 'in_progress' || r.status === 'resolved'
+        (r) =>
+          r.assigned_to === user?.id &&
+          ['assigned', 'in_progress', 'resolved'].includes(r.status)
       );
       setAssignedReports(fieldWork);
-    } catch {
-      toast.error('Failed to load assigned workorders');
+    } catch (error) {
+      toast.error(`Could not load assigned work orders: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -67,7 +69,7 @@ export default function AuthorityDashboardPage() {
     try {
       await api.reports.updateStatus(selectedReport.id, {
         status: newStatus,
-        note: statusNote || `Status updated to ${newStatus} by field crew ${user?.name || 'Alex Chen'}.`,
+        note: statusNote || `Status updated to ${newStatus} by ${user?.name || 'the assigned authority'}.`,
       });
       toast.success(`Workorder #${selectedReport.id} transitioned to ${newStatus}!`);
       setStatusModalOpen(false);
@@ -95,10 +97,12 @@ export default function AuthorityDashboardPage() {
     },
     {
       header: 'Location',
-      accessor: 'address',
+      accessor: 'location',
       render: (r) => (
         <span className="text-xs text-slate-700 font-medium truncate max-w-[180px] block">
-          {r.address || 'Ward 4'}
+          {r.location
+            ? `${r.location.lat.toFixed(4)}, ${r.location.lon.toFixed(4)}`
+            : 'Location unavailable'}
         </span>
       ),
     },
@@ -169,7 +173,7 @@ export default function AuthorityDashboardPage() {
 
         <div className="bg-blue-50 border border-blue-200 text-blue-900 rounded-2xl px-4 py-2 text-xs font-bold flex items-center gap-2">
           <Building2 className="w-4 h-4 text-blue-600" />
-          <span>Active Field Unit: Crew 4B (Rapid Response)</span>
+          <span>Signed in as {user?.name || 'Authority'}</span>
         </div>
       </div>
 
@@ -177,9 +181,9 @@ export default function AuthorityDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatisticCard
           title="Assigned Workorders"
-          value={assignedReports.length}
-          subtext="Active"
-          badgeText="Crew Queue"
+          value={assignedReports.filter((r) => r.status === 'assigned').length}
+          subtext="Awaiting work"
+          badgeText="Assigned"
           badgeType="primary"
           icon={Wrench}
         />
@@ -187,27 +191,27 @@ export default function AuthorityDashboardPage() {
           title="In Progress Now"
           value={assignedReports.filter(r => r.status === 'in_progress').length}
           subtext="Under Repair"
-          badgeText="Field Crew Deployed"
+          badgeText="In progress"
           badgeType="warning"
           icon={Clock}
           iconBg="bg-amber-50 text-amber-600"
         />
         <StatisticCard
-          title="Completed This Week"
+          title="Resolved Workorders"
           value={assignedReports.filter(r => r.status === 'resolved').length}
           subtext="Closed"
-          badgeText="100% SLA Compliance"
+          badgeText="Resolved"
           badgeType="success"
           icon={CheckCircle2}
           iconBg="bg-emerald-50 text-emerald-600"
         />
         <StatisticCard
-          title="Avg Dispatch Velocity"
-          value="42"
-          subtext="Min"
-          badgeText="+18.4% faster"
-          badgeType="success"
-          icon={ShieldAlert}
+          title="With Due Date"
+          value={assignedReports.filter((r) => r.due_date).length}
+          subtext="Assigned work"
+          badgeText="Scheduled"
+          badgeType="primary"
+          icon={Calendar}
         />
       </div>
 

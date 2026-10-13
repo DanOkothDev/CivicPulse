@@ -5,7 +5,7 @@ Flask API for CivicPulse. The full contract is in `openapi.yaml`: build to match
 ## Status
 
 **Working now:** project setup, database schema, authentication and roles, report submission with photos, report listing with filters, following reports, status workflow with history, assignment, the authority list, duplicate suggestions and merging, notifications, background job queue and worker.
-**Next:** connecting Teammate 3's real AI functions (Task 20), then analytics endpoints.
+**Optional/in progress:** connecting the AI classifier and duplicate detector (Task 20). Analytics endpoints are implemented; AI processing is optional and does not block report submission.
 
 | Task | What | State |
 |---|---|---|
@@ -31,7 +31,9 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 |---|---|---|---|
 | GET | `/health` | Anyone | Checks the app, database and PostGIS |
 | GET | `/categories` | Anyone | The six report categories |
+| POST | `/categories` | Admin | Create a report category |
 | GET | `/areas` | Anyone | Areas (wards or zones) |
+| POST | `/areas` | Admin | Create an area |
 | POST | `/auth/register` | Anyone | Create a resident account. Returns `{token, user}` |
 | POST | `/auth/login` | Anyone | Log in. Returns `{token, user}` |
 | GET | `/auth/me` | Logged in | The current user |
@@ -54,15 +56,10 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 | GET | `/analytics/categories`, `/analytics/statuses` | Authority, admin | The same counts as lists (optional `?area_id=`) |
 | GET | `/analytics/trends` | Authority, admin | Reports submitted per day (`?days=1..365`, default 30) |
 | GET | `/users` | Verifier, authority, admin | List users. Admins can filter any `role`; others only get authority users, without emails |
+| PATCH | `/users/{id}/role` | Admin | Change a user's role |
 | POST | `/reports/{id}/follow` | Logged in | Follow a report (safe to repeat) |
 | DELETE | `/reports/{id}/follow` | Logged in | Stop following |
 | GET | `/uploads/{path}` | Anyone | Serves saved photos (no `/api/v1` prefix) |
-
-### Not built yet (in `openapi.yaml`)
-
-| Method | Path | Task |
-|---|---|---|
-| PATCH | `/users/{id}/role` | Admin tools |
 
 ### Status rules
 
@@ -123,7 +120,7 @@ Registering always creates a **resident**; any `role` sent is ignored.
 
 The report starts as `reported` and gets its first status event. If an area has a boundary drawn, the report is placed in that area automatically.
 
-**List reports** (query parameters, all optional): `bbox` (`min_lon,min_lat,max_lon,max_lat`), `category_id`, `status`, `area_id`, `mine=true`, `following=true`, `include_duplicates=true`, `page`, `per_page` (default 50, max 200). Duplicates are hidden by default and counted in their parent's `report_count`. The response is `{items, page, per_page, total}`.
+**List reports** (query parameters, all optional): `bbox` (`min_lon,min_lat,max_lon,max_lat`), `category_id`, `status`, `area_id`, `search` (report description, category, or exact report id), `mine=true`, `following=true`, `include_duplicates=true`, `page`, `per_page` (default 50, max 200). Duplicates are hidden by default and counted in their parent's `report_count`. The response is `{items, page, per_page, total}`.
 
 ## Run it
 
@@ -138,7 +135,7 @@ Use Python 3.12 or 3.13. Commands are for Windows PowerShell.
 6. Create your first admin: `flask --app wsgi create-user --name "Your Name" --email you@example.com --role admin`
 7. Start the server: `flask --app wsgi run`
 8. Check it: open http://localhost:5000/api/v1/health (should show `"status": "ok"` and the PostGIS version)
-9. Run the tests: `pytest` (63 tests; they need the database running and seeded)
+9. Run the endpoint and service tests: `pytest`
 
 Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break GeoAlchemy2.
 

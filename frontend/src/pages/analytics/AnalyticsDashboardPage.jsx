@@ -3,7 +3,6 @@ import {
   BarChart3,
   Flame,
   Clock,
-  CheckCircle2,
   AlertTriangle,
   MapPin,
   TrendingUp,
@@ -39,8 +38,8 @@ export default function AnalyticsDashboardPage() {
       setSummary(sum);
       setHotspots(spots);
       setAreas(a);
-    } catch {
-      toast.error('Failed to load municipal analytics');
+    } catch (error) {
+      toast.error(`Could not load municipal analytics: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -67,22 +66,20 @@ export default function AnalyticsDashboardPage() {
   // Transform data for charts
   const statusChartData = summary
     ? [
-        { label: 'Reported', value: summary.by_status?.reported || 1, color: 'bg-amber-500' },
-        { label: 'Verified', value: summary.by_status?.verified || 2, color: 'bg-blue-600' },
-        { label: 'Assigned', value: summary.by_status?.assigned || 2, color: 'bg-purple-600' },
-        { label: 'In Progress', value: summary.by_status?.in_progress || 3, color: 'bg-orange-500' },
-        { label: 'Resolved', value: summary.by_status?.resolved || 24, color: 'bg-emerald-500' },
+        { label: 'Reported', value: summary.by_status?.reported ?? 0, color: 'bg-amber-500' },
+        { label: 'Verified', value: summary.by_status?.verified ?? 0, color: 'bg-blue-600' },
+        { label: 'Assigned', value: summary.by_status?.assigned ?? 0, color: 'bg-purple-600' },
+        { label: 'In Progress', value: summary.by_status?.in_progress ?? 0, color: 'bg-orange-500' },
+        { label: 'Resolved', value: summary.by_status?.resolved ?? 0, color: 'bg-emerald-500' },
       ]
     : [];
 
   const categoryDonutData = summary
-    ? [
-        { label: 'Pothole', value: summary.by_category?.['Pothole / Roadway'] || 12, color: '#3b82f6' },
-        { label: 'Water Leak', value: summary.by_category?.['Water Main Leak'] || 6, color: '#06b6d4' },
-        { label: 'Drainage', value: summary.by_category?.['Stormwater Drainage'] || 5, color: '#10b981' },
-        { label: 'Streetlight', value: summary.by_category?.['Streetlight & Power'] || 4, color: '#f59e0b' },
-        { label: 'Garbage', value: summary.by_category?.['Solid Waste & Garbage'] || 3, color: '#8b5cf6' },
-      ]
+    ? Object.entries(summary.by_category || {}).map(([label, value], index) => ({
+        label,
+        value,
+        color: ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'][index % 6],
+      }))
     : [];
 
   return (
@@ -134,7 +131,7 @@ export default function AnalyticsDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatisticCard
           title="Total Lifetime Incidents"
-          value={summary?.total_reports || 32}
+          value={summary?.total_reports ?? 0}
           subtext="Logged"
           badgeText="Citywide Registry"
           badgeType="primary"
@@ -142,10 +139,10 @@ export default function AnalyticsDashboardPage() {
         />
         <StatisticCard
           title="Avg Days to Resolution"
-          value={`${summary?.avg_days_to_resolve || 3.8}d`}
+          value={summary?.avg_days_to_resolve == null ? '—' : `${summary.avg_days_to_resolve}d`}
           subtext="Velocity"
-          badgeText="SLA Compliant"
-          badgeType="success"
+          badgeText="Resolved reports only"
+          badgeType="primary"
           icon={Clock}
         />
         <StatisticCard
@@ -158,12 +155,12 @@ export default function AnalyticsDashboardPage() {
           iconBg="bg-rose-50 text-rose-600"
         />
         <StatisticCard
-          title="AI Classification Rate"
-          value={`${summary?.precision_rate || 96.4}%`}
-          subtext="Precision"
-          badgeText="Top Precision"
-          badgeType="success"
-          icon={CheckCircle2}
+          title="Open Incidents"
+          value={summary?.open_reports ?? 0}
+          subtext="Not resolved or rejected"
+          badgeText="Current Cases"
+          badgeType="warning"
+          icon={AlertTriangle}
         />
       </div>
 
@@ -206,8 +203,10 @@ export default function AnalyticsDashboardPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-1 mb-0.5">
-                  <h4 className="text-xs font-bold text-slate-900 truncate">{spot.name}</h4>
-                  <span className="text-[10px] font-bold text-rose-600">{spot.severity}</span>
+                  <h4 className="text-xs font-bold text-slate-900 truncate">
+                    {spot.top_category || `Hotspot #${spot.id}`}
+                  </h4>
+                  <span className="text-[10px] font-bold text-rose-600">DBSCAN</span>
                 </div>
                 <p className="text-[11px] text-slate-500">
                   {spot.report_count} Reports • Radius: {spot.radius_m}m
