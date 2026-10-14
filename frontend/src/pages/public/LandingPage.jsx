@@ -53,7 +53,7 @@ export default function LandingPage() {
 
           {/* Subtitle */}
           <p className="text-base sm:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed mb-10 font-normal">
-            A municipal reporting platform for infrastructure issues. Submit a report with its location and photo, then follow its status through the staff workflow. Optional AI integrations can provide duplicate suggestions.
+            A municipal reporting platform for infrastructure issues. Submit a report with its location and photo, then follow its status through the staff workflow. Nearby duplicate reports are flagged for review.
           </p>
 
           {/* Primary Action Buttons */}

@@ -77,7 +77,7 @@ export default function ResidentProfilePage() {
             <StatisticCard
               title="Submitted Reports"
               value={String(reports.length)}
-              subtext="From the backend"
+              subtext="Reports submitted"
               badgeText="My account"
               badgeType="primary"
               icon={FileText}
@@ -85,8 +85,8 @@ export default function ResidentProfilePage() {
             <StatisticCard
               title="Resolved Reports"
               value={String(resolvedCount)}
-              subtext="Current status"
-              badgeText="From the backend"
+              subtext="Completed to date"
+              badgeText="Resolved"
               badgeType="success"
               icon={CheckCircle2}
             />
@@ -134,7 +134,7 @@ export default function ResidentProfilePage() {
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
           <h2 className="text-sm font-bold text-slate-900">Account settings</h2>
           <p className="text-xs text-slate-500 mt-2">
-            The backend does not currently provide profile editing or notification-preference endpoints.
+            Profile editing and notification preferences are not available yet.
           </p>
         </div>
       )}

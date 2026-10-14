@@ -184,7 +184,7 @@ export default function AdminDashboardPage() {
     setRecomputing(true);
     try {
       const res = await api.analytics.recomputeHotspots({ eps_m: 250, min_samples: 3 });
-      toast.success(`DBSCAN clustering complete! Found ${res.clusters_created} active spatial clusters.`);
+      toast.success(`Hotspot update complete. Found ${res.clusters_created} active areas.`);
     } catch (err) {
       toast.error(err.message || 'Clustering recompute failed');
     } finally {
@@ -397,7 +397,7 @@ export default function AdminDashboardPage() {
             onClick={handleRecomputeHotspots}
             disabled={recomputing}
             className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs text-xs font-bold px-3 py-2 rounded-2xl flex items-center gap-2 transition-all"
-            title="Trigger DBSCAN spatial clustering (Section 9 of PDF)"
+            title="Refresh hotspot analysis"
           >
             {recomputing ? (
               <RefreshCw className="w-3.5 h-3.5 text-blue-600 animate-spin" />
@@ -647,7 +647,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
               <Activity className="w-4 h-4 text-blue-600" />
               <h3 className="text-sm font-bold text-slate-900">
-                Strict Status Progression Workflow (Section 6 of Overview)
+                Report status workflow
               </h3>
             </div>
 
@@ -674,13 +674,13 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* DBSCAN Hotspots Clustering Engine */}
+          {/* Hotspot analysis */}
           <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Flame className="w-4 h-4 text-orange-500" />
                 <h3 className="text-sm font-bold text-slate-900">
-                  DBSCAN Spatial Hotspot Clustering (POST /analytics/hotspots/recompute)
+                  Update hotspot analysis
                 </h3>
               </div>
               <button
@@ -696,19 +696,19 @@ export default function AdminDashboardPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
-                <span className="font-bold text-slate-700 block mb-1">Clustering Radius (eps_m)</span>
+                <span className="font-bold text-slate-700 block mb-1">Search radius</span>
                 <span className="text-lg font-mono font-bold text-slate-900">250 meters</span>
-                <p className="text-[11px] text-slate-500 mt-1">Spatial density threshold for incident correlation.</p>
+                <p className="text-[11px] text-slate-500 mt-1">Nearby reports are considered together.</p>
               </div>
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
-                <span className="font-bold text-slate-700 block mb-1">Density Threshold (min_samples)</span>
+                <span className="font-bold text-slate-700 block mb-1">Minimum reports</span>
                 <span className="text-lg font-mono font-bold text-slate-900">3 reports</span>
                 <p className="text-[11px] text-slate-500 mt-1">Minimum incidents required to classify a civic hotspot.</p>
               </div>
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
-                <span className="font-bold text-slate-700 block mb-1">Spatial Indexing</span>
-                <span className="text-lg font-mono font-bold text-slate-900">PostGIS GiST</span>
-                <p className="text-[11px] text-slate-500 mt-1">Geography points and polygons with spatial indexes.</p>
+                <span className="font-bold text-slate-700 block mb-1">Location mapping</span>
+                <span className="text-lg font-mono font-bold text-slate-900">Enabled</span>
+                <p className="text-[11px] text-slate-500 mt-1">Reports and service areas are organized by location.</p>
               </div>
             </div>
           </div>

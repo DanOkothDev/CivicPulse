@@ -65,41 +65,55 @@ def find_duplicates(
     """
 
     duplicates = []
+    report_id = report.get("id", report.get("seed_id"))
+    report_lat = report.get("lat", report.get("latitude"))
+    report_lon = report.get("lon", report.get("longitude"))
 
     for other_report in all_reports:
-
-        # Do not compare the report with itself.
-        if other_report["seed_id"] == report["seed_id"]:
+        other_id = other_report.get("id", other_report.get("seed_id"))
+        if other_id == report_id:
             continue
 
-        # Different categories are not duplicates.
-        if other_report["category"] != report["category"]:
+        report_category_id = report.get("category_id")
+        other_category_id = other_report.get("category_id")
+        if report_category_id is not None and other_category_id is not None:
+            same_category = report_category_id == other_category_id
+        else:
+            report_category = " ".join(
+                str(report.get("category", "")).lower().replace("_", " ").replace("-", " ").split()
+            )
+            other_category = " ".join(
+                str(other_report.get("category", "")).lower().replace("_", " ").replace("-", " ").split()
+            )
+            same_category = report_category == other_category
+        if not same_category:
             continue
 
+        other_lat = other_report.get("lat", other_report.get("latitude"))
+        other_lon = other_report.get("lon", other_report.get("longitude"))
         distance = calculate_distance(
-            report["latitude"],
-            report["longitude"],
-            other_report["latitude"],
-            other_report["longitude"],
+            report_lat,
+            report_lon,
+            other_lat,
+            other_lon,
         )
 
         if distance <= max_distance:
-
+            location_score = max(0.0, 1 - distance / max_distance) if max_distance else 1.0
             duplicates.append(
                 {
-                    "report_id": other_report["seed_id"],
-                    "distance_meters": round(
-                        distance,
-                        2,
-                    ),
-                    "reason": (
-                        "Same category and "
-                        "within 200m"
-                    ),
+                    "report_id": other_id,
+                    "score": round(location_score, 4),
+                    "reasons": {
+                        "location": round(location_score, 4),
+                        "category": 1.0,
+                        "distance_meters": round(distance, 2),
+                        "reason": f"Same category and within {max_distance:g}m",
+                    },
                 }
             )
 
-    return duplicates
+    return sorted(duplicates, key=lambda match: match["score"], reverse=True)
 
 
 def detect_all_duplicates(
