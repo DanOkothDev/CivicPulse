@@ -6,7 +6,7 @@ from ..auth_utils import current_user, login_required, roles_required
 from ..constants import STATUSES
 from ..errors import ApiError
 from ..extensions import db
-from ..models import Report, StatusEvent, User
+from ..models import Area, Report, StatusEvent, User
 from ..status_flow import change_status, reassign
 from .reports import _one
 
@@ -85,3 +85,24 @@ def assign(report_id):
         change_status(report, 'assigned', user, f'Assigned to {assignee.name}{due_text}',
                       via_assign=True, updates=updates)
     return jsonify(_one(report_id, user.id))
+
+
+@bp.patch('/reports/<int:report_id>/area')
+@roles_required('admin')
+def update_area(report_id):
+    report = _get_report(report_id, lock=True)
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or 'area_id' not in data:
+        raise ApiError('validation_error', 'Send an area_id in a JSON body', 422)
+
+    area_id = data['area_id']
+    if area_id is not None and (
+        not isinstance(area_id, int) or isinstance(area_id, bool) or db.session.get(Area, area_id) is None
+    ):
+        raise ApiError('validation_error', 'Choose a valid area or leave it unassigned', 422, {
+            'area_id': 'Choose a valid area or leave it unassigned',
+        })
+
+    report.area_id = area_id
+    db.session.commit()
+    return jsonify(_one(report_id, current_user().id))

@@ -135,6 +135,13 @@ export const api = {
       });
     },
 
+    updateArea(id, areaId) {
+      return request(`/reports/${id}/area`, {
+        method: 'PATCH',
+        body: JSON.stringify({ area_id: areaId }),
+      });
+    },
+
     follow(id) {
       return request(`/reports/${id}/follow`, { method: 'POST' });
     },
