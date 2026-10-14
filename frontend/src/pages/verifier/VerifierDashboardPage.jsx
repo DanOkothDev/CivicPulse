@@ -285,7 +285,7 @@ export default function VerifierDashboardPage() {
                         <div className="p-2.5 bg-purple-50 rounded-xl border border-purple-200 text-purple-900 flex items-center gap-2">
                           <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
                           <span>
-                            AI Model suggests Category ID #{selectedReport.ai_suggested_category.category_id} ({Math.round(selectedReport.ai_suggested_category.confidence * 100)}% confidence)
+                            Suggested category #{selectedReport.ai_suggested_category.category_id} ({Math.round(selectedReport.ai_suggested_category.confidence * 100)}% confidence)
                           </span>
                         </div>
                       )}
@@ -346,7 +346,7 @@ export default function VerifierDashboardPage() {
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-blue-600" />
                       <h3 className="text-sm font-bold text-slate-900">
-                        AI Duplicate Suggestions (Task 13 Detector)
+                        Possible duplicate reports
                       </h3>
                     </div>
                     <span className="text-xs font-bold text-slate-400">
@@ -356,7 +356,7 @@ export default function VerifierDashboardPage() {
 
                   {duplicates.length === 0 ? (
                     <p className="text-xs text-slate-500 py-3 text-center">
-                      No nearby duplicate candidates found within 200m radius.
+                      No similar reports were found nearby.
                     </p>
                   ) : (
                     <div className="space-y-3">

@@ -53,7 +53,7 @@ export default function AnalyticsDashboardPage() {
     setRecomputing(true);
     try {
       const res = await api.analytics.recomputeHotspots({ eps_m: 250, min_samples: 3 });
-      toast.success(`DBSCAN Clustering completed! Found ${res.clusters_created} cluster(s).`);
+      toast.success(`Hotspot clustering completed. Found ${res.clusters_created} cluster(s).`);
       const spots = await api.analytics.getHotspots();
       setHotspots(spots);
     } catch (err) {
@@ -95,7 +95,7 @@ export default function AnalyticsDashboardPage() {
             Municipal Infrastructure Intelligence
           </h1>
           <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
-            Data insights on recurring infrastructure defects, DBSCAN geographic hotspots, and average resolution velocity.
+            Insights into recurring infrastructure issues, nearby hotspots, and average resolution time.
           </p>
         </div>
 
@@ -108,7 +108,7 @@ export default function AnalyticsDashboardPage() {
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
             >
               <Flame className={`w-3.5 h-3.5 ${recomputing ? 'animate-spin' : ''}`} />
-              <span>{recomputing ? 'Clustering...' : 'Re-run DBSCAN'}</span>
+              <span>{recomputing ? 'Updating hotspots...' : 'Refresh hotspots'}</span>
             </button>
           )}
 
@@ -149,7 +149,7 @@ export default function AnalyticsDashboardPage() {
           title="Active Hotspot Clusters"
           value={hotspots.length}
           subtext="Zones"
-          badgeText="DBSCAN Identified"
+          badgeText="Clustered reports"
           badgeType="warning"
           icon={Flame}
           iconBg="bg-rose-50 text-rose-600"
@@ -164,18 +164,18 @@ export default function AnalyticsDashboardPage() {
         />
       </div>
 
-      {/* Hotspots Section with Leaflet Map Overlay matching Task 21 */}
+      {/* Hotspots map */}
       <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
           <div>
             <div className="flex items-center gap-2">
               <Flame className="w-5 h-5 text-rose-500" />
               <h3 className="text-sm font-bold text-slate-900">
-                DBSCAN Hotspot Clusters (Density Radius: 200m, Min: 5 reports)
+                Nearby report clusters
               </h3>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Algorithm groups overlapping reports into municipal hotspots to assist capital allocation.
+              Nearby reports are grouped into hotspots to help prioritize maintenance.
             </p>
           </div>
           <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full">
@@ -206,7 +206,7 @@ export default function AnalyticsDashboardPage() {
                   <h4 className="text-xs font-bold text-slate-900 truncate">
                     {spot.top_category || `Hotspot #${spot.id}`}
                   </h4>
-                  <span className="text-[10px] font-bold text-rose-600">DBSCAN</span>
+                  <span className="text-[10px] font-bold text-rose-600">Hotspot</span>
                 </div>
                 <p className="text-[11px] text-slate-500">
                   {spot.report_count} Reports • Radius: {spot.radius_m}m

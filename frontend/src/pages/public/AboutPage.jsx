@@ -31,7 +31,7 @@ export default function AboutPage() {
     {
       number: '02',
       title: 'Background processing',
-      shortDesc: 'The backend can classify reports and suggest nearby duplicates when AI integrations are configured.',
+      shortDesc: 'Reports can be automatically categorized and checked for nearby duplicates.',
       role: 'Background Worker',
       actorIcon: Sparkles,
       badge: 'Step 2 • Optional AI',
@@ -44,7 +44,7 @@ export default function AboutPage() {
       role: 'Verifier (Triage Desk)',
       actorIcon: ShieldCheck,
       badge: 'Step 3 • Validation',
-      details: 'The backend records each status change and any rejection reason in the report history.',
+      details: 'Every status change and rejection reason is recorded in the report history.',
     },
     {
       number: '04',
@@ -67,7 +67,7 @@ export default function AboutPage() {
     {
       number: '06',
       title: 'Resident receives notification',
-      shortDesc: 'The backend notifies the report author and followers when relevant status changes occur.',
+      shortDesc: 'Report authors and followers are notified when important status changes occur.',
       role: 'Neighborhood Community',
       actorIcon: Bell,
       badge: 'Step 6 • Closed-Loop',

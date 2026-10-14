@@ -63,6 +63,33 @@ def test_nearby_same_category_is_duplicate():
     assert duplicates[0]["report_id"] == 2
 
 
+def test_backend_candidate_payload_produces_storable_suggestion():
+    report = {
+        "id": 10,
+        "category_id": 1,
+        "category": "Pothole",
+        "lat": -1.286389,
+        "lon": 36.817223,
+    }
+    candidates = [
+        {
+            "id": 9,
+            "category_id": 1,
+            "category": "Pothole",
+            "lat": -1.286500,
+            "lon": 36.817300,
+        }
+    ]
+
+    matches = find_duplicates(report, candidates)
+
+    assert len(matches) == 1
+    assert matches[0]["report_id"] == 9
+    assert 0 <= matches[0]["score"] <= 1
+    assert matches[0]["reasons"]["category"] == 1.0
+    assert matches[0]["reasons"]["location"] == matches[0]["score"]
+
+
 def test_different_categories_are_not_duplicates():
     """Different categories should not match."""
 

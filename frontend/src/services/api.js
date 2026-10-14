@@ -17,7 +17,7 @@ async function request(endpoint, options = {}) {
     response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
   } catch (cause) {
     const error = new Error(
-      `Cannot connect to the CivicPulse API at ${BASE_URL}. Check that the backend is running.`
+      'Unable to connect to CivicPulse right now. Please try again shortly.'
     );
     error.code = 'backend_offline';
     error.cause = cause;
@@ -31,7 +31,7 @@ async function request(endpoint, options = {}) {
     data = await response.json();
   } catch (cause) {
     if (response.ok) {
-      const error = new Error(`The API returned an invalid JSON response (${response.status}).`);
+      const error = new Error('We could not load this information right now. Please try again.');
       error.status = response.status;
       error.cause = cause;
       throw error;
@@ -40,7 +40,7 @@ async function request(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    const error = new Error(data?.error?.message || `API request failed (${response.status}).`);
+    const error = new Error(data?.error?.message || 'Something went wrong. Please try again.');
     error.status = response.status;
     error.code = data?.error?.code || 'server_error';
     error.details = data?.error?.details || {};

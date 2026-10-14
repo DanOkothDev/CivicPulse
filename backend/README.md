@@ -185,7 +185,7 @@ POST /reports -> saved -> job queued -> response sent
 
 ### Plugging in Teammate 3's functions (Task 20)
 
-Set these in `.env` (the Docker worker reads them too), as `module:function`. The `ml/` folder sits next to `backend/` in the repo:
+The Docker worker uses the repository's duplicate detector by default. The `ml/` folder sits next to `backend/` and is mounted into the worker. To override or disable it, set `AI_DUPLICATES` in `.env` (an empty value disables the step). The image classifier is optional and can be enabled with `AI_CLASSIFIER`; both settings use `module:function`:
 
 ```
 AI_CLASSIFIER=ml.classifier.predict:classify
@@ -199,9 +199,9 @@ AI_DUPLICATES=ml.duplicates.detector:find_duplicates
 
 **Candidates:** the backend does the database work. It passes every report that is still open, not already merged, created before this one (within the last 30 days) and within 200 m, closest first, at most 50. So `find_duplicates` is plain Python with no database access. Change the limits with `DUPLICATE_CANDIDATE_RADIUS_M` and `DUPLICATE_WINDOW_DAYS`. If there are no candidates, the function is not called. Suggestions without a `report_id` or with a `score` outside 0 to 1 are skipped with a log warning. A `reasons` dict is stored as given; the simple `{"reason": ..., "distance_meters": ...}` style is also accepted.
 
-**TensorFlow in the worker:** the AI libraries are large (a few GB), so they are optional. Put `INSTALL_ML=1` in `.env`, then run `docker compose up -d --build`. `requirements-ml.txt` lists them (pin `tensorflow-cpu` to the version the model was trained with). The worker sees the repo's `ml/` folder (including `saved_model/`) through a read-only shared folder; if yours is elsewhere, set `ML_DIR` in `.env`. The worker runs jobs in one process (`SimpleWorker`), so the model is loaded once and reused: load it at module level in `predict.py`, not inside `classify()`.
+**TensorFlow in the worker:** the image classifier requires the optional AI libraries and a trained model under `ml/classifier/saved_model/`. Put `INSTALL_ML=1` in `.env`, configure `AI_CLASSIFIER=ml.classifier.predict:classify`, then run `docker compose up -d --build`. `requirements-ml.txt` lists the libraries. The worker sees the repo's `ml/` folder through a read-only shared folder; if yours is elsewhere, set `ML_DIR` in `.env`. The worker runs jobs in one process (`SimpleWorker`), so the model is loaded once and reused.
 
-Unset means that step is skipped. Out-of-range or malformed classifier output is ignored with a log warning. Jobs can be run twice safely (results are replaced, not duplicated).
+The classifier step is skipped unless `AI_CLASSIFIER` is set. Out-of-range or malformed classifier output is ignored with a log warning. Jobs can be run twice safely (results are replaced, not duplicated).
 
 ## Protecting routes
 
