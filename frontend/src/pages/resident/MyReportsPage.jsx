@@ -147,6 +147,7 @@ export default function MyReportsPage() {
               key={report.id}
               report={report}
               onUpvote={handleUpvote}
+              compact
             />
           ))}
         </div>
