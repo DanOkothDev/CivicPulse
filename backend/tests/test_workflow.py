@@ -3,7 +3,7 @@ import io
 import pytest
 
 from app.extensions import db
-from app.models import Report
+from app.models import Area, Report
 
 JPEG = b'\xff\xd8\xff\xe0' + b'0' * 100
 
@@ -118,3 +118,27 @@ def test_history_requires_login_and_existing_report(client, who, report_id):
     assert client.get(f'/api/v1/reports/{report_id}/history').status_code == 401
     assert client.get('/api/v1/reports/99999999/history', headers=resident).status_code == 404
     assert len(client.get(f'/api/v1/reports/{report_id}/history', headers=resident).json) == 1
+
+
+def test_admin_can_assign_and_clear_report_area(client, app, who, report_id):
+    admin, _ = who('admin')
+    resident, _ = who('resident')
+    with app.app_context():
+        area = Area(name='Test ward')
+        db.session.add(area)
+        db.session.commit()
+        area_id = area.id
+
+    url = f'/api/v1/reports/{report_id}/area'
+    assigned = client.patch(url, json={'area_id': area_id}, headers=admin)
+    assert assigned.status_code == 200
+    assert assigned.json['area_id'] == area_id
+
+    cleared = client.patch(url, json={'area_id': None}, headers=admin)
+    assert cleared.status_code == 200
+    assert cleared.json['area_id'] is None
+
+    assert client.patch(url, json={'area_id': area_id}, headers=resident).status_code == 403
+    invalid = client.patch(url, json={'area_id': 99999999}, headers=admin)
+    assert invalid.status_code == 422
+    assert client.patch(url, json={}, headers=admin).status_code == 422

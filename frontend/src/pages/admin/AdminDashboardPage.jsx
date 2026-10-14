@@ -180,6 +180,24 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleUpdateReportArea = async (report, value) => {
+    const areaId = value ? Number(value) : null;
+    try {
+      const updatedReport = await api.reports.updateArea(report.id, areaId);
+      setReports((current) =>
+        current.map((item) =>
+          item.id === updatedReport.id ? { ...item, area_id: updatedReport.area_id } : item
+        )
+      );
+      const areaName = areas.find((area) => area.id === areaId)?.name;
+      toast.success(areaName
+        ? `Report #${report.id} assigned to ${areaName}.`
+        : `Ward assignment removed from report #${report.id}.`);
+    } catch (error) {
+      toast.error(`Could not update report ward: ${error.message}`);
+    }
+  };
+
   const handleRecomputeHotspots = async () => {
     setRecomputing(true);
     try {
@@ -283,9 +301,23 @@ export default function AdminDashboardPage() {
       header: 'Ward / Area',
       accessor: 'area_name',
       render: (r) => (
-        <span className="text-xs text-slate-600">
-          {r.area_name || (r.area_id ? `Area #${r.area_id}` : 'No area assigned')}
-        </span>
+        <div className="space-y-1.5">
+          <span className="block text-xs text-slate-600">
+            {areas.find((area) => area.id === r.area_id)?.name ||
+              (r.area_id ? `Area #${r.area_id}` : 'No area assigned')}
+          </span>
+          <select
+            aria-label={`Assign ward for report ${r.id}`}
+            value={r.area_id ?? ''}
+            onChange={(e) => handleUpdateReportArea(r, e.target.value)}
+            className="w-40 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700"
+          >
+            <option value="">No area assigned</option>
+            {areas.map((area) => (
+              <option key={area.id} value={area.id}>{area.name}</option>
+            ))}
+          </select>
+        </div>
       ),
     },
     {
