@@ -13,9 +13,9 @@ export default function ReportCard({ report, onUpvote, compact = false }) {
   });
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col sm:flex-row group">
+    <div className={`bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col ${compact ? '' : 'sm:flex-row'} group`}>
       {/* Image thumbnail with ID tag */}
-      <div className="relative sm:w-56 h-48 sm:h-auto shrink-0 bg-slate-100 overflow-hidden">
+      <div className={`relative ${compact ? 'w-full h-48' : 'sm:w-56 h-48 sm:h-auto'} shrink-0 bg-slate-100 overflow-hidden`}>
         <img
           src={report.photo_url}
           alt={report.category?.name || 'Report'}

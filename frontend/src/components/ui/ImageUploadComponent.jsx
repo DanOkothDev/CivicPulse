@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Upload, Trash2, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function ImageUploadComponent({
@@ -8,8 +8,20 @@ export default function ImageUploadComponent({
   error = null,
 }) {
   const fileInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
+  const videoRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const [cameraError, setCameraError] = useState('');
+
+  useEffect(() => {
+    if (videoRef.current && cameraStream) {
+      videoRef.current.srcObject = cameraStream;
+    }
+
+    return () => {
+      cameraStream?.getTracks().forEach((track) => track.stop());
+    };
+  }, [cameraStream]);
 
   const handleFileProcess = (file) => {
     if (!file) return;
@@ -45,22 +57,68 @@ export default function ImageUploadComponent({
     }
   };
 
+  const handleCameraOpen = async () => {
+    setCameraError('');
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Camera access is not supported by this browser. Use Browse File to attach a photo.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+      });
+      setCameraStream(stream);
+    } catch (error) {
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setCameraError('Camera permission was denied. Allow camera access in your browser settings, or use Browse File.');
+      } else {
+        setCameraError(`Could not open the camera: ${error.message || 'Please check that a camera is connected.'}`);
+      }
+    }
+  };
+
+  const handleCapture = () => {
+    const video = videoRef.current;
+    if (!video?.videoWidth || !video.videoHeight) {
+      setCameraError('The camera is not ready yet. Please wait a moment and try again.');
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    const scale = Math.min(1, 2560 / Math.max(video.videoWidth, video.videoHeight));
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setCameraError('Could not prepare the photo for capture. Please try again.');
+      return;
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setCameraError('Could not capture the photo. Please try again.');
+        return;
+      }
+      if (blob.size > 5 * 1024 * 1024) {
+        setCameraError('The captured photo exceeds the 5 MB limit. Please try again.');
+        return;
+      }
+
+      const file = new File([blob], `civic-report-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      handleFileProcess(file);
+      setCameraStream(null);
+    }, 'image/jpeg', 0.82);
+  };
+
   return (
     <div className="space-y-3">
-      {/* Hidden file inputs */}
+      {/* Hidden file input */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={(e) => handleFileProcess(e.target.files[0])}
         accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-      />
-      <input
-        type="file"
-        ref={cameraInputRef}
-        onChange={(e) => handleFileProcess(e.target.files[0])}
-        accept="image/*"
-        capture="environment"
         className="hidden"
       />
 
@@ -113,6 +171,32 @@ export default function ImageUploadComponent({
             </button>
           </div>
         </div>
+      ) : cameraStream ? (
+        <div className="space-y-3">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            className="w-full max-h-[28rem] rounded-2xl bg-slate-950 object-contain"
+          />
+          <div className="flex justify-center gap-3">
+            <button
+              type="button"
+              onClick={handleCapture}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-colors flex items-center gap-2"
+            >
+              <Camera className="w-4 h-4" />
+              <span>Capture Photo</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCameraStream(null)}
+              className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       ) : (
         /* Empty Upload / Camera drop area */
         <div
@@ -142,7 +226,7 @@ export default function ImageUploadComponent({
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
+                onClick={handleCameraOpen}
                 className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-colors flex items-center gap-2"
               >
                 <Camera className="w-4 h-4" />
@@ -160,6 +244,12 @@ export default function ImageUploadComponent({
             </div>
           </div>
         </div>
+      )}
+
+      {cameraError && (
+        <p role="alert" className="text-xs text-rose-600 font-medium">
+          {cameraError}
+        </p>
       )}
 
       {error && (

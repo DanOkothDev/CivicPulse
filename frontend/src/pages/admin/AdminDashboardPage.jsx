@@ -652,7 +652,7 @@ export default function AdminDashboardPage() {
             </div>
 
             <p className="text-xs text-slate-500 leading-relaxed">
-              CivicPulse enforces a centralized status lifecycle in <code className="font-mono bg-slate-100 px-1 py-0.5 rounded text-slate-700">app/status_flow.py</code>. Reports cannot skip workflow stages, and in-progress assignments are protected from reassignment.
+              CivicPulse enforces a centralized status lifecycle in. Reports cannot skip workflow stages, and in-progress assignments are protected from reassignment.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-2">
