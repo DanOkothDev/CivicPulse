@@ -48,6 +48,8 @@ CREATE TABLE reports (
 	id SERIAL NOT NULL, 
 	category_id INTEGER NOT NULL, 
 	description VARCHAR(500), 
+	address VARCHAR(255),
+	landmark VARCHAR(120),
 	status VARCHAR(20) NOT NULL, 
 	location geography(POINT,4326) NOT NULL, 
 	area_id INTEGER, 

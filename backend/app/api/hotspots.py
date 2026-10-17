@@ -8,7 +8,7 @@ from ..auth_utils import roles_required
 from ..errors import ApiError
 from ..extensions import db
 from ..hotspot_service import recompute_hotspots
-from ..models import Category, Hotspot
+from ..models import Area, Category, Hotspot
 
 bp = Blueprint('hotspots', __name__)
 MAX_EPS_M = 20000
@@ -19,9 +19,19 @@ MAX_EPS_M = 20000
 def list_hotspots():
     lon = func.ST_X(cast(Hotspot.center, Geometry)).label('lon')
     lat = func.ST_Y(cast(Hotspot.center, Geometry)).label('lat')
-    rows = (db.session.query(Hotspot, lon, lat, Category.name)
-            .outerjoin(Category, Category.id == Hotspot.top_category_id)
-            .order_by(Hotspot.report_count.desc(), Hotspot.id).all())
+    query = (db.session.query(Hotspot, lon, lat, Category.name)
+             .outerjoin(Category, Category.id == Hotspot.top_category_id))
+    raw_area_id = request.args.get('area_id')
+    if raw_area_id not in (None, ''):
+        try:
+            area_id = int(raw_area_id)
+        except ValueError:
+            raise ApiError('validation_error', 'area_id must be a number', 422)
+        query = query.join(Area, Area.id == area_id).filter(
+            Area.boundary.isnot(None),
+            func.ST_Covers(cast(Area.boundary, Geometry), cast(Hotspot.center, Geometry)),
+        )
+    rows = query.order_by(Hotspot.report_count.desc(), Hotspot.id).all()
     return jsonify([
         {'id': hotspot.id, 'center': {'lat': latitude, 'lon': longitude},
          'radius_m': hotspot.radius_m, 'report_count': hotspot.report_count,

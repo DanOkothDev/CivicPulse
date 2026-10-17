@@ -37,8 +37,12 @@ def register():
     errors = {}
     if not name:
         errors['name'] = 'Name is required'
+    elif len(name) > 120:
+        errors['name'] = 'Name must be 120 characters or fewer'
     if not EMAIL_RE.match(email):
         errors['email'] = 'Enter a valid email address'
+    if len(email) > 255:
+        errors['email'] = 'Email must be 255 characters or fewer'
     if not isinstance(password, str) or len(password) < 8:
         errors['password'] = 'Use at least 8 characters'
     if area_id is not None and (not isinstance(area_id, int) or not db.session.get(Area, area_id)):
