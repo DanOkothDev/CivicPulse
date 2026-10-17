@@ -17,6 +17,13 @@ def register_cli(app):
         db.session.execute(text('CREATE EXTENSION IF NOT EXISTS postgis'))
         db.session.commit()
         db.create_all()
+        db.session.execute(text(
+            'ALTER TABLE reports ADD COLUMN IF NOT EXISTS address VARCHAR(255)'
+        ))
+        db.session.execute(text(
+            'ALTER TABLE reports ADD COLUMN IF NOT EXISTS landmark VARCHAR(120)'
+        ))
+        db.session.commit()
         click.echo('Tables created.')
 
     @app.cli.command('seed')

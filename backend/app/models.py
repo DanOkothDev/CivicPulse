@@ -45,6 +45,8 @@ class Report(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
     description = db.Column(db.String(500))
+    address = db.Column(db.String(255))
+    landmark = db.Column(db.String(120))
     status = db.Column(db.String(20), nullable=False, default='reported')
     # Geography [a map-aware type that measures distances in real metres]; a GiST
     # index [a spatial search index] is created automatically so map queries stay fast.

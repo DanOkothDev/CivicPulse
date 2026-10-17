@@ -46,6 +46,8 @@ def _report_json(r, lon, lat, following):
         'id': r.id,
         'category': {'id': r.category.id, 'name': r.category.name, 'icon': r.category.icon},
         'description': r.description,
+        'address': r.address,
+        'landmark': r.landmark,
         'status': r.status,
         'location': {'lat': lat, 'lon': lon},
         'area_id': r.area_id,
@@ -98,6 +100,12 @@ def create_report():
     description = (form.get('description') or '').strip()
     if len(description) > 500:
         errors['description'] = 'Keep it under 500 characters'
+    address = (form.get('address') or '').strip() or None
+    if address and len(address) > 255:
+        errors['address'] = 'Keep it under 255 characters'
+    landmark = (form.get('landmark') or '').strip() or None
+    if landmark and len(landmark) > 120:
+        errors['landmark'] = 'Keep it under 120 characters'
     photo, ext = request.files.get('photo'), None
     if photo is None or not photo.filename:
         errors['photo'] = 'A photo is required'
@@ -115,7 +123,8 @@ def create_report():
 
     photo_path = save_photo(photo, ext)
     try:
-        report = Report(category_id=category_id, description=description or None, location=point,
+        report = Report(category_id=category_id, description=description or None,
+                        address=address, landmark=landmark, location=point,
                         area_id=area.id if area else None, photo_path=photo_path, created_by=user.id)
         db.session.add(report)
         db.session.flush()
@@ -128,7 +137,19 @@ def create_report():
     try:  # AI checks run in the background. A queue problem must never stop a resident's report.
         enqueue(process_new_report, report.id)
     except Exception:
-        current_app.logger.exception('Could not queue processing for report %s', report.id)
+        if current_app.config['QUEUE_MODE'] == 'inline':
+            current_app.logger.exception('Inline processing failed for report %s; requeue it with process-reports %s',
+                                         report.id, report.id)
+        else:
+            current_app.logger.exception('Could not queue processing for report %s', report.id)
+            try:
+                current_app.logger.warning('Running report processing inline after queue failure: %s', report.id)
+                process_new_report(report.id)
+            except Exception:
+                current_app.logger.exception(
+                    'Inline processing failed for report %s; requeue it with process-reports %s',
+                    report.id, report.id,
+                )
     return jsonify(_one(report.id, user.id)), 201
 
 
@@ -160,6 +181,8 @@ def list_reports():
         pattern = f'%{search}%'
         filters = [
             Report.description.ilike(pattern),
+            Report.address.ilike(pattern),
+            Report.landmark.ilike(pattern),
             Report.category.has(Category.name.ilike(pattern)),
         ]
         if search.isdecimal():

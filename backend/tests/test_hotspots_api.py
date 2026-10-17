@@ -1,4 +1,5 @@
 import io
+import uuid
 
 import pytest
 from sqlalchemy import func
@@ -6,7 +7,7 @@ from sqlalchemy import func
 from app import jobs
 from app.extensions import db
 from app.jobs import process_new_report
-from app.models import Hotspot
+from app.models import Area, Hotspot
 
 JPEG = b'\xff\xd8\xff\xe0' + b'0' * 100
 LIST_URL = '/api/v1/analytics/hotspots'
@@ -43,6 +44,45 @@ def test_recompute_validation(client, who):
                  {'min_samples': 'x'}, {'eps_m': float('nan')}, [1, 2]):
         r = client.post(RECOMPUTE_URL, json=body, headers=admin)
         assert r.status_code == 400 and r.json['error']['code'] == 'invalid_parameters', body
+
+
+def test_area_filter_scopes_hotspots_and_summary(client, app, who):
+    resident, admin, authority = who('resident'), who('admin'), who('authority')
+    area = client.post('/api/v1/areas', json={
+        'name': f'Hotspot area {uuid.uuid4().hex}',
+        'boundary': {
+            'type': 'Polygon',
+            'coordinates': [[[39.9, 39.9], [40.1, 39.9], [40.1, 40.1],
+                             [39.9, 40.1], [39.9, 39.9]]],
+        },
+    }, headers=admin)
+    assert area.status_code == 201
+    area_id = area.json['id']
+    for lat, lon in (('40.0', '40.0'), ('40.0003', '40.0'), ('40.0006', '40.0'),
+                     ('41.0', '41.0'), ('41.0003', '41.0'), ('41.0006', '41.0')):
+        submit(client, resident, lat, lon)
+
+    try:
+        from app.models import Report
+        with app.app_context():
+            print("Eligible reports:", Report.query.filter(Report.duplicate_of.is_  (None)).count())
+        response = client.post(RECOMPUTE_URL, json={'eps_m': 100, 'min_samples': 3}, headers=admin)
+        assert response.status_code == 200
+        scoped = client.get(f'{LIST_URL}?area_id={area_id}', headers=authority)
+        summary = client.get(f'/api/v1/analytics/summary?area_id={area_id}', headers=authority)
+        assert scoped.status_code == 200 and len(scoped.json) == 1
+        assert summary.status_code == 200 and summary.json['hotspot_count'] == 1
+        assert len(client.get(LIST_URL, headers=authority).json) == 2
+        assert client.get(f'{LIST_URL}?area_id=not-a-number', headers=authority).status_code == 422
+    finally:
+        with app.app_context():
+            for lat, lon in ((40.0, 40.0), (41.0, 41.0)):
+                point = func.ST_GeogFromText(f'SRID=4326;POINT({lon} {lat})')
+                Hotspot.query.filter(func.ST_DWithin(Hotspot.center, point, 5000)).delete(
+                    synchronize_session=False
+                )
+            db.session.query(Area).filter(Area.id == area_id).delete()
+            db.session.commit()
 
 
 def test_recompute_and_list_match_the_contract(client, app, who):

@@ -1,10 +1,11 @@
 import io
+import uuid
 from urllib.parse import urlparse
 
 import pytest
 
 from app.extensions import db
-from app.models import Report, StatusEvent
+from app.models import Area, Report, StatusEvent
 
 JPEG = b'\xff\xd8\xff\xe0' + b'0' * 100
 
@@ -23,12 +24,14 @@ def post_report(client, headers, **over):
 
 
 def test_create_report(client, app, auth):
-    r = post_report(client, auth, lat='-1.2921', lon='36.8219')
+    r = post_report(client, auth, lat='-1.2921', lon='36.8219',
+                    address='Main Street', landmark='Library')
     assert r.status_code == 201
     j = r.json
     assert j['status'] == 'reported' and j['report_count'] == 1 and j['is_following'] is False
     assert j['location'] == {'lat': pytest.approx(-1.2921), 'lon': pytest.approx(36.8219)}
     assert j['category']['name'] == 'Pothole'
+    assert j['address'] == 'Main Street' and j['landmark'] == 'Library'
     with app.app_context():  # the first status event is recorded
         assert StatusEvent.query.filter_by(report_id=j['id'], status='reported').count() == 1
     photo = client.get(urlparse(j['photo_url']).path)  # and the photo can be fetched back
@@ -62,6 +65,57 @@ def test_get_one_and_404(client, auth):
     missing = client.get('/api/v1/reports/99999999', headers=auth)
     assert missing.status_code == 404 and missing.json['error']['code'] == 'not_found'
     assert client.get(f'/api/v1/reports/{rid}').status_code == 401
+
+
+def test_report_location_context_validation_and_search(client, auth):
+    rid = post_report(client, auth, address='Civic Avenue', landmark='Central Library').json['id']
+    report = client.get(f'/api/v1/reports/{rid}', headers=auth).json
+    assert report['address'] == 'Civic Avenue'
+    assert report['landmark'] == 'Central Library'
+    assert client.get('/api/v1/reports?search=Central%20Library', headers=auth).json['total'] >= 1
+
+    invalid = post_report(client, auth, address='a' * 256, landmark='l' * 121)
+    assert invalid.status_code == 422
+    assert {'address', 'landmark'} <= set(invalid.json['error']['details'])
+
+
+def test_report_is_assigned_to_area_when_inside_configured_boundary(client, token_for, app):
+    admin = {'Authorization': 'Bearer ' + token_for('admin')}
+    resident = {'Authorization': 'Bearer ' + token_for('resident')}
+    area = client.post('/api/v1/areas', json={
+        'name': f'Report boundary {uuid.uuid4().hex}',
+        'boundary': {
+            'type': 'Polygon',
+            'coordinates': [[[9.9, 9.9], [10.1, 9.9], [10.1, 10.1],
+                             [9.9, 10.1], [9.9, 9.9]]],
+        },
+    }, headers=admin)
+    assert area.status_code == 201
+
+    response = post_report(client, resident, lat='10.0', lon='10.0')
+    assert response.status_code == 201
+    assert response.json['area_id'] == area.json['id']
+
+    with app.app_context():
+        db.session.delete(db.session.get(Area, area.json['id']))
+        db.session.commit()
+
+
+def test_report_processing_runs_inline_if_redis_enqueue_fails(client, app, auth, monkeypatch):
+    from app.api import reports as reports_api
+
+    calls = []
+    app.config['QUEUE_MODE'] = 'redis'
+
+    def queue_failure(*args):
+        raise ConnectionError('Redis unavailable')
+
+    monkeypatch.setattr(reports_api, 'enqueue', queue_failure)
+    monkeypatch.setattr(reports_api, 'process_new_report', lambda report_id: calls.append(report_id))
+    response = post_report(client, auth)
+
+    assert response.status_code == 201
+    assert calls == [response.json['id']]
 
 
 def test_list_filters_and_pagination(client, app, auth):
