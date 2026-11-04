@@ -22,7 +22,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       UPLOAD_FOLDER: /app/uploads          # the same photos the API saves, shared from ./uploads
       AI_CLASSIFIER: ${AI_CLASSIFIER:-}
-      AI_DUPLICATES: ${AI_DUPLICATES-ml.duplicates.detector:find_duplicates}
+      AI_DUPLICATES: ${AI_DUPLICATES:-ml.duplicates.detector:find_duplicates}
     volumes:
       - ./uploads:/app/uploads
       - ${ML_DIR:-../ml}:/app/ml:ro        # Elsie's ml/ folder (sits next to backend/ in the repo)

@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
-  Building2,
   User,
   Mail,
   Lock,
@@ -9,20 +8,35 @@ import {
   EyeOff,
   MapPin,
   ArrowRight,
-  ShieldCheck,
+  ChevronDown,
   CheckCircle2,
-} from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { useToast } from '../../context/ToastContext';
-import { api } from '../../services/api';
+} from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+import { api } from "../../services/api";
+
+/*
+  Theme (same as the login page, admin dashboard and landing page design)
+  mint background  #E6F5F8
+  light cyan       #7FD0E0
+  bright cyan      #38C6DC
+  mid blue         #1B8FC0
+  deep blue        #0B5A9C
+  soft grey text   #5F5F5F
+*/
+
+const GRADIENT = "bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C]";
+const INPUT =
+  "w-full pl-10 pr-4 py-2 bg-white text-xs sm:text-sm text-[#4a4a4a] rounded-xl border border-[#cfe9f0] focus:border-[#1B8FC0] focus:ring-2 focus:ring-[#38C6DC]/30 focus:outline-none transition-all";
+const LABEL = "block text-xs font-bold text-[#5F5F5F] mb-1";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    area_id: '',
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    area_id: "",
   });
   const [areas, setAreas] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
@@ -33,11 +47,22 @@ export default function RegisterPage() {
   const toast = useToast();
   const navigate = useNavigate();
 
+  // Load the theme font once
+  useEffect(() => {
+    if (document.getElementById("montserrat-font")) return;
+    const link = document.createElement("link");
+    link.id = "montserrat-font";
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
+
   useEffect(() => {
     api.reference
       .getAreas()
       .then(setAreas)
-      .catch((error) => toast.error(`Could not load service areas: ${error.message}`));
+      .catch((error) => toast.error(`Could not load wards: ${error.message}`));
   }, []);
 
   const handleChange = (e) => {
@@ -49,17 +74,17 @@ export default function RegisterPage() {
     e.preventDefault();
 
     if (!formData.name || !formData.email || !formData.password) {
-      toast.error('Please fill in all required fields');
+      toast.error("Please fill in all required fields");
       return;
     }
 
     if (formData.password.length < 8) {
-      toast.error('Password must be at least 8 characters long');
+      toast.error("Password must be at least 8 characters long");
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error("Passwords do not match");
       return;
     }
 
@@ -71,225 +96,267 @@ export default function RegisterPage() {
         password: formData.password,
         area_id: formData.area_id ? Number(formData.area_id) : undefined,
       });
-      toast.success('Resident account created successfully! Welcome to CivicPulse.');
-      navigate('/dashboard');
+      toast.success("Your account is ready. Welcome to CivicPulse!");
+      navigate("/dashboard");
     } catch (err) {
-      toast.error(err.message || 'Registration failed');
+      toast.error(err.message || "Could not create your account");
     } finally {
       setLoading(false);
     }
   };
 
+  const submitDisabled = loading || !agreed;
+
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
-      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
-        
-        {/* Left Side Branding */}
-        <div className="lg:col-span-5 bg-slate-900 text-white p-8 flex flex-col justify-between relative">
+    <div
+      className="min-h-screen bg-[#E6F5F8] flex items-center justify-center p-4 sm:p-6 lg:p-8"
+      style={{
+        fontFamily: "'Montserrat', ui-sans-serif, system-ui, sans-serif",
+      }}
+    >
+      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-[0_30px_60px_-25px_rgba(11,90,156,0.45)] border border-[#cfe9f0] overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
+        {/* Left pane */}
+        <div
+          className={`lg:col-span-5 ${GRADIENT} text-white p-8 flex flex-col justify-between relative overflow-hidden`}
+        >
+          {/* Soft shapes, echoing the landing page */}
+          <div
+            aria-hidden="true"
+            className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-white/10 pointer-events-none"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute bottom-28 -left-10 h-40 w-40 rounded-full bg-white/10 pointer-events-none"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute bottom-24 right-8 h-12 w-12 rotate-12 rounded-2xl bg-white/25 shadow-lg pointer-events-none"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute bottom-44 right-20 h-7 w-7 rotate-12 rounded-xl bg-white/25 shadow-lg pointer-events-none"
+          />
+
           <div className="relative z-10">
-            <Link to="/" className="flex items-center gap-3.5 mb-6 group hover:opacity-95 transition-opacity" title="Back to Landing Page">
-              <img
-                src="/logo.png"
-                alt="CivicPulse Logo"
-                className="h-14 sm:h-16 w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform"
-              />
+            <Link
+              to="/"
+              className="inline-flex items-center gap-3 mb-8 bg-white rounded-2xl px-3 py-2 shadow-[0_8px_20px_-10px_rgba(0,0,0,0.4)] hover:brightness-105 transition"
+              title="Back to the home page"
+            >
+
               <div>
-                <h3 className="font-black text-lg tracking-wide text-white uppercase">
+                <h3 className="font-extrabold text-base text-[#0B5A9C] leading-tight">
                   CivicPulse
                 </h3>
-                <p className="text-xs text-slate-400">Citizen Verification Portal</p>
+                <p className="text-[11px] text-[#5F5F5F]">Resident accounts</p>
               </div>
             </Link>
 
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-semibold mb-6">
-              <ShieldCheck className="w-4 h-4 text-blue-400" />
-              <span>Verified Resident Registration</span>
-            </div>
-
             <h2 className="text-2xl font-extrabold text-white leading-snug mb-3">
-              Help Improve Your Neighborhood.
+              Help improve your neighborhood.
             </h2>
-            <p className="text-xs text-slate-300 leading-relaxed mb-6">
-              Joining CivicPulse gives you direct visibility into municipal work orders. Submit issues, track repairs with GPS precision, and follow community resolutions.
+            <p className="text-xs text-white/90 leading-relaxed mb-6">
+              With a CivicPulse account you can report problems, see when
+              repairs are planned, and follow each one until it is fixed.
             </p>
 
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3">
               {[
-                'Direct notifications on reported issues',
-                'Camera & GPS location verification',
-                'Clear audit trail from submission to resolution',
-              ].map((text, i) => (
-                <div key={i} className="flex items-center gap-2.5 text-xs text-slate-300">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                "Get updates on the problems you report",
+                "Add a photo and location to each report",
+                "See every step from report to repair",
+              ].map((text) => (
+                <div
+                  key={text}
+                  className="flex items-center gap-2.5 text-xs text-white"
+                >
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
                   <span>{text}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="relative z-10 text-[11px] text-slate-400 pt-6 border-t border-slate-800">
-            Official Municipal Citizen Services • Free & Open
+          <div className="relative z-10 text-[11px] text-white/90 pt-6 mt-6 border-t border-white/25">
+            Free for all residents
           </div>
         </div>
 
-        {/* Right Form */}
+        {/* Right pane: form */}
         <div className="lg:col-span-7 p-8 sm:p-10 flex flex-col justify-between">
           <div>
             <div className="mb-6">
-              <h2 className="text-xl font-extrabold text-slate-900 mb-1">
-                Create Resident Account
+              <h2 className="text-3xl font-extrabold text-[#5F5F5F] tracking-tight mb-2">
+                Create an account
               </h2>
-              <p className="text-xs text-slate-500">
-                All citizen accounts start as verified resident accounts.
+              <p className="text-xs text-[#5F5F5F]">
+                Sign up as a resident to start sending reports.
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Name */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Full Name <span className="text-rose-500">*</span>
+                <label htmlFor="reg-name" className={LABEL}>
+                  Full name <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
+                  <User className="w-4 h-4 text-[#1B8FC0] absolute left-3.5 top-3 pointer-events-none" />
                   <input
+                    id="reg-name"
                     type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
                     required
                     placeholder="e.g. Amina Otieno"
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-blue-600 focus:outline-none transition-all"
+                    className={INPUT}
                   />
                 </div>
               </div>
 
-              {/* Email & Phone Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Email Address <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                      placeholder="e.g. wanjiku@gmail.com"
-                      className="w-full pl-10 pr-3 py-2 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-blue-600 focus:outline-none transition-all"
-                    />
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Residential Ward */}
+              {/* Email */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Primary Residential Ward / Zone
+                <label htmlFor="reg-email" className={LABEL}>
+                  Email <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
+                  <Mail className="w-4 h-4 text-[#1B8FC0] absolute left-3.5 top-3 pointer-events-none" />
+                  <input
+                    id="reg-email"
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    placeholder="e.g. wanjiku@gmail.com"
+                    className={INPUT}
+                  />
+                </div>
+              </div>
+
+              {/* Ward */}
+              <div>
+                <label htmlFor="reg-area" className={LABEL}>
+                  Your ward
+                </label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-[#1B8FC0] absolute left-3.5 top-3 pointer-events-none" />
                   <select
+                    id="reg-area"
                     name="area_id"
                     value={formData.area_id}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-blue-600 focus:outline-none transition-all appearance-none cursor-pointer"
+                    className={`${INPUT} appearance-none cursor-pointer pr-10`}
                   >
-                    <option value="">No area assigned</option>
+                    <option value="">Not sure / skip</option>
                     {areas.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name}
                       </option>
                     ))}
                   </select>
+                  <ChevronDown className="w-4 h-4 text-[#7a8a90] absolute right-3.5 top-3 pointer-events-none" />
                 </div>
               </div>
 
-              {/* Password & Confirm Password Grid */}
+              {/* Passwords */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label htmlFor="reg-password" className={LABEL}>
                     Password <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
+                    <Lock className="w-4 h-4 text-[#1B8FC0] absolute left-3.5 top-3 pointer-events-none" />
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      id="reg-password"
+                      type={showPassword ? "text" : "password"}
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
                       required
                       placeholder="At least 8 characters"
-                      className="w-full pl-10 pr-9 py-2 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-blue-600 focus:outline-none transition-all font-mono"
+                      className={`${INPUT} pr-9`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                      aria-label={
+                        showPassword ? "Hide passwords" : "Show passwords"
+                      }
+                      className="absolute right-2.5 top-2.5 text-[#7a8a90] hover:text-[#0B5A9C] transition-colors"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Confirm Password <span className="text-rose-500">*</span>
+                  <label htmlFor="reg-confirm" className={LABEL}>
+                    Confirm password <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
+                    <Lock className="w-4 h-4 text-[#1B8FC0] absolute left-3.5 top-3 pointer-events-none" />
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      id="reg-confirm"
+                      type={showPassword ? "text" : "password"}
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleChange}
                       required
-                      placeholder="Confirm your password"
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-blue-600 focus:outline-none transition-all font-mono"
+                      placeholder="Enter it again"
+                      className={INPUT}
                     />
                   </div>
                 </div>
               </div>
 
               <div className="pt-1">
-                <label className="flex items-start gap-2 cursor-pointer text-xs text-slate-600">
+                <label className="flex items-start gap-2 cursor-pointer text-xs text-[#5F5F5F]">
                   <input
                     type="checkbox"
                     checked={agreed}
                     onChange={(e) => setAgreed(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                    className="mt-0.5 w-4 h-4 rounded accent-[#1B8FC0]"
                   />
                   <span>
-                    I agree to the Community Reporting Terms and certify that submitted infrastructure reports will represent bona fide civic hazards.
+                    I agree to the community reporting terms and will only
+                    report real problems.
                   </span>
                 </label>
               </div>
 
+              {/* Pill button with circled arrow, like Subscribe */}
               <button
                 type="submit"
-                disabled={loading || !agreed}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-3 px-4 rounded-xl shadow-md shadow-blue-600/30 hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                disabled={submitDisabled}
+                className="w-full flex items-center rounded-full bg-[#7FD0E0]/70 hover:bg-[#7FD0E0] p-1 pr-12 text-base font-semibold text-[#5F5F5F] transition-colors disabled:opacity-60 disabled:hover:bg-[#7FD0E0]/70"
               >
-                {loading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span>Create Resident Account</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-[#38C6DC] bg-[#E6F5F8] text-[#1B8FC0]">
+                  {loading ? (
+                    <span className="h-4 w-4 rounded-full border-2 border-[#38C6DC]/40 border-t-[#1B8FC0] animate-spin" />
+                  ) : (
+                    <ArrowRight className="w-5 h-5" />
+                  )}
+                </span>
+                <span className="flex-1 text-center">
+                  {loading ? "Creating account..." : "Create account"}
+                </span>
               </button>
             </form>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-600">
-            Already have an account?{' '}
-            <Link to="/login" className="font-bold text-blue-600 hover:text-blue-700 hover:underline">
-              Sign In to CivicPulse
+          <div className="mt-6 pt-4 border-t border-[#cfe9f0] text-center text-xs text-[#5F5F5F]">
+            Already have an account?{" "}
+            <Link
+              to="/login"
+              className="font-bold text-[#0B5A9C] hover:underline"
+            >
+              Sign in
             </Link>
           </div>
         </div>

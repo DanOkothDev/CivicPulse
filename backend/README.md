@@ -33,16 +33,18 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 | GET | `/categories` | Anyone | The six report categories |
 | POST | `/categories` | Admin | Create a report category |
 | GET | `/areas` | Anyone | Areas (wards or zones) |
-| POST | `/areas` | Admin | Create an area |
+| POST | `/areas` | Admin | Create an area, optionally with a GeoJSON Polygon boundary |
+| PATCH | `/areas/{id}` | Admin | Set or clear an area's GeoJSON Polygon boundary |
 | POST | `/auth/register` | Anyone | Create a resident account. Returns `{token, user}` |
 | POST | `/auth/login` | Anyone | Log in. Returns `{token, user}` |
 | GET | `/auth/me` | Logged in | The current user |
 | POST | `/reports` | Logged in | Submit a report (multipart form, see below) |
-| GET | `/reports` | Logged in | List reports (filters below) |
+| GET | `/reports` | Logged in | List reports (filters below; search includes description, address, landmark, and category) |
 | GET | `/reports/{id}` | Logged in | One report |
 | PATCH | `/reports/{id}/status` | Verifier, authority, admin | Move a report to its next status (rules below) |
 | GET | `/reports/{id}/history` | Logged in | The status trail, oldest first |
 | POST | `/reports/{id}/assign` | Verifier, authority, admin | Assign a verified report to an authority user, with an optional due date |
+| PATCH | `/reports/{id}/area` | Admin | Set or clear the report's service area |
 | GET | `/reports/{id}/duplicates` | Verifier, admin | The AI's duplicate suggestions for a report, best first, with reasons |
 | POST | `/reports/{id}/merge` | Verifier, admin | Fold this report into `parent_id`. Returns the parent |
 | POST | `/reports/{id}/unmerge` | Verifier, admin | Split a wrongly merged report back out |
@@ -50,8 +52,8 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 | GET | `/notifications/unread-count` | Logged in | `{"count": 3}` for the bell badge |
 | POST | `/notifications/{id}/read` | Logged in | Mark one as read (safe to repeat) |
 | POST | `/notifications/read-all` | Logged in | Mark all as read |
-| GET | `/analytics/summary` | Authority, admin | Dashboard numbers: totals, `by_status`, `by_category`, `open_by_area`, `avg_days_to_resolve`. Optional `?area_id=` |
-| GET | `/analytics/hotspots` | Authority, admin | Report clusters, biggest first: `center`, `radius_m`, `report_count`, `top_category` |
+| GET | `/analytics/summary` | Authority, admin | Dashboard numbers: totals, `by_status`, `by_category`, `open_by_area`, `avg_days_to_resolve`. Optional `?area_id=` scopes reports and hotspots (hotspots use center-in-boundary) |
+| GET | `/analytics/hotspots` | Authority, admin | Report clusters, biggest first; optional `?area_id=` keeps clusters whose centers are inside that area's boundary |
 | POST | `/analytics/hotspots/recompute` | Admin | Re-run the clustering now. Optional `{"eps_m": 250, "min_samples": 3}` |
 | GET | `/analytics/categories`, `/analytics/statuses` | Authority, admin | The same counts as lists (optional `?area_id=`) |
 | GET | `/analytics/trends` | Authority, admin | Reports submitted per day (`?days=1..365`, default 30) |
@@ -117,8 +119,10 @@ Registering always creates a **resident**; any `role` sent is ignored.
 | `lat`, `lon` | Yes | Latitude -90 to 90, longitude -180 to 180 |
 | `photo` | Yes | JPEG or PNG, max 5 MB. The file contents are checked, not the name |
 | `description` | No | Up to 500 characters |
+| `address` | No | Street/address context, up to 255 characters |
+| `landmark` | No | Nearby landmark, up to 120 characters |
 
-The report starts as `reported` and gets its first status event. If an area has a boundary drawn, the report is placed in that area automatically.
+The report starts as `reported` and gets its first status event. If an area has a boundary drawn, the report is placed in that area automatically. Set boundaries with `POST /areas` or `PATCH /areas/{id}` using a GeoJSON Polygon (WGS84 longitude/latitude coordinates); send `null` to clear a boundary.
 
 **List reports** (query parameters, all optional): `bbox` (`min_lon,min_lat,max_lon,max_lat`), `category_id`, `status`, `area_id`, `search` (report description, category, or exact report id), `mine=true`, `following=true`, `include_duplicates=true`, `page`, `per_page` (default 50, max 200). Duplicates are hidden by default and counted in their parent's `report_count`. The response is `{items, page, per_page, total}`.
 
@@ -180,7 +184,7 @@ POST /reports -> saved -> job queued -> response sent
 - **See what is happening:** `GET /api/v1/health` includes `queue` (mode, pending jobs, failed jobs, number of workers), and `flask --app wsgi queue-status` prints the same. If `pending` keeps growing and `workers` is 0, the worker is not running.
 - **Hotspots refresh themselves.** After a new report is processed, the clustering (`app/hotspot_service.py`) re-runs, at most every `HOTSPOT_REFRESH_MINUTES` (default 10; `0` turns it off). An admin can also run it on demand with `POST /analytics/hotspots/recompute`. A clustering error is logged and never fails the report's job.
 - **No worker?** Set `QUEUE_MODE=inline` in `.env` and jobs run inside the request instead (slower, but needs nothing extra). The default is `redis`.
-- **A queue problem never blocks a report.** If Redis is down or a job crashes, the resident's report is still saved. Failed jobs are retried 3 times (after 10 s, 60 s and 5 min) and then kept in the failed list for a week.
+- **A queue problem never blocks a report.** If Redis enqueueing fails, the API tries the AI processing inline after the report is saved. If inline processing also fails, it logs the report id; queue it later with `flask --app wsgi process-reports <id>`. Jobs accepted by Redis are retried 3 times (after 10 s, 60 s and 5 min) and then kept in the failed list for a week.
 - **Run the checks on existing reports** (for example the seeded demo data): `flask --app wsgi process-reports --all`, or `flask --app wsgi process-reports 12 13`.
 
 ### Plugging in Teammate 3's functions (Task 20)
@@ -239,7 +243,7 @@ Statuses: `reported`, `verified`, `rejected`, `assigned`, `in_progress`, `resolv
 - **Status and role are text with a check rule**, not database enums, so they are easier to change later.
 - **Queue names:** the worker listens on the `default` queue, which matches `QUEUE_NAME`. Tests use a private queue name so they never touch real jobs.
 - **Photos** are saved under a random name in `uploads/reports/`. The path is stored in `photo_path` and the API returns a full `photo_url`.
-- **`init-db` vs migrations:** `flask init-db` is the quick way for development. When the schema must change without wiping data, use migrations [versioned database changes]: `flask --app wsgi db init`, `flask --app wsgi db migrate -m initial`, then add `import geoalchemy2` at the top of the generated file in `migrations/versions/`, then `flask --app wsgi db upgrade`.
+- **Schema updates:** `flask init-db` safely adds the nullable `address` and `landmark` report columns to an existing local database. For an existing deployment, apply [`docs/migrations/20261017_report_context.sql`](./docs/migrations/20261017_report_context.sql) once before deploying code that reads those fields. Continue to use Flask-Migrate for future schema changes.
 
 ## For teammates
 

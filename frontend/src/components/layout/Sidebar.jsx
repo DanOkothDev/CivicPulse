@@ -1,92 +1,113 @@
-import React from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import React, { useEffect } from "react";
+import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   PlusCircle,
   Map as MapIcon,
   FileText,
   CheckSquare,
-  ShieldAlert,
   BarChart3,
   Building,
   User,
   Bell,
-  ChevronRight,
-  Shield,
-  Globe,
   Home,
-} from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+} from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+
+/*
+  Theme (taken from reference landing page)
+  mint background   #E6F5F8
+  light cyan        #7FD0E0
+  bright cyan       #38C6DC
+  mid blue          #1B8FC0
+  deep blue         #0B5A9C
+  soft grey text    #5F5F5F
+*/
+
+const GRADIENT = "bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C]";
 
 export default function Sidebar({ isOpen, onClose }) {
   const { user, role } = useAuth();
   const navigate = useNavigate();
 
-  // Navigation definition strictly tailored to the 4 roles in the PDF
-  const isResident = role === 'resident';
-  const isVerifier = role === 'verifier';
-  const isAuthority = role === 'authority';
-  const isAdmin = role === 'admin';
+  // Navigation definition strictly tailored to the 4 roles
+  const isResident = role === "resident";
+  const isVerifier = role === "verifier";
+  const isAuthority = role === "authority";
+  const isAdmin = role === "admin";
+
+  // Load Montserrat font dynamically
+  useEffect(() => {
+    if (document.getElementById("montserrat-font")) return;
+    const link = document.createElement("link");
+    link.id = "montserrat-font";
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
 
   return (
     <>
       {/* Mobile backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-[#0B5A9C]/40 backdrop-blur-xs z-40 lg:hidden"
           onClick={onClose}
         />
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 w-64 bg-white border-r border-slate-200/90 z-50 flex flex-col justify-between transition-transform duration-300 lg:translate-x-0 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+        style={{
+          fontFamily: "'Montserrat', ui-sans-serif, system-ui, sans-serif",
+        }}
+        className={`fixed top-0 bottom-0 left-0 w-64 bg-[#E6F5F8] border-r border-[#cfe9f0] z-50 flex flex-col justify-between transition-transform duration-300 lg:translate-x-0 shadow-[4_0_25px_-10px_rgba(11,90,156,0.15)] ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex flex-col flex-1 overflow-y-auto p-4 scrollbar-none">
-          {/* Brand header */}
+          {/* Brand Header */}
           <Link
             to={
               isAdmin
-                ? '/admin'
+                ? "/admin"
                 : isAuthority
-                ? '/authority/assigned'
-                : isVerifier
-                ? '/verifier/queue'
-                : '/dashboard'
+                  ? "/authority/assigned"
+                  : isVerifier
+                    ? "/verifier/queue"
+                    : "/dashboard"
             }
-            className="flex items-center gap-3 px-2 py-3 mb-4 rounded-xl hover:bg-slate-50 transition-colors"
+            className="flex items-center gap-3 px-3 py-3 mb-4 rounded-2xl bg-white/80 border border-[#cfe9f0] hover:bg-white transition-colors shadow-2xs"
           >
-            <img
-              src="/logo.png"
-              alt="CivicPulse Logo"
-              className="h-11 w-auto object-contain shrink-0 drop-shadow-xs"
-            />
             <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-black text-slate-900 text-lg tracking-tight">Civic<span className="text-blue-600">Pulse</span></span>
+              <div className="flex items-center gap-1">
+                <span className="font-extrabold text-[#5F5F5F] text-base tracking-tight">
+                  Civic<span className="text-[#0B5A9C]">Pulse</span>
+                </span>
               </div>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                Municipal Ops Engine
+              <p className="text-[10px] font-extrabold text-[#1B8FC0] uppercase tracking-wider">
+                Your City, Your Voice, Your Impact.
               </p>
             </div>
           </Link>
 
           {/* Role Badge Indicator */}
-          <div className="mb-4 px-2 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Current Role</span>
+          <div className="mb-4 px-3 py-2 bg-white/70 border border-[#7FD0E0]/60 rounded-2xl flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#5F5F5F]">
+              Current Role
+            </span>
             <span
-              className={`text-[11px] font-bold px-2 py-0.5 rounded-md capitalize ${
+              className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full capitalize ${
                 isAdmin
-                  ? 'bg-purple-100 text-purple-800'
+                  ? "bg-purple-100 text-purple-800 border border-purple-200"
                   : isAuthority
-                  ? 'bg-blue-100 text-blue-800'
-                  : isVerifier
-                  ? 'bg-emerald-100 text-emerald-800'
-                  : 'bg-amber-100 text-amber-800'
+                    ? "bg-sky-100 text-[#0B5A9C] border border-sky-200"
+                    : isVerifier
+                      ? "bg-teal-100 text-teal-800 border border-teal-200"
+                      : "bg-cyan-100 text-cyan-900 border border-cyan-200"
               }`}
             >
-              {role}
+              {role || "Guest"}
             </span>
           </div>
 
@@ -95,9 +116,9 @@ export default function Sidebar({ isOpen, onClose }) {
             <Link
               to="/"
               onClick={onClose}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors border border-slate-200/60 bg-slate-50/50 shadow-2xs"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold text-[#5F5F5F] hover:bg-white hover:text-[#0B5A9C] transition-colors border border-[#cfe9f0] bg-white/60 shadow-2xs"
             >
-              <Home className="w-4 h-4 shrink-0 text-blue-600" />
+              <Home className="w-4 h-4 shrink-0 text-[#1B8FC0]" />
               <span>Home</span>
             </Link>
           </div>
@@ -105,7 +126,7 @@ export default function Sidebar({ isOpen, onClose }) {
           {/* 1. RESIDENT ROLE NAVIGATION */}
           {isResident && (
             <div className="mb-6">
-              <h5 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+              <h5 className="px-3 text-[10px] font-extrabold text-[#1B8FC0] uppercase tracking-wider mb-2">
                 Citizen Workspace
               </h5>
               <nav className="space-y-1">
@@ -113,10 +134,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   to="/dashboard"
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -128,10 +149,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   to="/community-map"
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -143,10 +164,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   to="/my-reports"
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -158,10 +179,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   to="/report/new"
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -175,7 +196,7 @@ export default function Sidebar({ isOpen, onClose }) {
           {/* 2. VERIFIER ROLE NAVIGATION */}
           {isVerifier && (
             <div className="mb-6">
-              <h5 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+              <h5 className="px-3 text-[10px] font-extrabold text-[#1B8FC0] uppercase tracking-wider mb-2">
                 Verifier Triage Workspace
               </h5>
               <nav className="space-y-1">
@@ -183,10 +204,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   to="/verifier/queue"
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -194,7 +215,7 @@ export default function Sidebar({ isOpen, onClose }) {
                     <LayoutDashboard className="w-4 h-4 shrink-0" />
                     <span>Triage Queue</span>
                   </div>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold uppercase">
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#7FD0E0]/40 text-[#0B5A9C] font-extrabold uppercase">
                     Queue
                   </span>
                 </NavLink>
@@ -203,10 +224,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   to="/community-map"
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -220,7 +241,7 @@ export default function Sidebar({ isOpen, onClose }) {
           {/* 3. AUTHORITY ROLE NAVIGATION */}
           {isAuthority && (
             <div className="mb-6">
-              <h5 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+              <h5 className="px-3 text-[10px] font-extrabold text-[#1B8FC0] uppercase tracking-wider mb-2">
                 Authority Field Desk
               </h5>
               <nav className="space-y-1">
@@ -228,10 +249,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   to="/authority/assigned"
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -239,7 +260,7 @@ export default function Sidebar({ isOpen, onClose }) {
                     <LayoutDashboard className="w-4 h-4 shrink-0" />
                     <span>Assigned Incidents</span>
                   </div>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-bold uppercase">
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-sky-100 text-[#0B5A9C] font-extrabold uppercase">
                     Field
                   </span>
                 </NavLink>
@@ -248,10 +269,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   to="/analytics"
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -263,10 +284,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   to="/community-map"
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -280,7 +301,7 @@ export default function Sidebar({ isOpen, onClose }) {
           {/* 4. ADMIN ROLE NAVIGATION */}
           {isAdmin && (
             <div className="mb-6">
-              <h5 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+              <h5 className="px-3 text-[10px] font-extrabold text-[#1B8FC0] uppercase tracking-wider mb-2">
                 City Administration & Governance
               </h5>
               <nav className="space-y-1">
@@ -289,10 +310,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   onClick={onClose}
                   end
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -304,10 +325,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   to="/verifier/queue"
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -319,10 +340,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   to="/analytics"
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -334,10 +355,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   to="/community-map"
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        ? `${GRADIENT} text-white shadow-md`
+                        : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                     }`
                   }
                 >
@@ -350,7 +371,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
           {/* Universal Profile & Notifications */}
           <div className="mb-4">
-            <h5 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+            <h5 className="px-3 text-[10px] font-extrabold text-[#1B8FC0] uppercase tracking-wider mb-2">
               User Account
             </h5>
             <nav className="space-y-1">
@@ -358,10 +379,10 @@ export default function Sidebar({ isOpen, onClose }) {
                 to="/profile"
                 onClick={onClose}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-sm font-bold'
-                      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                      ? `${GRADIENT} text-white shadow-md`
+                      : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                   }`
                 }
               >
@@ -373,10 +394,10 @@ export default function Sidebar({ isOpen, onClose }) {
                 to="/notifications"
                 onClick={onClose}
                 className={({ isActive }) =>
-                  `flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  `flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-sm font-bold'
-                      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                      ? `${GRADIENT} text-white shadow-md`
+                      : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"
                   }`
                 }
               >

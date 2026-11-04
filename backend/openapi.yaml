@@ -59,7 +59,7 @@ paths:
               type: object
               required: [email, password]
               properties:
-                email: {type: string, format: email}
+                email: {type: string, format: email, maxLength: 255}
                 password: {type: string}
       responses:
         '200':
@@ -96,6 +96,8 @@ paths:
               properties:
                 category_id: {type: integer}
                 description: {type: string, maxLength: 500}
+                address: {type: string, maxLength: 255}
+                landmark: {type: string, maxLength: 120}
                 lat: {type: number, minimum: -90, maximum: 90}
                 lon: {type: number, minimum: -180, maximum: 180}
                 photo: {type: string, format: binary, description: 'JPEG or PNG, max 5 MB'}
@@ -118,7 +120,7 @@ paths:
         - {name: category_id, in: query, schema: {type: integer}}
         - {name: status, in: query, schema: {$ref: '#/components/schemas/Status'}}
         - {name: area_id, in: query, schema: {type: integer}}
-        - {name: search, in: query, description: Search report descriptions, categories, or exact report ids, schema: {type: string}}
+        - {name: search, in: query, description: Search report descriptions, addresses, landmarks, categories, or exact report ids, schema: {type: string}}
         - {name: mine, in: query, description: 'Only reports created by the current user', schema: {type: boolean}}
         - {name: following, in: query, description: 'Only reports the current user follows', schema: {type: boolean}}
         - {name: include_duplicates, in: query, description: 'Default false: duplicates are hidden and counted in the parent', schema: {type: boolean}}
@@ -218,6 +220,30 @@ paths:
               schema: {$ref: '#/components/schemas/Report'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '409': {$ref: '#/components/responses/Conflict'}
+  /reports/{id}/area:
+    parameters:
+      - {$ref: '#/components/parameters/ReportId'}
+    patch:
+      tags: [Workflow]
+      summary: Set or clear a report's area (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [area_id]
+              properties:
+                area_id: {type: integer, nullable: true}
+      responses:
+        '200':
+          description: Updated report
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Report'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Invalid'}
   /reports/{id}/follow:
     parameters:
       - {$ref: '#/components/parameters/ReportId'}
@@ -388,6 +414,7 @@ paths:
     post:
       tags: [Reference]
       summary: Create an area (admin)
+      description: boundary is an optional GeoJSON Polygon in longitude/latitude order.
       requestBody:
         required: true
         content:
@@ -397,6 +424,7 @@ paths:
               required: [name]
               properties:
                 name: {type: string, maxLength: 120}
+                boundary: {$ref: '#/components/schemas/Polygon'}
       responses:
         '201':
           description: Area created
@@ -406,6 +434,33 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Invalid'}
+  /areas/{id}:
+    patch:
+      tags: [Reference]
+      summary: Set or clear an area's boundary (admin)
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [boundary]
+              properties:
+                boundary:
+                  allOf:
+                    - {$ref: '#/components/schemas/Polygon'}
+                  nullable: true
+      responses:
+        '200':
+          description: Updated area
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Area'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Invalid'}
   /analytics/summary:
     get:
       tags: [Analytics]
@@ -413,7 +468,8 @@ paths:
       description: |
         Counts cases: a report merged into another one is not counted twice. by_status has every status
         (0 when empty). by_category has every category name. avg_days_to_resolve is null until something
-        is resolved. Pass area_id to limit everything except hotspot_count to one area.
+        is resolved. Pass area_id to limit report counts and hotspot_count. A hotspot is associated with an area
+        when its center is inside that area's configured boundary.
       parameters:
         - {name: area_id, in: query, schema: {type: integer}}
       responses:
@@ -487,6 +543,8 @@ paths:
       tags: [Analytics]
       summary: Clusters of reports (authority, admin)
       description: Hotspots found by the clustering job, biggest first. They refresh automatically after new reports (at most every HOTSPOT_REFRESH_MINUTES) and on demand with the recompute endpoint.
+      parameters:
+        - {name: area_id, in: query, description: Return hotspots whose centers are inside this area's boundary, schema: {type: integer}}
       responses:
         '200':
           description: Hotspots from the clustering job
@@ -606,8 +664,8 @@ components:
       type: object
       required: [name, email, password]
       properties:
-        name: {type: string}
-        email: {type: string, format: email}
+        name: {type: string, maxLength: 120}
+        email: {type: string, format: email, maxLength: 255}
         password: {type: string, minLength: 8}
         area_id: {type: integer}
     AuthResponse:
@@ -634,6 +692,23 @@ components:
       properties:
         id: {type: integer}
         name: {type: string}
+        boundary: {$ref: '#/components/schemas/Polygon'}
+    Polygon:
+      type: object
+      nullable: true
+      description: GeoJSON Polygon with longitude/latitude coordinate pairs and closed rings.
+      required: [type, coordinates]
+      properties:
+        type: {type: string, enum: [Polygon]}
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              minItems: 2
+              maxItems: 2
+              items: {type: number}
     Location:
       type: object
       properties:
@@ -645,6 +720,8 @@ components:
         id: {type: integer}
         category: {$ref: '#/components/schemas/Category'}
         description: {type: string}
+        address: {type: string, nullable: true}
+        landmark: {type: string, nullable: true}
         status: {$ref: '#/components/schemas/Status'}
         location: {$ref: '#/components/schemas/Location'}
         area_id: {type: integer, nullable: true}

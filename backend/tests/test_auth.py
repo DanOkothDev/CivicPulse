@@ -40,6 +40,16 @@ def test_register_validation(client):
     assert set(r.json['error']['details']) == {'name', 'email', 'password'}
 
 
+def test_register_rejects_names_and_emails_over_database_limits(client):
+    long_name, _ = register(client, name='n' * 121)
+    long_email, _ = register(client, email=f'{"a" * 246}@test.civicpulse')
+
+    assert long_name.status_code == 422
+    assert 'name' in long_name.json['error']['details']
+    assert long_email.status_code == 422
+    assert 'email' in long_email.json['error']['details']
+
+
 def test_register_needs_json(client):
     assert client.post('/api/v1/auth/register', data='x').status_code == 422
 

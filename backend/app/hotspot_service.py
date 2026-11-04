@@ -31,16 +31,35 @@ def _distance_m(point_a, point_b):
 
 def _dbscan(points, eps_m=250, min_samples=3):
     """Return a cluster label per point; -1 denotes noise."""
-    if eps_m <= 0 or min_samples < 1:
+    if not math.isfinite(eps_m) or eps_m <= 0 or min_samples < 1:
         raise ValueError("eps_m must be positive and min_samples at least 1")
 
     labels = [None] * len(points)
     cluster_id = 0
+    cell_size = max(eps_m, 1e-6)
+    cells = {}
+    xyz_points = []
+    for index, (latitude, longitude) in enumerate(points):
+        lat, lon = math.radians(latitude), math.radians(longitude)
+        xyz = (
+            EARTH_RADIUS_M * math.cos(lat) * math.cos(lon),
+            EARTH_RADIUS_M * math.cos(lat) * math.sin(lon),
+            EARTH_RADIUS_M * math.sin(lat),
+        )
+        xyz_points.append(xyz)
+        cell = tuple(math.floor(coordinate / cell_size) for coordinate in xyz)
+        cells.setdefault(cell, []).append(index)
 
     def neighbors(index):
+        cell = tuple(math.floor(coordinate / cell_size) for coordinate in xyz_points[index])
+        nearby = []
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for dz in (-1, 0, 1):
+                    nearby.extend(cells.get((cell[0] + dx, cell[1] + dy, cell[2] + dz), ()))
         return [
-            j for j, point in enumerate(points)
-            if _distance_m(points[index], point) <= eps_m
+            candidate for candidate in sorted(nearby)
+            if _distance_m(points[index], points[candidate]) <= eps_m
         ]
 
     for index in range(len(points)):

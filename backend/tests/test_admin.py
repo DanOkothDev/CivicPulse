@@ -55,6 +55,36 @@ def test_admin_can_create_areas(client, app, token_for):
         db.session.commit()
 
 
+def test_admin_can_set_and_clear_area_boundary(client, app, token_for):
+    headers = {'Authorization': 'Bearer ' + token_for('admin')}
+    area = client.post('/api/v1/areas', json={'name': f'Boundary test {uuid.uuid4().hex}'},
+                       headers=headers)
+    assert area.status_code == 201
+    area_id = area.json['id']
+    boundary = {
+        'type': 'Polygon',
+        'coordinates': [[[36.8, -1.3], [36.9, -1.3], [36.9, -1.2],
+                         [36.8, -1.2], [36.8, -1.3]]],
+    }
+    updated = client.patch(f'/api/v1/areas/{area_id}', json={'boundary': boundary}, headers=headers)
+    assert updated.status_code == 200
+    assert updated.json['boundary'] == boundary
+    assert any(row['id'] == area_id and row['boundary'] == boundary
+               for row in client.get('/api/v1/areas').json)
+
+    cleared = client.patch(f'/api/v1/areas/{area_id}', json={'boundary': None}, headers=headers)
+    assert cleared.status_code == 200 and cleared.json['boundary'] is None
+    assert client.patch(f'/api/v1/areas/{area_id}', json={'boundary': {'type': 'LineString'}},
+                        headers=headers).status_code == 422
+    assert client.patch(f'/api/v1/areas/{area_id}', json={
+        'boundary': {'type': 'Polygon', 'coordinates': [[[181, 0], [0, 1], [1, 0], [181, 0]]]},
+    }, headers=headers).status_code == 422
+
+    with app.app_context():
+        db.session.delete(db.session.get(Area, area_id))
+        db.session.commit()
+
+
 def test_admin_can_change_user_role(client, app, token_for, make_user):
     email, _ = make_user('resident')
     with app.app_context():

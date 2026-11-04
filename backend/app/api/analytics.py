@@ -6,7 +6,8 @@ report residents submitted per day, duplicates included."""
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, request
-from sqlalchemy import and_, func
+from geoalchemy2 import Geometry
+from sqlalchemy import and_, cast, func
 
 from ..auth_utils import roles_required
 from ..constants import STATUSES
@@ -32,6 +33,16 @@ def _case_conditions():
     return conditions
 
 
+def _area_id():
+    raw = request.args.get('area_id')
+    if raw in (None, ''):
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        raise ApiError('validation_error', 'area_id must be a number', 422)
+
+
 def _counts_by_category(conditions):
     counts = dict(db.session.query(Report.category_id, func.count(Report.id))
                   .filter(*conditions).group_by(Report.category_id).all())
@@ -41,6 +52,7 @@ def _counts_by_category(conditions):
 @bp.get('/analytics/summary')
 @staff_only
 def summary():
+    area_id = _area_id()
     conditions = _case_conditions()
     total = db.session.query(func.count(Report.id)).filter(*conditions).scalar() or 0
     counts = dict(db.session.query(Report.status, func.count(Report.id))
@@ -59,11 +71,18 @@ def summary():
                    .join(StatusEvent, and_(StatusEvent.report_id == Report.id, StatusEvent.status == 'resolved'))
                    .filter(*conditions, Report.status == 'resolved').scalar())
 
+    hotspot_query = Hotspot.query
+    if area_id is not None:
+        hotspot_query = hotspot_query.join(Area, Area.id == area_id).filter(
+            Area.boundary.isnot(None),
+            func.ST_Covers(cast(Area.boundary, Geometry), cast(Hotspot.center, Geometry)),
+        )
+
     return jsonify({
         'total_reports': total,
         'open_reports': sum(n for status, n in by_status.items() if status not in FINAL_STATUSES),
         'resolved_reports': by_status['resolved'],
-        'hotspot_count': Hotspot.query.count(),
+        'hotspot_count': hotspot_query.count(),
         'by_status': by_status,
         'by_category': {name: n for _, name, n in _counts_by_category(conditions)},
         'open_by_area': [{'area_id': area_id, 'area': name or 'No area', 'open': n}
