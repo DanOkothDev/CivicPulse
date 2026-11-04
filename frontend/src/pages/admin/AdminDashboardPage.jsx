@@ -1,41 +1,126 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { useSearchParams, Link } from "react-router-dom";
 import {
-  Building,
   Users,
   Layers,
   MapPin,
   Shield,
   Plus,
-  CheckCircle2,
   Search,
   FileText,
   Flame,
   RefreshCw,
-  Clock,
-  AlertTriangle,
-  Activity,
-  Filter,
-  CheckSquare,
   ArrowRight,
   Sliders,
-  ExternalLink,
   UserPlus,
-} from 'lucide-react';
-import { api } from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
-import { useToast } from '../../context/ToastContext';
-import DataTable from '../../components/ui/DataTable';
-import Modal from '../../components/ui/Modal';
-import StatisticCard from '../../components/ui/StatisticCard';
+} from "lucide-react";
+import { api } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+import DataTable from "../../components/ui/DataTable";
+import Modal from "../../components/ui/Modal";
+
+/*
+  Theme (taken from the landing page design)
+  mint background  #E6F5F8
+  light cyan       #7FD0E0
+  bright cyan      #38C6DC
+  mid blue         #1B8FC0
+  deep blue        #0B5A9C
+  soft grey text   #5F5F5F
+  Font: Montserrat (loaded below)
+*/
+
+const GRADIENT = "bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C]";
+const CARD =
+  "bg-white/80 rounded-3xl border border-[#cfe9f0] shadow-[0_10px_30px_-14px_rgba(11,90,156,0.35)]";
+const INNER_CARD = "rounded-2xl bg-[#E6F5F8] border border-[#cfe9f0]";
+const INPUT =
+  "w-full px-3 py-2 bg-white border border-[#cfe9f0] rounded-xl text-xs text-[#4a4a4a] focus:outline-none focus:border-[#1B8FC0]";
+
+// Pill button with the circled arrow, like the Subscribe button
+function PillButton({
+  icon: Icon = ArrowRight,
+  children,
+  className = "",
+  ...props
+}) {
+  return (
+    <button
+      type="button"
+      className={`inline-flex items-center gap-2 rounded-full bg-[#7FD0E0]/70 hover:bg-[#7FD0E0] py-1 pl-1 pr-5 text-xs font-semibold text-[#5F5F5F] transition-colors disabled:opacity-60 ${className}`}
+      {...props}
+    >
+      <span className="grid h-8 w-8 place-items-center rounded-full border-2 border-[#38C6DC] bg-[#E6F5F8] text-[#1B8FC0]">
+        <Icon className={`h-4 w-4 ${props.disabled ? "animate-spin" : ""}`} />
+      </span>
+      <span>{children}</span>
+    </button>
+  );
+}
+
+// White button with blue text, like Log In
+function WhiteButton({ children, className = "", ...props }) {
+  return (
+    <button
+      type="button"
+      className={`rounded-xl bg-white px-4 py-2 text-xs font-bold text-[#0B5A9C] shadow-[0_6px_14px_-6px_rgba(11,90,156,0.45)] hover:bg-[#f4fbfd] transition-colors disabled:opacity-60 ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Solid gradient button
+function GradientButton({ children, className = "", ...props }) {
+  return (
+    <button
+      className={`rounded-full ${GRADIENT} px-5 py-2 text-xs font-bold text-white shadow-[0_8px_18px_-8px_rgba(11,90,156,0.7)] hover:brightness-110 transition disabled:opacity-50 ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+function StatTile({ title, value, note, icon: Icon }) {
+  return (
+    <div className={`${CARD} p-5 flex items-center gap-4`}>
+      <div
+        className={`h-12 w-12 shrink-0 rounded-2xl ${GRADIENT} grid place-items-center text-white shadow-[0_8px_16px_-6px_rgba(11,90,156,0.6)]`}
+      >
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="text-xs font-semibold text-[#5F5F5F]">{title}</p>
+        <p className="text-2xl font-extrabold text-[#0B5A9C] leading-tight">
+          {value}
+        </p>
+        <p className="text-[11px] text-[#7a8a90]">{note}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Active tab state synched with URL query param
-  const activeTab = searchParams.get('tab') || 'reports';
+  // Load the theme font once
+  useEffect(() => {
+    if (document.getElementById("montserrat-font")) return;
+    const link = document.createElement("link");
+    link.id = "montserrat-font";
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
+
+  // Active tab state synced with URL query param
+  const activeTab = searchParams.get("tab") || "reports";
   const setActiveTab = (tabId) => setSearchParams({ tab: tabId });
 
   // Data states
@@ -46,35 +131,35 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   // Filters
-  const [reportFilterStatus, setReportFilterStatus] = useState('all');
-  const [reportSearch, setReportSearch] = useState('');
-  const [userRoleFilter, setUserRoleFilter] = useState('all');
-  const [userSearch, setUserSearch] = useState('');
+  const [reportFilterStatus, setReportFilterStatus] = useState("all");
+  const [reportSearch, setReportSearch] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState("all");
+  const [userSearch, setUserSearch] = useState("");
   const [recomputing, setRecomputing] = useState(false);
 
   // Modals
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [newRole, setNewRole] = useState('resident');
+  const [newRole, setNewRole] = useState("resident");
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   const [areaModalOpen, setAreaModalOpen] = useState(false);
-  const [newAreaName, setNewAreaName] = useState('');
+  const [newAreaName, setNewAreaName] = useState("");
 
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [reportToAssign, setReportToAssign] = useState(null);
-  const [selectedAuthorityId, setSelectedAuthorityId] = useState('');
-  const [assignmentDueDate, setAssignmentDueDate] = useState('');
+  const [selectedAuthorityId, setSelectedAuthorityId] = useState("");
+  const [assignmentDueDate, setAssignmentDueDate] = useState("");
   const [assigning, setAssigning] = useState(false);
 
   const today = new Date();
   const minAssignmentDate = [
     today.getFullYear(),
-    String(today.getMonth() + 1).padStart(2, '0'),
-    String(today.getDate()).padStart(2, '0'),
-  ].join('-');
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
 
   const loadData = async () => {
     setLoading(true);
@@ -90,7 +175,7 @@ export default function AdminDashboardPage() {
       setAreas(a || []);
       setReports(r.items || []);
     } catch (error) {
-      toast.error(`Could not load administrative data: ${error.message}`);
+      toast.error(`Could not load dashboard data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -111,11 +196,11 @@ export default function AdminDashboardPage() {
     if (!selectedUser) return;
     try {
       await api.admin.updateUserRole(selectedUser.id, newRole);
-      toast.success(`Updated ${selectedUser.name}'s role to ${newRole}`);
+      toast.success(`${selectedUser.name} is now a ${newRole}.`);
       setRoleModalOpen(false);
       loadData();
     } catch (error) {
-      toast.error(`Could not change user role: ${error.message}`);
+      toast.error(`Could not change the role: ${error.message}`);
     }
   };
 
@@ -125,14 +210,14 @@ export default function AdminDashboardPage() {
     try {
       await api.admin.addCategory({
         name: newCategoryName,
-        icon: 'facility',
+        icon: "facility",
       });
-      toast.success(`Category "${newCategoryName}" created!`);
+      toast.success(`Category "${newCategoryName}" added.`);
       setCategoryModalOpen(false);
-      setNewCategoryName('');
+      setNewCategoryName("");
       loadData();
     } catch (error) {
-      toast.error(`Could not add category: ${error.message}`);
+      toast.error(`Could not add the category: ${error.message}`);
     }
   };
 
@@ -143,19 +228,19 @@ export default function AdminDashboardPage() {
       await api.admin.addArea({
         name: newAreaName,
       });
-      toast.success(`Ward "${newAreaName}" added!`);
+      toast.success(`Ward "${newAreaName}" added.`);
       setAreaModalOpen(false);
-      setNewAreaName('');
+      setNewAreaName("");
       loadData();
     } catch (error) {
-      toast.error(`Could not add area: ${error.message}`);
+      toast.error(`Could not add the ward: ${error.message}`);
     }
   };
 
   const handleOpenAssignModal = (report) => {
     setReportToAssign(report);
-    setSelectedAuthorityId('');
-    setAssignmentDueDate('');
+    setSelectedAuthorityId("");
+    setAssignmentDueDate("");
     setAssignModalOpen(true);
   };
 
@@ -169,12 +254,12 @@ export default function AdminDashboardPage() {
         assignee_id: Number(selectedAuthorityId),
         due_date: assignmentDueDate || undefined,
       });
-      toast.success(`Report #${reportToAssign.id} assigned successfully.`);
+      toast.success(`Report #${reportToAssign.id} assigned.`);
       setAssignModalOpen(false);
       setReportToAssign(null);
       await loadData();
     } catch (error) {
-      toast.error(`Could not assign report: ${error.message}`);
+      toast.error(`Could not assign the report: ${error.message}`);
     } finally {
       setAssigning(false);
     }
@@ -186,25 +271,34 @@ export default function AdminDashboardPage() {
       const updatedReport = await api.reports.updateArea(report.id, areaId);
       setReports((current) =>
         current.map((item) =>
-          item.id === updatedReport.id ? { ...item, area_id: updatedReport.area_id } : item
-        )
+          item.id === updatedReport.id
+            ? { ...item, area_id: updatedReport.area_id }
+            : item,
+        ),
       );
       const areaName = areas.find((area) => area.id === areaId)?.name;
-      toast.success(areaName
-        ? `Report #${report.id} assigned to ${areaName}.`
-        : `Ward assignment removed from report #${report.id}.`);
+      toast.success(
+        areaName
+          ? `Report #${report.id} moved to ${areaName}.`
+          : `Ward removed from report #${report.id}.`,
+      );
     } catch (error) {
-      toast.error(`Could not update report ward: ${error.message}`);
+      toast.error(`Could not change the ward: ${error.message}`);
     }
   };
 
   const handleRecomputeHotspots = async () => {
     setRecomputing(true);
     try {
-      const res = await api.analytics.recomputeHotspots({ eps_m: 250, min_samples: 3 });
-      toast.success(`Hotspot update complete. Found ${res.clusters_created} active areas.`);
+      const res = await api.analytics.recomputeHotspots({
+        eps_m: 250,
+        min_samples: 3,
+      });
+      toast.success(
+        `Hotspots refreshed. Found ${res.clusters_created} hotspot areas.`,
+      );
     } catch (err) {
-      toast.error(err.message || 'Clustering recompute failed');
+      toast.error(err.message || "Could not refresh hotspots");
     } finally {
       setRecomputing(false);
     }
@@ -212,18 +306,20 @@ export default function AdminDashboardPage() {
 
   // Filtered reports
   const filteredReports = reports.filter((r) => {
-    const matchesStatus = reportFilterStatus === 'all' || r.status === reportFilterStatus;
+    const matchesStatus =
+      reportFilterStatus === "all" || r.status === reportFilterStatus;
     const matchesSearch =
       !reportSearch.trim() ||
       String(r.id).includes(reportSearch.trim()) ||
       (r.title && r.title.toLowerCase().includes(reportSearch.toLowerCase())) ||
-      (r.description && r.description.toLowerCase().includes(reportSearch.toLowerCase()));
+      (r.description &&
+        r.description.toLowerCase().includes(reportSearch.toLowerCase()));
     return matchesStatus && matchesSearch;
   });
 
   // Filtered users
   const filteredUsers = users.filter((u) => {
-    const matchesRole = userRoleFilter === 'all' || u.role === userRoleFilter;
+    const matchesRole = userRoleFilter === "all" || u.role === userRoleFilter;
     const matchesSearch =
       !userSearch.trim() ||
       (u.name && u.name.toLowerCase().includes(userSearch.toLowerCase())) ||
@@ -231,115 +327,120 @@ export default function AdminDashboardPage() {
     return matchesRole && matchesSearch;
   });
 
-  // Columns for Reports Table
+  // Columns for reports table
   const reportColumns = [
     {
-      header: 'Incident',
-      accessor: 'id',
+      header: "Report",
+      accessor: "id",
       render: (r) => (
         <div className="flex items-center gap-3">
           {r.photo_url ? (
             <img
               src={r.photo_url}
               alt=""
-              className="w-10 h-10 rounded-xl object-cover shrink-0 border border-slate-200"
+              className="w-10 h-10 rounded-xl object-cover shrink-0 border border-[#cfe9f0]"
             />
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 grid place-items-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#E6F5F8] text-[#1B8FC0] grid place-items-center shrink-0">
               <FileText className="w-5 h-5" />
             </div>
           )}
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[11px] font-bold text-slate-400">#{r.id}</span>
-              <span className="font-bold text-slate-900 text-xs truncate max-w-[220px] block">
-                {r.title || r.description?.slice(0, 35) || r.category?.name || 'Untitled report'}
+              <span className="text-[11px] font-bold text-[#7a8a90]">
+                #{r.id}
+              </span>
+              <span className="font-bold text-[#4a4a4a] text-xs truncate max-w-[220px] block">
+                {r.title ||
+                  r.description?.slice(0, 35) ||
+                  r.category?.name ||
+                  "Untitled report"}
               </span>
             </div>
-            <span className="text-[11px] text-slate-400">
-              {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
+            <span className="text-[11px] text-[#7a8a90]">
+              {r.created_at ? new Date(r.created_at).toLocaleDateString() : "—"}
             </span>
           </div>
         </div>
       ),
     },
     {
-      header: 'Category',
-      accessor: 'category',
-      render: (r) => {
-        return (
-          <span className="font-semibold text-xs text-slate-800">
-            {r.category?.name || 'Unknown category'}
-          </span>
-        );
-      },
+      header: "Category",
+      accessor: "category",
+      render: (r) => (
+        <span className="font-semibold text-xs text-[#4a4a4a]">
+          {r.category?.name || "No category"}
+        </span>
+      ),
     },
     {
-      header: 'Status',
-      accessor: 'status',
+      header: "Status",
+      accessor: "status",
       render: (r) => {
         const styles = {
-          reported: 'bg-amber-100 text-amber-800 border-amber-200',
-          verified: 'bg-blue-100 text-blue-800 border-blue-200',
-          assigned: 'bg-purple-100 text-purple-800 border-purple-200',
-          in_progress: 'bg-orange-100 text-orange-800 border-orange-200',
-          resolved: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-          rejected: 'bg-rose-100 text-rose-800 border-rose-200',
+          reported: "bg-amber-100 text-amber-800 border-amber-200",
+          verified: "bg-sky-100 text-sky-800 border-sky-200",
+          assigned: "bg-indigo-100 text-indigo-800 border-indigo-200",
+          in_progress: "bg-orange-100 text-orange-800 border-orange-200",
+          resolved: "bg-emerald-100 text-emerald-800 border-emerald-200",
+          rejected: "bg-rose-100 text-rose-800 border-rose-200",
         };
         return (
           <span
             className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border capitalize inline-block ${
-              styles[r.status] || 'bg-slate-100 text-slate-700 border-slate-200'
+              styles[r.status] || "bg-slate-100 text-slate-700 border-slate-200"
             }`}
           >
-            {r.status ? r.status.replace('_', ' ') : 'Reported'}
+            {r.status ? r.status.replace("_", " ") : "Reported"}
           </span>
         );
       },
     },
     {
-      header: 'Ward / Area',
-      accessor: 'area_name',
+      header: "Ward",
+      accessor: "area_name",
       render: (r) => (
         <div className="space-y-1.5">
-          <span className="block text-xs text-slate-600">
+          <span className="block text-xs text-[#5F5F5F]">
             {areas.find((area) => area.id === r.area_id)?.name ||
-              (r.area_id ? `Area #${r.area_id}` : 'No area assigned')}
+              (r.area_id ? `Ward #${r.area_id}` : "No ward")}
           </span>
           <select
-            aria-label={`Assign ward for report ${r.id}`}
-            value={r.area_id ?? ''}
+            aria-label={`Choose ward for report ${r.id}`}
+            value={r.area_id ?? ""}
             onChange={(e) => handleUpdateReportArea(r, e.target.value)}
-            className="w-40 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700"
+            className="w-40 rounded-lg border border-[#cfe9f0] bg-white px-2 py-1 text-[11px] text-[#4a4a4a] focus:outline-none focus:border-[#1B8FC0]"
           >
-            <option value="">No area assigned</option>
+            <option value="">No ward</option>
             {areas.map((area) => (
-              <option key={area.id} value={area.id}>{area.name}</option>
+              <option key={area.id} value={area.id}>
+                {area.name}
+              </option>
             ))}
           </select>
         </div>
       ),
     },
     {
-      header: 'Actions',
-      accessor: 'actions',
+      header: "Actions",
+      accessor: "actions",
       render: (r) => (
-        <div className="flex items-center gap-1.5">
-          {r.status === 'verified' && (
+        <div className="flex items-center gap-2">
+          {r.status === "verified" && (
             <button
               type="button"
               onClick={() => handleOpenAssignModal(r)}
-              className="text-xs font-bold text-purple-700 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-2.5 py-1.5 rounded-xl inline-flex items-center gap-1 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#7FD0E0]/70 hover:bg-[#7FD0E0] px-3 py-1.5 text-xs font-semibold text-[#5F5F5F] transition-colors"
             >
-              <UserPlus className="w-3 h-3" />
+              <UserPlus className="w-3.5 h-3.5 text-[#1B8FC0]" />
               <span>Assign</span>
             </button>
           )}
           <Link
             to={`/reports/${r.id}`}
-            className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl inline-flex items-center gap-1 transition-colors"
+            className={`inline-flex items-center gap-1.5 rounded-full ${GRADIENT} px-3.5 py-1.5 text-xs font-bold text-white hover:brightness-110 transition`}
           >
-            <span>View Case</span>
+            <span>View</span>
             <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
@@ -347,36 +448,40 @@ export default function AdminDashboardPage() {
     },
   ];
 
-  // Columns for Users Table
+  // Columns for users table
   const userColumns = [
     {
-      header: 'User',
-      accessor: 'name',
+      header: "User",
+      accessor: "name",
       render: (u) => (
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 grid place-items-center font-bold text-xs">
-            {u.name?.charAt(0)?.toUpperCase() || '?'}
+          <div
+            className={`w-8 h-8 rounded-xl ${GRADIENT} text-white grid place-items-center font-bold text-xs`}
+          >
+            {u.name?.charAt(0)?.toUpperCase() || "?"}
           </div>
           <div>
-            <span className="font-bold text-slate-900 block text-xs">{u.name}</span>
-            <span className="text-[11px] text-slate-400 font-mono">{u.email}</span>
+            <span className="font-bold text-[#4a4a4a] block text-xs">
+              {u.name}
+            </span>
+            <span className="text-[11px] text-[#7a8a90]">{u.email}</span>
           </div>
         </div>
       ),
     },
     {
-      header: 'Assigned Role',
-      accessor: 'role',
+      header: "Role",
+      accessor: "role",
       render: (u) => (
         <span
           className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full capitalize ${
-            u.role === 'admin'
-              ? 'bg-purple-100 text-purple-800'
-              : u.role === 'authority'
-              ? 'bg-blue-100 text-blue-800'
-              : u.role === 'verifier'
-              ? 'bg-emerald-100 text-emerald-800'
-              : 'bg-slate-100 text-slate-700'
+            u.role === "admin"
+              ? "bg-[#0B5A9C] text-white"
+              : u.role === "authority"
+                ? "bg-[#38C6DC]/30 text-[#0B5A9C]"
+                : u.role === "verifier"
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-slate-100 text-slate-700"
           }`}
         >
           {u.role}
@@ -384,120 +489,138 @@ export default function AdminDashboardPage() {
       ),
     },
     {
-      header: 'Electoral Ward',
-      accessor: 'area_id',
+      header: "Ward",
+      accessor: "area_id",
       render: (u) => (
-        <span className="text-xs text-slate-600">
-          {u.area_id == null ? 'No area' : `Area ${u.area_id}`}
+        <span className="text-xs text-[#5F5F5F]">
+          {u.area_id == null
+            ? "No ward"
+            : areas.find((area) => area.id === u.area_id)?.name ||
+              `Ward ${u.area_id}`}
         </span>
       ),
     },
     {
-      header: 'Actions',
-      accessor: 'actions',
+      header: "Actions",
+      accessor: "actions",
       render: (u) => (
         <button
+          type="button"
           onClick={() => handleOpenRoleModal(u)}
-          className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg"
+          className="rounded-full bg-[#7FD0E0]/70 hover:bg-[#7FD0E0] px-3.5 py-1.5 text-xs font-semibold text-[#5F5F5F] transition-colors"
         >
-          Change Role
+          Change role
         </button>
       ),
     },
   ];
 
+  const chipClass = (active) =>
+    `text-xs font-semibold px-4 py-1.5 rounded-full transition-all capitalize shrink-0 ${
+      active
+        ? `${GRADIENT} text-white shadow-[0_6px_14px_-6px_rgba(11,90,156,0.7)]`
+        : "bg-white text-[#5F5F5F] border border-[#cfe9f0] hover:bg-[#f4fbfd]"
+    }`;
+
   return (
-    <div className="space-y-6">
-      {/* Header matching City Administrator Clearance */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+    <div
+      className="relative isolate overflow-hidden rounded-3xl bg-[#E6F5F8] p-6 space-y-6"
+      style={{
+        fontFamily: "'Montserrat', ui-sans-serif, system-ui, sans-serif",
+      }}
+    >
+      {/* Soft shapes in the corner, echoing the landing page */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 -right-24 -z-10 h-80 w-80 rounded-full bg-gradient-to-br from-[#38C6DC]/40 to-[#0B5A9C]/30 blur-2xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute top-40 -right-6 -z-10 h-12 w-12 rotate-12 rounded-2xl bg-white/40"
+      />
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-[11px] font-bold text-blue-700 tracking-wider uppercase mb-1">
-            <Building className="w-3.5 h-3.5" />
-            <span>Municipal Governance & Platform Administration</span>
-          </div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            City Administration Dashboard
+          <h1 className="text-3xl font-extrabold text-[#5F5F5F] tracking-tight">
+            Admin dashboard
           </h1>
-          <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
-            Manage city reports, assign role clearances, oversee infrastructure taxonomy, and trigger spatial clustering.
+          <p className="text-xs text-[#5F5F5F] mt-2 max-w-xl leading-relaxed">
+            Review reports, choose who can do what, edit categories and wards,
+            and refresh the hotspot map.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            type="button"
+        <div className="flex items-center gap-3 shrink-0">
+          <PillButton
+            icon={recomputing ? RefreshCw : Flame}
             onClick={handleRecomputeHotspots}
             disabled={recomputing}
-            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs text-xs font-bold px-3 py-2 rounded-2xl flex items-center gap-2 transition-all"
-            title="Refresh hotspot analysis"
+            title="Refresh hotspots"
           >
-            {recomputing ? (
-              <RefreshCw className="w-3.5 h-3.5 text-blue-600 animate-spin" />
-            ) : (
-              <Flame className="w-3.5 h-3.5 text-orange-500" />
-            )}
-            <span>{recomputing ? 'Clustering...' : 'Recompute Hotspots'}</span>
-          </button>
+            {recomputing ? "Refreshing..." : "Refresh hotspots"}
+          </PillButton>
 
-          <div className="bg-purple-50 border border-purple-200 text-purple-900 rounded-2xl px-3.5 py-2 text-xs font-bold flex items-center gap-2">
-            <Shield className="w-4 h-4 text-purple-600" />
-            <span>Admin Clearance</span>
+          <div className="bg-white rounded-xl px-3.5 py-2 text-xs font-bold text-[#0B5A9C] flex items-center gap-2 shadow-[0_6px_14px_-6px_rgba(11,90,156,0.45)]">
+            <Shield className="w-4 h-4" />
+            <span>Admin</span>
           </div>
         </div>
       </div>
 
-      {/* KPI Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <StatisticCard
-          title="City Reports"
+      {/* Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatTile
+          title="Reports"
           value={reports.length}
-          subtext="Total Dossiers"
-          badgeText="Active Cases"
-          badgeType="primary"
+          note="Submitted so far"
           icon={FileText}
         />
-        <StatisticCard
-          title="Registered Users"
+        <StatTile
+          title="Users"
           value={users.length}
-          subtext="Accounts"
-          badgeText="All Roles"
-          badgeType="primary"
+          note="All accounts"
           icon={Users}
         />
-        <StatisticCard
-          title="Defect Categories"
+        <StatTile
+          title="Categories"
           value={categories.length}
-          subtext="Taxonomy"
-          badgeText="Infrastructure"
-          badgeType="success"
+          note="For new reports"
           icon={Layers}
         />
-        <StatisticCard
-          title="Monitored Wards"
+        <StatTile
+          title="Wards"
           value={areas.length}
-          subtext="Districts"
-          badgeText="Municipal Zones"
-          badgeType="warning"
+          note="Areas covered"
           icon={MapPin}
         />
       </div>
 
-      {/* Admin Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-1 overflow-x-auto">
+      {/* Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {[
-          { id: 'reports', label: `City Reports (${reports.length})`, icon: FileText },
-          { id: 'users', label: `Users & Roles (${users.length})`, icon: Users },
-          { id: 'categories', label: `Categories (${categories.length})`, icon: Layers },
-          { id: 'areas', label: `Wards (${areas.length})`, icon: MapPin },
-          { id: 'system', label: 'System & Engine', icon: Sliders },
+          {
+            id: "reports",
+            label: `Reports (${reports.length})`,
+            icon: FileText,
+          },
+          { id: "users", label: `Users (${users.length})`, icon: Users },
+          {
+            id: "categories",
+            label: `Categories (${categories.length})`,
+            icon: Layers,
+          },
+          { id: "areas", label: `Wards (${areas.length})`, icon: MapPin },
+          { id: "system", label: "Settings", icon: Sliders },
         ].map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shrink-0 ${
+            className={`px-4 py-2.5 rounded-full text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
               activeTab === tab.id
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? `${GRADIENT} text-white shadow-[0_8px_18px_-8px_rgba(11,90,156,0.7)]`
+                : "text-[#5F5F5F] hover:bg-white/70"
             }`}
           >
             <tab.icon className="w-4 h-4" />
@@ -506,44 +629,39 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      {/* 1. Reports Oversight Tab */}
-      {activeTab === 'reports' && (
+      {/* Reports */}
+      {activeTab === "reports" && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            {/* Status Filter Buttons */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
               {[
-                { id: 'all', label: 'All Cases' },
-                { id: 'reported', label: 'Reported' },
-                { id: 'verified', label: 'Verified' },
-                { id: 'assigned', label: 'Assigned' },
-                { id: 'in_progress', label: 'In Progress' },
-                { id: 'resolved', label: 'Resolved' },
-                { id: 'rejected', label: 'Rejected' },
+                { id: "all", label: "All" },
+                { id: "reported", label: "Reported" },
+                { id: "verified", label: "Verified" },
+                { id: "assigned", label: "Assigned" },
+                { id: "in_progress", label: "In progress" },
+                { id: "resolved", label: "Resolved" },
+                { id: "rejected", label: "Rejected" },
               ].map((st) => (
                 <button
                   key={st.id}
+                  type="button"
                   onClick={() => setReportFilterStatus(st.id)}
-                  className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all capitalize shrink-0 ${
-                    reportFilterStatus === st.id
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-                  }`}
+                  className={chipClass(reportFilterStatus === st.id)}
                 >
                   {st.label}
                 </button>
               ))}
             </div>
 
-            {/* Search Input */}
             <div className="relative sm:w-64">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#1B8FC0] absolute left-3.5 top-2.5 pointer-events-none" />
               <input
                 type="text"
                 value={reportSearch}
                 onChange={(e) => setReportSearch(e.target.value)}
-                placeholder="Search report # or title..."
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-600"
+                placeholder="Search by number or title"
+                className="w-full pl-10 pr-4 py-2 bg-white border border-[#cfe9f0] rounded-full text-xs focus:outline-none focus:border-[#1B8FC0]"
               />
             </div>
           </div>
@@ -553,41 +671,38 @@ export default function AdminDashboardPage() {
             data={filteredReports}
             loading={loading}
             emptyMessage="No reports match your filters"
-            emptySubtext="Try clearing the search or status filter"
+            emptySubtext="Clear the search or pick a different status"
           />
         </div>
       )}
 
-      {/* 2. Users Tab */}
-      {activeTab === 'users' && (
+      {/* Users */}
+      {activeTab === "users" && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            {/* Role Filter Buttons */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-              {['all', 'resident', 'verifier', 'authority', 'admin'].map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setUserRoleFilter(r)}
-                  className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all capitalize shrink-0 ${
-                    userRoleFilter === r
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-                  }`}
-                >
-                  {r === 'all' ? 'All Roles' : `${r}s`}
-                </button>
-              ))}
+              {["all", "resident", "verifier", "authority", "admin"].map(
+                (r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setUserRoleFilter(r)}
+                    className={chipClass(userRoleFilter === r)}
+                  >
+                    {r === "all" ? "Everyone" : `${r}s`}
+                  </button>
+                ),
+              )}
             </div>
 
-            {/* User Search Input */}
             <div className="relative sm:w-64">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#1B8FC0] absolute left-3.5 top-2.5 pointer-events-none" />
               <input
                 type="text"
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
-                placeholder="Search user name or email..."
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-600"
+                placeholder="Search by name or email"
+                className="w-full pl-10 pr-4 py-2 bg-white border border-[#cfe9f0] rounded-full text-xs focus:outline-none focus:border-[#1B8FC0]"
               />
             </div>
           </div>
@@ -596,180 +711,225 @@ export default function AdminDashboardPage() {
             columns={userColumns}
             data={filteredUsers}
             loading={loading}
-            emptyMessage="No registered users found"
-            emptySubtext="Try clearing the search query"
+            emptyMessage="No users found"
+            emptySubtext="Clear the search to see everyone"
           />
         </div>
       )}
 
-      {/* 3. Categories Tab */}
-      {activeTab === 'categories' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+      {/* Categories */}
+      {activeTab === "categories" && (
+        <div className={`${CARD} p-6 space-y-5`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Infrastructure Defect Taxonomy
+              <h3 className="text-base font-extrabold text-[#5F5F5F]">
+                Report categories
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Categories residents can select when filing a report.
+              <p className="text-xs text-[#5F5F5F] mt-1">
+                Residents pick one of these when they file a report.
               </p>
             </div>
-            <button
-              onClick={() => setCategoryModalOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Category</span>
-            </button>
+            <PillButton icon={Plus} onClick={() => setCategoryModalOpen(true)}>
+              Add category
+            </PillButton>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {categories.map((c) => (
-              <div key={c.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-                <span className="font-mono text-[10px] text-slate-400 font-bold block mb-1">
-                  CATEGORY #{c.id}
-                </span>
-                <h4 className="text-sm font-bold text-slate-900 mb-1">{c.name}</h4>
-                <p className="text-xs text-slate-500">Icon: {c.icon || 'Not set'}</p>
+              <div
+                key={c.id}
+                className={`${INNER_CARD} p-4 flex items-center gap-3`}
+              >
+                <div
+                  className={`h-9 w-9 shrink-0 rounded-xl ${GRADIENT} grid place-items-center text-white`}
+                >
+                  <Layers className="h-4 w-4" />
+                </div>
+                <h4 className="text-sm font-bold text-[#4a4a4a]">{c.name}</h4>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* 4. Areas Tab */}
-      {activeTab === 'areas' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+      {/* Wards */}
+      {activeTab === "areas" && (
+        <div className={`${CARD} p-6 space-y-5`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Municipal Service Areas
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Areas currently available for resident accounts and report assignment.
+              <h3 className="text-base font-extrabold text-[#5F5F5F]">Wards</h3>
+              <p className="text-xs text-[#5F5F5F] mt-1">
+                Residents and reports can be placed in any of these wards.
               </p>
             </div>
-            <button
-              onClick={() => setAreaModalOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Ward</span>
-            </button>
+            <PillButton icon={Plus} onClick={() => setAreaModalOpen(true)}>
+              Add ward
+            </PillButton>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {areas.map((a) => (
-              <div key={a.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-                <span className="font-mono text-[10px] text-slate-400 font-bold block mb-1">
-                  AREA #{a.id}
-                </span>
-                <h4 className="text-sm font-bold text-slate-900 mb-1">{a.name}</h4>
+              <div
+                key={a.id}
+                className={`${INNER_CARD} p-4 flex items-center gap-3`}
+              >
+                <div
+                  className={`h-9 w-9 shrink-0 rounded-xl ${GRADIENT} grid place-items-center text-white`}
+                >
+                  <MapPin className="h-4 w-4" />
+                </div>
+                <h4 className="text-sm font-bold text-[#4a4a4a]">{a.name}</h4>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* 5. System & Workflow Engine Tab */}
-      {activeTab === 'system' && (
+      {/* Settings */}
+      {activeTab === "system" && (
         <div className="space-y-6">
-          {/* Status Progression Engine */}
-          <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-              <Activity className="w-4 h-4 text-blue-600" />
-              <h3 className="text-sm font-bold text-slate-900">
-                Report status workflow
+          <div className={`${CARD} p-6 space-y-4`}>
+            <div>
+              <h3 className="text-base font-extrabold text-[#5F5F5F]">
+                How a report moves
               </h3>
+              <p className="text-xs text-[#5F5F5F] mt-1 leading-relaxed max-w-2xl">
+                Every report goes through the same steps in order. A report
+                can&apos;t skip a step, and a report that is already in progress
+                can&apos;t be reassigned.
+              </p>
             </div>
 
-            <p className="text-xs text-slate-500 leading-relaxed">
-              CivicPulse enforces a centralized status lifecycle in. Reports cannot skip workflow stages, and in-progress assignments are protected from reassignment.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               {[
-                { title: '1. Reported', desc: 'Resident submits with coordinates and photo evidence.', pill: 'bg-amber-100 text-amber-800' },
-                { title: '2. Verified', desc: 'Verifier or Admin confirms defect and checks duplicates.', pill: 'bg-blue-100 text-blue-800' },
-                { title: '3. Assigned', desc: 'Case assigned to authority with mandatory due date.', pill: 'bg-purple-100 text-purple-800' },
-                { title: '4. In Progress', desc: 'Field crew takes ownership and deploys maintenance.', pill: 'bg-orange-100 text-orange-800' },
-                { title: '5. Resolved', desc: 'Service completed. Followers and submitter notified.', pill: 'bg-emerald-100 text-emerald-800' },
+                {
+                  title: "Reported",
+                  desc: "A resident sends in the problem with a location and photo.",
+                },
+                {
+                  title: "Verified",
+                  desc: "A verifier or admin confirms it and checks for duplicates.",
+                },
+                {
+                  title: "Assigned",
+                  desc: "The report is given to an authority, with a due date if needed.",
+                },
+                {
+                  title: "In progress",
+                  desc: "A crew has taken the job and started the work.",
+                },
+                {
+                  title: "Resolved",
+                  desc: "The work is done and the people following it are told.",
+                },
               ].map((step, idx) => (
-                <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-2">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${step.pill}`}>
-                    Stage {idx + 1}
-                  </span>
-                  <h4 className="text-xs font-bold text-slate-900">{step.title}</h4>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">{step.desc}</p>
+                <div key={step.title} className={`${INNER_CARD} p-4 space-y-2`}>
+                  <div
+                    className={`h-8 w-8 rounded-xl ${GRADIENT} text-white grid place-items-center text-xs font-bold`}
+                  >
+                    {idx + 1}
+                  </div>
+                  <h4 className="text-xs font-bold text-[#4a4a4a]">
+                    {step.title}
+                  </h4>
+                  <p className="text-[11px] text-[#5F5F5F] leading-relaxed">
+                    {step.desc}
+                  </p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Hotspot analysis */}
-          <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-orange-500" />
-                <h3 className="text-sm font-bold text-slate-900">
-                  Update hotspot analysis
+          <div className={`${CARD} p-6 space-y-4`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-extrabold text-[#5F5F5F]">
+                  Hotspots
                 </h3>
+                <p className="text-xs text-[#5F5F5F] mt-1">
+                  Hotspots are places where several reports have come in close
+                  together.
+                </p>
               </div>
-              <button
-                type="button"
+              <PillButton
+                icon={recomputing ? RefreshCw : Flame}
                 onClick={handleRecomputeHotspots}
                 disabled={recomputing}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors"
               >
-                {recomputing && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                <span>Run Clustering Now</span>
-              </button>
+                {recomputing ? "Refreshing..." : "Refresh hotspots"}
+              </PillButton>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
-                <span className="font-bold text-slate-700 block mb-1">Search radius</span>
-                <span className="text-lg font-mono font-bold text-slate-900">250 meters</span>
-                <p className="text-[11px] text-slate-500 mt-1">Nearby reports are considered together.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className={`${INNER_CARD} p-4`}>
+                <span className="font-semibold text-[#5F5F5F] block mb-1">
+                  Distance
+                </span>
+                <span className="text-xl font-extrabold text-[#0B5A9C]">
+                  250 meters
+                </span>
+                <p className="text-[11px] text-[#5F5F5F] mt-1">
+                  Reports this close to each other are grouped together.
+                </p>
               </div>
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
-                <span className="font-bold text-slate-700 block mb-1">Minimum reports</span>
-                <span className="text-lg font-mono font-bold text-slate-900">3 reports</span>
-                <p className="text-[11px] text-slate-500 mt-1">Minimum incidents required to classify a civic hotspot.</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
-                <span className="font-bold text-slate-700 block mb-1">Location mapping</span>
-                <span className="text-lg font-mono font-bold text-slate-900">Enabled</span>
-                <p className="text-[11px] text-slate-500 mt-1">Reports and service areas are organized by location.</p>
+              <div className={`${INNER_CARD} p-4`}>
+                <span className="font-semibold text-[#5F5F5F] block mb-1">
+                  Reports needed
+                </span>
+                <span className="text-xl font-extrabold text-[#0B5A9C]">
+                  3 reports
+                </span>
+                <p className="text-[11px] text-[#5F5F5F] mt-1">
+                  A group needs at least this many reports to count as a
+                  hotspot.
+                </p>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Role Change Modal */}
+      {/* Change role */}
       <Modal
         isOpen={roleModalOpen}
         onClose={() => setRoleModalOpen(false)}
-        title={`Change Role: ${selectedUser?.name}`}
-        subtitle="Elevate or restrict platform privileges"
+        title={`Change role: ${selectedUser?.name}`}
+        subtitle="Choose what this person can do"
       >
         <form onSubmit={handleUpdateRole} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-2">
-              Select Clearance Role
+            <label className="block text-xs font-bold text-[#5F5F5F] mb-2">
+              Role
             </label>
             <div className="space-y-2">
               {[
-                { r: 'resident', label: 'Resident', desc: 'Can submit reports, track status, and follow community issues' },
-                { r: 'verifier', label: 'Verifier', desc: 'Can review triage queue, verify defects, and merge duplicates' },
-                { r: 'authority', label: 'Authority', desc: 'Can accept work orders, deploy crews, and mark resolved' },
-                { r: 'admin', label: 'Admin', desc: 'Full citywide platform governance and user clearance access' },
+                {
+                  r: "resident",
+                  label: "Resident",
+                  desc: "Can send reports, check their status, and follow issues",
+                },
+                {
+                  r: "verifier",
+                  label: "Verifier",
+                  desc: "Can review new reports, confirm them, and merge duplicates",
+                },
+                {
+                  r: "authority",
+                  label: "Authority",
+                  desc: "Can take on work, send crews, and mark reports resolved",
+                },
+                {
+                  r: "admin",
+                  label: "Admin",
+                  desc: "Can manage everything, including users and roles",
+                },
               ].map((item) => (
                 <label
                   key={item.r}
-                  className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-colors ${
-                    newRole === item.r ? 'bg-blue-50 border-blue-500' : 'bg-slate-50 border-slate-200'
+                  className={`p-3 rounded-2xl border flex items-center gap-3 cursor-pointer transition-colors ${
+                    newRole === item.r
+                      ? "bg-[#E6F5F8] border-[#1B8FC0]"
+                      : "bg-white border-[#cfe9f0]"
                   }`}
                 >
                   <input
@@ -778,130 +938,134 @@ export default function AdminDashboardPage() {
                     value={item.r}
                     checked={newRole === item.r}
                     onChange={(e) => setNewRole(e.target.value)}
-                    className="text-blue-600 focus:ring-blue-500"
+                    className="accent-[#1B8FC0]"
                   />
                   <div>
-                    <span className="font-bold text-xs text-slate-900 capitalize block">{item.label}</span>
-                    <span className="text-[11px] text-slate-500">{item.desc}</span>
+                    <span className="font-bold text-xs text-[#4a4a4a] block">
+                      {item.label}
+                    </span>
+                    <span className="text-[11px] text-[#5F5F5F]">
+                      {item.desc}
+                    </span>
                   </div>
                 </label>
               ))}
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => setRoleModalOpen(false)}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 rounded-xl border border-slate-200"
-            >
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#cfe9f0]">
+            <WhiteButton onClick={() => setRoleModalOpen(false)}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl"
-            >
-              Save Role Clearance
-            </button>
+            </WhiteButton>
+            <GradientButton type="submit">Save role</GradientButton>
           </div>
         </form>
       </Modal>
 
-      {/* Add Category Modal */}
+      {/* Add category */}
       <Modal
         isOpen={categoryModalOpen}
         onClose={() => setCategoryModalOpen(false)}
-        title="Add Defect Category"
+        title="Add category"
       >
         <form onSubmit={handleAddCategory} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Category Name</label>
+            <label className="block text-xs font-bold text-[#5F5F5F] mb-1">
+              Category name
+            </label>
             <input
               type="text"
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="e.g. Traffic Sign Damage"
+              placeholder="e.g. Damaged traffic sign"
               required
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+              className={INPUT}
             />
           </div>
-          <div className="flex justify-end gap-2 pt-3 border-t">
-            <button
-              type="submit"
-              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-xl"
-            >
-              Save Category
-            </button>
+          <div className="flex justify-end gap-2 pt-3 border-t border-[#cfe9f0]">
+            <WhiteButton onClick={() => setCategoryModalOpen(false)}>
+              Cancel
+            </WhiteButton>
+            <GradientButton type="submit">Save category</GradientButton>
           </div>
         </form>
       </Modal>
 
-      {/* Add Area Modal */}
+      {/* Add ward */}
       <Modal
         isOpen={areaModalOpen}
         onClose={() => setAreaModalOpen(false)}
-        title="Add Municipal Ward"
+        title="Add ward"
       >
         <form onSubmit={handleAddArea} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Ward Name</label>
+            <label className="block text-xs font-bold text-[#5F5F5F] mb-1">
+              Ward name
+            </label>
             <input
               type="text"
               value={newAreaName}
               onChange={(e) => setNewAreaName(e.target.value)}
               placeholder="e.g. Ward 8 - Dagoretti North"
               required
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+              className={INPUT}
             />
           </div>
-          <div className="flex justify-end gap-2 pt-3 border-t">
-            <button
-              type="submit"
-              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-xl"
-            >
-              Save Ward
-            </button>
+          <div className="flex justify-end gap-2 pt-3 border-t border-[#cfe9f0]">
+            <WhiteButton onClick={() => setAreaModalOpen(false)}>
+              Cancel
+            </WhiteButton>
+            <GradientButton type="submit">Save ward</GradientButton>
           </div>
         </form>
       </Modal>
 
+      {/* Assign report */}
       <Modal
         isOpen={assignModalOpen}
         onClose={() => setAssignModalOpen(false)}
-        title={`Assign Report #${reportToAssign?.id}`}
-        subtitle="Choose an authority account to handle this verified report."
+        title={`Assign report #${reportToAssign?.id}`}
+        subtitle="Choose who should handle this verified report."
       >
         <form onSubmit={handleAssignReport} className="space-y-4">
           <div>
-            <label htmlFor="report-assignee" className="block text-xs font-bold text-slate-700 mb-1">
-              Authority
+            <label
+              htmlFor="report-assignee"
+              className="block text-xs font-bold text-[#5F5F5F] mb-1"
+            >
+              Assign to
             </label>
             <select
               id="report-assignee"
               value={selectedAuthorityId}
               onChange={(e) => setSelectedAuthorityId(e.target.value)}
               required
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+              className={INPUT}
             >
               <option value="">Select an authority</option>
               {users
-                .filter((candidate) => candidate.role === 'authority')
+                .filter((candidate) => candidate.role === "authority")
                 .map((authority) => (
                   <option key={authority.id} value={authority.id}>
                     {authority.name}
                   </option>
                 ))}
             </select>
-            {users.every((candidate) => candidate.role !== 'authority') && (
+            {users.every((candidate) => candidate.role !== "authority") && (
               <p className="text-[11px] text-amber-700 mt-1">
-                No authority accounts are available. Change a user&apos;s role to Authority first.
+                There are no authority accounts yet. Change a user&apos;s role
+                to Authority first.
               </p>
             )}
           </div>
 
           <div>
-            <label htmlFor="assignment-due-date" className="block text-xs font-bold text-slate-700 mb-1">
-              Due Date <span className="font-normal text-slate-500">(optional)</span>
+            <label
+              htmlFor="assignment-due-date"
+              className="block text-xs font-bold text-[#5F5F5F] mb-1"
+            >
+              Due date{" "}
+              <span className="font-normal text-[#7a8a90]">(optional)</span>
             </label>
             <input
               id="assignment-due-date"
@@ -909,26 +1073,26 @@ export default function AdminDashboardPage() {
               value={assignmentDueDate}
               min={minAssignmentDate}
               onChange={(e) => setAssignmentDueDate(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+              className={INPUT}
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <button
-              type="button"
+          <div className="flex justify-end gap-2 pt-3 border-t border-[#cfe9f0]">
+            <WhiteButton
               onClick={() => setAssignModalOpen(false)}
               disabled={assigning}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 rounded-xl border border-slate-200 disabled:opacity-50"
             >
               Cancel
-            </button>
-            <button
+            </WhiteButton>
+            <GradientButton
               type="submit"
-              disabled={assigning || !users.some((candidate) => candidate.role === 'authority')}
-              className="px-4 py-2 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-50"
+              disabled={
+                assigning ||
+                !users.some((candidate) => candidate.role === "authority")
+              }
             >
-              {assigning ? 'Assigning...' : 'Confirm Assignment'}
-            </button>
+              {assigning ? "Assigning..." : "Assign report"}
+            </GradientButton>
           </div>
         </form>
       </Modal>

@@ -1,19 +1,26 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import {
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  ShieldCheck,
-} from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { useToast } from '../../context/ToastContext';
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+
+/*
+  Theme (same as the admin dashboard and the landing page design)
+  mint background  #E6F5F8
+  light cyan       #7FD0E0
+  bright cyan      #38C6DC
+  mid blue         #1B8FC0
+  deep blue        #0B5A9C
+  soft grey text   #5F5F5F
+*/
+
+const GRADIENT = "bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C]";
+const INPUT =
+  "w-full pl-10 pr-4 py-2.5 bg-white text-xs sm:text-sm text-[#4a4a4a] rounded-xl border border-[#cfe9f0] focus:border-[#1B8FC0] focus:ring-2 focus:ring-[#38C6DC]/30 focus:outline-none transition-all";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -22,205 +29,263 @@ export default function LoginPage() {
   const toast = useToast();
   const navigate = useNavigate();
 
+  // Load the theme font once
+  useEffect(() => {
+    if (document.getElementById("montserrat-font")) return;
+    const link = document.createElement("link");
+    link.id = "montserrat-font";
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
+
   const routeForRole = (role) => {
-    if (role === 'admin') return '/admin';
-    if (role === 'authority') return '/authority/assigned';
-    if (role === 'verifier') return '/verifier/queue';
-    return '/dashboard';
+    if (role === "admin") return "/admin";
+    if (role === "authority") return "/authority/assigned";
+    if (role === "verifier") return "/verifier/queue";
+    return "/dashboard";
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
-      toast.error('Please enter your email and password');
+      toast.error("Please enter your email and password");
       return;
     }
 
     setLoading(true);
     try {
       const loggedUser = await login(email, password);
-      toast.success(`Welcome back, ${loggedUser?.name || 'User'}!`);
+      toast.success(`Welcome back, ${loggedUser?.name || "User"}!`);
       navigate(routeForRole(loggedUser?.role));
     } catch (err) {
-      toast.error(err.message || 'Login failed. Please check credentials.');
+      toast.error(
+        err.message ||
+          "Could not sign in. Please check your email and password.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
-      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
-        
-        {/* Left Dark Pane */}
-        <div className="lg:col-span-5 bg-slate-900 text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden">
-          {/* Subtle background glow */}
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-blue-600/20 blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+    <div
+      className="min-h-screen bg-[#E6F5F8] flex items-center justify-center p-4 sm:p-6 lg:p-8"
+      style={{
+        fontFamily: "'Montserrat', ui-sans-serif, system-ui, sans-serif",
+      }}
+    >
+      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-[0_30px_60px_-25px_rgba(11,90,156,0.45)] border border-[#cfe9f0] overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
+        {/* Left pane */}
+        <div
+          className={`lg:col-span-5 ${GRADIENT} text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden`}
+        >
+          {/* Soft shapes, echoing the landing page */}
+          <div
+            aria-hidden="true"
+            className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-white/10 pointer-events-none"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute bottom-24 -left-10 h-40 w-40 rounded-full bg-white/10 pointer-events-none"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute bottom-20 right-10 h-12 w-12 rotate-12 rounded-2xl bg-white/25 shadow-lg pointer-events-none"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute bottom-40 right-24 h-7 w-7 rotate-12 rounded-xl bg-white/25 shadow-lg pointer-events-none"
+          />
 
-          {/* Top Brand tag */}
           <div className="relative z-10">
-            <Link to="/" className="flex items-center gap-3.5 mb-8 group hover:opacity-95 transition-opacity" title="Back to Landing Page">
-              <img
-                src="/logo.png"
-                alt="CivicPulse Logo"
-                className="h-14 sm:h-16 w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform"
-              />
+            <Link
+              to="/"
+              className="inline-flex items-center gap-3 mb-8 bg-white rounded-2xl px-3 py-2 shadow-[0_8px_20px_-10px_rgba(0,0,0,0.4)] hover:brightness-105 transition"
+              title="Back to the home page"
+            >
+
               <div>
-                <h3 className="font-black text-lg tracking-wide text-white uppercase">
+                <h3 className="font-extrabold text-base text-[#0B5A9C] leading-tight">
                   CivicPulse
                 </h3>
-                <p className="text-xs text-slate-400">Public Infrastructure</p>
+                <p className="text-[11px] text-[#5F5F5F]">
+                  Public infrastructure
+                </p>
               </div>
             </Link>
 
-            <div className="text-[11px] font-bold uppercase tracking-widest text-blue-400 mb-2">
-              Digital Democracy in Action
-            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold leading-tight text-white mb-4">
-              Empowering Communities, Accelerating Public Infrastructure.
+              Report problems. Get them fixed.
             </h1>
-            <p className="text-xs text-slate-300 leading-relaxed max-w-sm">
-              Unified platform for residents, field verifiers, authorities, and administrators to report and resolve community infrastructure.
+            <p className="text-xs text-white/90 leading-relaxed max-w-sm">
+              One place for residents, verifiers, authorities and administrators
+              to report and fix problems with roads, water, lighting and other
+              public services.
             </p>
           </div>
 
-          <div className="relative z-10 bg-slate-800/80 backdrop-blur-md rounded-2xl p-4 border border-slate-700/60 my-6">
-            <p className="text-sm font-semibold text-white">Sign in with your CivicPulse account</p>
-            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-              Residents can register here.
+          <div className="relative z-10 bg-white/15 backdrop-blur-md rounded-2xl p-4 border border-white/30 my-6">
+            <p className="text-sm font-semibold text-white">
+              Sign in with your CivicPulse account
+            </p>
+            <p className="text-xs text-white/90 mt-2 leading-relaxed">
+              New here? Residents can create an account.
             </p>
           </div>
 
-          {/* Footer security badges */}
-          <div className="relative z-10 flex flex-wrap items-center gap-4 pt-4 border-t border-slate-800 text-[11px] text-slate-400 font-medium">
+          <div className="relative z-10 flex flex-wrap items-center gap-4 pt-4 border-t border-white/25 text-[11px] text-white/90 font-medium">
             <div className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Secure Authentication</span>
+              <ShieldCheck className="w-4 h-4" />
+              <span>Secure sign-in</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-blue-400" />
-              <span>Encrypted Connection</span>
+              <Lock className="w-3.5 h-3.5" />
+              <span>Encrypted connection</span>
             </div>
           </div>
         </div>
 
-        {/* Right White Card - Standard Normal Sign-In Form */}
+        {/* Right pane: sign-in form */}
         <div className="lg:col-span-7 p-8 sm:p-10 flex flex-col justify-between">
           <div>
-            {/* Header */}
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-                Sign In
+              <h2 className="text-3xl font-extrabold text-[#5F5F5F] tracking-tight">
+                Sign in
               </h2>
-              <p className="text-sm text-slate-500 mt-1">
-                Welcome back! Please enter your details to sign in.
+              <p className="text-sm text-[#5F5F5F] mt-2">
+                Welcome back. Enter your details to continue.
               </p>
             </div>
 
-            {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Email Address <span className="text-rose-500">*</span>
+                <label
+                  htmlFor="login-email"
+                  className="block text-xs font-bold text-[#5F5F5F] mb-1.5"
+                >
+                  Email <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                  <Mail className="w-4 h-4 text-[#1B8FC0] absolute left-3.5 top-3.5 pointer-events-none" />
                   <input
+                    id="login-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     placeholder="Enter your email"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 hover:bg-white focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all shadow-xs"
+                    className={INPUT}
                   />
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-slate-700">
+                  <label
+                    htmlFor="login-password"
+                    className="text-xs font-bold text-[#5F5F5F]"
+                  >
                     Password <span className="text-rose-500">*</span>
                   </label>
                   <Link
                     to="/forgot-password"
                     onClick={(e) => {
                       e.preventDefault();
-                      toast.info('Password reset instructions dispatched to your recovery channel.');
+                      toast.info(
+                        "Password reset is not available yet. Please contact an admin.",
+                      );
                     }}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                    className="text-xs font-semibold text-[#1B8FC0] hover:text-[#0B5A9C] hover:underline"
                   >
-                    Forgot Password?
+                    Forgot password?
                   </Link>
                 </div>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                  <Lock className="w-4 h-4 text-[#1B8FC0] absolute left-3.5 top-3.5 pointer-events-none" />
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     placeholder="Enter your password"
-                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 hover:bg-white focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all shadow-xs font-mono"
+                    className={`${INPUT} pr-10`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition-colors"
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    className="absolute right-3 top-3 text-[#7a8a90] hover:text-[#0B5A9C] transition-colors"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               </div>
 
               <div className="flex items-center text-xs pt-1">
-                <label className="flex items-center gap-2 cursor-pointer text-slate-600 font-medium select-none">
+                <label className="flex items-center gap-2 cursor-pointer text-[#5F5F5F] font-medium select-none">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                    className="w-4 h-4 rounded accent-[#1B8FC0]"
                   />
                   <span>Remember me</span>
                 </label>
               </div>
 
+              {/* Pill button with circled arrow, like Subscribe */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-3 px-4 rounded-xl shadow-md shadow-blue-600/30 hover:shadow-lg transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+                className="w-full flex items-center rounded-full bg-[#7FD0E0]/70 hover:bg-[#7FD0E0] p-1 pr-12 text-base font-semibold text-[#5F5F5F] transition-colors disabled:opacity-60"
               >
-                {loading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span>Sign In</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-[#38C6DC] bg-[#E6F5F8] text-[#1B8FC0]">
+                  {loading ? (
+                    <span className="h-4 w-4 rounded-full border-2 border-[#38C6DC]/40 border-t-[#1B8FC0] animate-spin" />
+                  ) : (
+                    <ArrowRight className="w-5 h-5" />
+                  )}
+                </span>
+                <span className="flex-1 text-center">
+                  {loading ? "Signing in..." : "Sign in"}
+                </span>
               </button>
             </form>
 
-            {/* Register Link Box */}
-            <div className="mt-5 p-3.5 bg-blue-50/50 rounded-2xl border border-blue-100 text-center text-xs">
-              <span className="text-slate-600">Don't have an account? </span>
+            <div className="mt-5 p-3.5 bg-[#E6F5F8] rounded-2xl border border-[#cfe9f0] text-center text-xs">
+              <span className="text-[#5F5F5F]">
+                Don&apos;t have an account?{" "}
+              </span>
               <Link
                 to="/register"
-                className="font-bold text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center gap-1"
+                className="font-bold text-[#0B5A9C] hover:underline inline-flex items-center gap-1"
               >
-                <span>Register as Resident</span>
+                <span>Register as a resident</span>
                 <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
           </div>
 
-          {/* Footer credentials */}
-          <div className="pt-6 border-t border-slate-100 flex flex-wrap items-center justify-between text-[11px] text-slate-400 gap-2">
-            <span>© {new Date().getFullYear()} CivicPulse. All rights reserved.</span>
-            <div className="flex gap-3">
-              <a href="#" className="hover:text-slate-600">Privacy Policy</a>
-              <span>•</span>
-              <a href="#" className="hover:text-slate-600">Terms of Service</a>
+          <div className="pt-6 mt-6 border-t border-[#cfe9f0] flex flex-wrap items-center justify-between text-[11px] text-[#7a8a90] gap-2">
+            <span>
+              © {new Date().getFullYear()} CivicPulse. All rights reserved.
+            </span>
+            <div className="flex gap-4">
+              <a href="#" className="hover:text-[#0B5A9C]">
+                Privacy policy
+              </a>
+              <a href="#" className="hover:text-[#0B5A9C]">
+                Terms of service
+              </a>
             </div>
           </div>
         </div>

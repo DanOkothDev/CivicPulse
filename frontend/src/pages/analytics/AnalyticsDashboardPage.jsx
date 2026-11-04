@@ -1,20 +1,53 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
-  BarChart3,
   Flame,
   Clock,
   AlertTriangle,
-  MapPin,
-  TrendingUp,
   Layers,
-  Filter,
-} from 'lucide-react';
-import { api } from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
-import { useToast } from '../../context/ToastContext';
-import StatisticCard from '../../components/ui/StatisticCard';
-import { BarChart, DonutChart, Sparkline } from '../../components/ui/Charts';
-import MapComponent from '../../components/ui/MapComponent';
+  RefreshCw,
+  ChevronDown,
+} from "lucide-react";
+import { api } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+import { BarChart, DonutChart } from "../../components/ui/Charts";
+import MapComponent from "../../components/ui/MapComponent";
+
+/*
+  Theme (same as the landing, login, register and admin pages)
+  mint background  #E6F5F8
+  light cyan       #7FD0E0
+  bright cyan      #38C6DC
+  mid blue         #1B8FC0
+  deep blue        #0B5A9C
+  soft grey text   #5F5F5F
+*/
+
+const GRADIENT = "bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C]";
+const CARD =
+  "bg-white/80 rounded-3xl border border-[#cfe9f0] shadow-[0_10px_30px_-14px_rgba(11,90,156,0.35)]";
+const INNER_CARD = "rounded-2xl bg-[#E6F5F8] border border-[#cfe9f0]";
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+function StatTile({ title, value, note, icon: Icon }) {
+  return (
+    <div className={`${CARD} p-5 flex items-center gap-4`}>
+      <div
+        className={`h-12 w-12 shrink-0 rounded-2xl ${GRADIENT} grid place-items-center text-white shadow-[0_8px_16px_-6px_rgba(11,90,156,0.6)]`}
+      >
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="text-xs font-semibold text-[#5F5F5F]">{title}</p>
+        <p className="text-2xl font-extrabold text-[#0B5A9C] leading-tight">
+          {value}
+        </p>
+        <p className="text-[11px] text-[#7a8a90]">{note}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function AnalyticsDashboardPage() {
   const { role } = useAuth();
@@ -23,9 +56,20 @@ export default function AnalyticsDashboardPage() {
   const [summary, setSummary] = useState(null);
   const [hotspots, setHotspots] = useState([]);
   const [areas, setAreas] = useState([]);
-  const [selectedArea, setSelectedArea] = useState('');
+  const [selectedArea, setSelectedArea] = useState("");
   const [loading, setLoading] = useState(true);
   const [recomputing, setRecomputing] = useState(false);
+
+  // Load the theme font once
+  useEffect(() => {
+    if (document.getElementById("montserrat-font")) return;
+    const link = document.createElement("link");
+    link.id = "montserrat-font";
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
 
   const loadAnalytics = async () => {
     setLoading(true);
@@ -39,7 +83,7 @@ export default function AnalyticsDashboardPage() {
       setHotspots(spots);
       setAreas(a);
     } catch (error) {
-      toast.error(`Could not load municipal analytics: ${error.message}`);
+      toast.error(`Could not load the numbers: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -52,138 +96,187 @@ export default function AnalyticsDashboardPage() {
   const handleRecompute = async () => {
     setRecomputing(true);
     try {
-      const res = await api.analytics.recomputeHotspots({ eps_m: 250, min_samples: 3 });
-      toast.success(`Hotspot clustering completed. Found ${res.clusters_created} cluster(s).`);
+      const res = await api.analytics.recomputeHotspots({
+        eps_m: 250,
+        min_samples: 3,
+      });
+      toast.success(
+        `Hotspots refreshed. Found ${plural(res.clusters_created, "hotspot", "hotspots")}.`,
+      );
       const spots = await api.analytics.getHotspots();
       setHotspots(spots);
     } catch (err) {
-      toast.error(err.message || 'Clustering recompute failed');
+      toast.error(err.message || "Could not refresh hotspots");
     } finally {
       setRecomputing(false);
     }
   };
 
-  // Transform data for charts
+  // Chart data, in the theme colors
   const statusChartData = summary
     ? [
-        { label: 'Reported', value: summary.by_status?.reported ?? 0, color: 'bg-amber-500' },
-        { label: 'Verified', value: summary.by_status?.verified ?? 0, color: 'bg-blue-600' },
-        { label: 'Assigned', value: summary.by_status?.assigned ?? 0, color: 'bg-purple-600' },
-        { label: 'In Progress', value: summary.by_status?.in_progress ?? 0, color: 'bg-orange-500' },
-        { label: 'Resolved', value: summary.by_status?.resolved ?? 0, color: 'bg-emerald-500' },
+        {
+          label: "Reported",
+          value: summary.by_status?.reported ?? 0,
+          color: "bg-[#7FD0E0]",
+        },
+        {
+          label: "Verified",
+          value: summary.by_status?.verified ?? 0,
+          color: "bg-[#38C6DC]",
+        },
+        {
+          label: "Assigned",
+          value: summary.by_status?.assigned ?? 0,
+          color: "bg-[#1B8FC0]",
+        },
+        {
+          label: "In progress",
+          value: summary.by_status?.in_progress ?? 0,
+          color: "bg-[#0B5A9C]",
+        },
+        {
+          label: "Resolved",
+          value: summary.by_status?.resolved ?? 0,
+          color: "bg-emerald-500",
+        },
       ]
     : [];
 
   const categoryDonutData = summary
-    ? Object.entries(summary.by_category || {}).map(([label, value], index) => ({
-        label,
-        value,
-        color: ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'][index % 6],
-      }))
+    ? Object.entries(summary.by_category || {}).map(
+        ([label, value], index) => ({
+          label,
+          value,
+          color: [
+            "#38C6DC",
+            "#0B5A9C",
+            "#7FD0E0",
+            "#1B8FC0",
+            "#5F5F5F",
+            "#a5e3ee",
+          ][index % 6],
+        }),
+      )
     : [];
 
   return (
-    <div className="space-y-6">
-      {/* Header bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+    <div
+      className="relative isolate overflow-hidden rounded-3xl bg-[#E6F5F8] p-6 space-y-6"
+      style={{
+        fontFamily: "'Montserrat', ui-sans-serif, system-ui, sans-serif",
+      }}
+    >
+      {/* Soft shapes in the corner, echoing the landing page */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 -right-24 -z-10 h-80 w-80 rounded-full bg-gradient-to-br from-[#38C6DC]/40 to-[#0B5A9C]/30 blur-2xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute top-40 -right-6 -z-10 h-12 w-12 rotate-12 rounded-2xl bg-white/40"
+      />
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-[11px] font-bold text-blue-700 tracking-wider uppercase mb-1">
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Civic Intelligence & Machine Learning Hotspots</span>
-          </div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Municipal Infrastructure Intelligence
+          <h1 className="text-3xl font-extrabold text-[#5F5F5F] tracking-tight">
+            Reports at a glance
           </h1>
-          <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
-            Insights into recurring infrastructure issues, nearby hotspots, and average resolution time.
+          <p className="text-xs text-[#5F5F5F] mt-2 max-w-xl leading-relaxed">
+            See which problems keep coming back, where reports are piling up,
+            and how quickly they get fixed.
           </p>
         </div>
 
-        {/* Controls: Recompute Hotspots & Ward Filter */}
-        <div className="flex items-center gap-2">
-          {role === 'admin' && (
+        <div className="flex flex-wrap items-center gap-3">
+          {role === "admin" && (
             <button
+              type="button"
               onClick={handleRecompute}
               disabled={recomputing}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-full bg-[#7FD0E0]/70 hover:bg-[#7FD0E0] py-1 pl-1 pr-5 text-xs font-semibold text-[#5F5F5F] transition-colors disabled:opacity-60"
             >
-              <Flame className={`w-3.5 h-3.5 ${recomputing ? 'animate-spin' : ''}`} />
-              <span>{recomputing ? 'Updating hotspots...' : 'Refresh hotspots'}</span>
+              <span className="grid h-8 w-8 place-items-center rounded-full border-2 border-[#38C6DC] bg-[#E6F5F8] text-[#1B8FC0]">
+                {recomputing ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Flame className="h-4 w-4" />
+                )}
+              </span>
+              <span>{recomputing ? "Refreshing..." : "Refresh hotspots"}</span>
             </button>
           )}
 
-          <select
-            value={selectedArea}
-            onChange={(e) => setSelectedArea(e.target.value)}
-            className="text-xs font-semibold py-2 px-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
-          >
-            <option value="">All Municipal Wards</option>
-            {areas.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              aria-label="Filter by ward"
+              value={selectedArea}
+              onChange={(e) => setSelectedArea(e.target.value)}
+              className="appearance-none cursor-pointer text-xs font-bold py-2.5 pl-4 pr-9 bg-white text-[#0B5A9C] rounded-xl shadow-[0_6px_14px_-6px_rgba(11,90,156,0.45)] focus:outline-none focus:ring-2 focus:ring-[#38C6DC]/40"
+            >
+              <option value="">All wards</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-[#1B8FC0] absolute right-3 top-2.5 pointer-events-none" />
+          </div>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <StatisticCard
-          title="Total Lifetime Incidents"
+      {/* Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatTile
+          title="All reports"
           value={summary?.total_reports ?? 0}
-          subtext="Logged"
-          badgeText="Citywide Registry"
-          badgeType="primary"
+          note="Sent in so far"
           icon={Layers}
         />
-        <StatisticCard
-          title="Avg Days to Resolution"
-          value={summary?.avg_days_to_resolve == null ? '—' : `${summary.avg_days_to_resolve}d`}
-          subtext="Velocity"
-          badgeText="Resolved reports only"
-          badgeType="primary"
+        <StatTile
+          title="Average days to fix"
+          value={
+            summary?.avg_days_to_resolve == null
+              ? "—"
+              : `${summary.avg_days_to_resolve} days`
+          }
+          note="Resolved reports only"
           icon={Clock}
         />
-        <StatisticCard
-          title="Active Hotspot Clusters"
+        <StatTile
+          title="Hotspots"
           value={hotspots.length}
-          subtext="Zones"
-          badgeText="Clustered reports"
-          badgeType="warning"
+          note="Places with many reports"
           icon={Flame}
-          iconBg="bg-rose-50 text-rose-600"
         />
-        <StatisticCard
-          title="Open Incidents"
+        <StatTile
+          title="Open reports"
           value={summary?.open_reports ?? 0}
-          subtext="Not resolved or rejected"
-          badgeText="Current Cases"
-          badgeType="warning"
+          note="Not yet resolved or rejected"
           icon={AlertTriangle}
         />
       </div>
 
-      {/* Hotspots map */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+      {/* Hotspots */}
+      <div className={`${CARD} p-6 space-y-5`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2">
-              <Flame className="w-5 h-5 text-rose-500" />
-              <h3 className="text-sm font-bold text-slate-900">
-                Nearby report clusters
-              </h3>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Nearby reports are grouped into hotspots to help prioritize maintenance.
+            <h3 className="text-base font-extrabold text-[#5F5F5F]">
+              Hotspots
+            </h3>
+            <p className="text-xs text-[#5F5F5F] mt-1">
+              Reports close together are grouped here, so crews know where to go
+              first.
             </p>
           </div>
-          <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full">
-            {hotspots.length} Critical Hotspots
+          <span className="text-xs font-bold text-[#0B5A9C] bg-white rounded-full border border-[#cfe9f0] px-4 py-1.5">
+            {plural(hotspots.length, "hotspot", "hotspots")}
           </span>
         </div>
 
-        <div className="h-80 rounded-2xl overflow-hidden border border-slate-200 relative">
+        <div className="h-80 rounded-2xl overflow-hidden border border-[#cfe9f0] relative">
           <MapComponent
             center={[-1.2629, 36.8355]}
             zoom={13}
@@ -192,77 +285,86 @@ export default function AnalyticsDashboardPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-          {hotspots.map((spot) => (
-            <div
-              key={spot.id}
-              className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-start gap-3"
-            >
-              <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                <Flame className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1 mb-0.5">
-                  <h4 className="text-xs font-bold text-slate-900 truncate">
-                    {spot.top_category || `Hotspot #${spot.id}`}
-                  </h4>
-                  <span className="text-[10px] font-bold text-rose-600">Hotspot</span>
+        {hotspots.length === 0 && !loading ? (
+          <p className="text-xs text-[#5F5F5F]">No hotspots right now.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {hotspots.map((spot, index) => (
+              <div
+                key={spot.id}
+                className={`${INNER_CARD} p-3.5 flex items-start gap-3`}
+              >
+                <div
+                  className={`w-9 h-9 rounded-xl ${GRADIENT} text-white flex items-center justify-center shrink-0`}
+                >
+                  <Flame className="w-4 h-4" />
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  {spot.report_count} Reports • Radius: {spot.radius_m}m
-                </p>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-xs font-bold text-[#4a4a4a] truncate mb-0.5">
+                    {spot.top_category || `Hotspot ${index + 1}`}
+                  </h4>
+                  <p className="text-[11px] text-[#5F5F5F]">
+                    {plural(spot.report_count, "report", "reports")} within{" "}
+                    {spot.radius_m} meters
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Charts Grid */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Status Distribution */}
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900">
-              Reports by Operational Status
+        <div className={`${CARD} p-6 space-y-4`}>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-base font-extrabold text-[#5F5F5F]">
+              Reports by status
             </h3>
-            <span className="text-xs text-slate-400 font-semibold">Real-time counts</span>
+            <span className="text-xs text-[#7a8a90] font-semibold">
+              Up to date
+            </span>
           </div>
 
           <BarChart data={statusChartData} height={200} />
         </div>
 
-        {/* Category Breakdown */}
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900">
-              Taxonomy Category Breakdown
+        <div className={`${CARD} p-6 space-y-4`}>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-base font-extrabold text-[#5F5F5F]">
+              Reports by category
             </h3>
-            <span className="text-xs text-slate-400 font-semibold">Incident share</span>
+            <span className="text-xs text-[#7a8a90] font-semibold">
+              Share of all reports
+            </span>
           </div>
 
           <DonutChart data={categoryDonutData} size={160} />
         </div>
       </div>
 
-      {/* Ward Open Issues Ranking */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-4">
-        <h3 className="text-sm font-bold text-slate-900">
-          Open Workorders by Electoral Ward
+      {/* Open reports by ward */}
+      <div className={`${CARD} p-6 space-y-4`}>
+        <h3 className="text-base font-extrabold text-[#5F5F5F]">
+          Open reports by ward
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          {(summary?.open_by_area || []).map((area) => (
-            <div key={area.area_id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                WARD #{area.area_id}
-              </span>
-              <h4 className="text-xs font-bold text-slate-900 mb-1">{area.name}</h4>
-              <span className="text-lg font-extrabold text-blue-600">
-                {area.open} Open Issues
-              </span>
-            </div>
-          ))}
-        </div>
+        {(summary?.open_by_area || []).length === 0 && !loading ? (
+          <p className="text-xs text-[#5F5F5F]">No open reports in any ward.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {(summary?.open_by_area || []).map((area) => (
+              <div key={area.area_id} className={`${INNER_CARD} p-4`}>
+                <h4 className="text-xs font-bold text-[#4a4a4a] mb-1">
+                  {area.name}
+                </h4>
+                <span className="text-lg font-extrabold text-[#0B5A9C]">
+                  {plural(area.open, "open report", "open reports")}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
