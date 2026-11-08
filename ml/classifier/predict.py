@@ -8,14 +8,11 @@ CLASS_NAMES_PATH = Path(__file__).parent / "saved_model" / "class_names.txt"
 
 # Mapping dataset directory names to backend Category IDs (from constants.py seeding order)
 CATEGORY_ID_MAP = {
+    "garbage": 4,
     "pothole": 1,
     "streetlight": 2,
-    "drainage": 3,
-    "garbage": 4,
     "water_leak": 5,
-    "public_facility": 6,
 }
-
 _MODEL = None
 _CLASS_NAMES = None
 
@@ -26,6 +23,18 @@ def load_resources():
     if _CLASS_NAMES is None:
         with open(CLASS_NAMES_PATH, "r", encoding="utf-8") as file:
             _CLASS_NAMES = [line.strip() for line in file if line.strip()]
+
+        expected_classes = {"garbage", "pothole", "streetlight", "water_leak"}
+
+        if set(_CLASS_NAMES) != expected_classes:
+            raise ValueError(
+                f"Unexpected classifier classes: {_CLASS_NAMES}"
+            )
+
+        if _MODEL.output_shape[-1] != len(_CLASS_NAMES):
+            raise ValueError(
+                "Model output count does not match class_names.txt"
+            )
 
 def classify(photo_path):
     """

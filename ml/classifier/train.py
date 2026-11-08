@@ -39,6 +39,12 @@ validation_dataset = tf.keras.utils.image_dataset_from_directory(
 class_names = train_dataset.class_names
 num_classes = len(class_names)
 
+MODEL_DIR.mkdir(parents=True, exist_ok=True)
+
+with open(MODEL_DIR / "class_names.txt", "w", encoding="utf-8") as file:
+    for class_name in class_names:
+        file.write(f"{class_name}\n")
+
 print("\nClasses:")
 for index, class_name in enumerate(class_names):
     print(f"{index}: {class_name}")
@@ -50,6 +56,10 @@ for _, labels in train_dataset.unbatch():
 counts = np.bincount(class_counts)
 total_samples = len(class_counts)
 class_weights = {i: total_samples / (num_classes * counts[i]) for i in range(num_classes)}
+
+print("\nClass weights:")
+for index, class_name in enumerate(class_names):
+    print(f"{class_name}: {counts[index]} images, weight={class_weights[index]:.4f}")
 
 AUTOTUNE = tf.data.AUTOTUNE
 train_dataset = train_dataset.prefetch(buffer_size=AUTOTUNE)
@@ -69,8 +79,6 @@ callbacks = [
     ),
 ]
 
-MODEL_DIR.mkdir(parents=True, exist_ok=True)
-
 print("\nStarting training...\n")
 history = model.fit(
     train_dataset,
@@ -79,11 +87,6 @@ history = model.fit(
     class_weight=class_weights,
     callbacks=callbacks,
 )
-
-# Save class names for inference mapping
-with open(MODEL_DIR / "class_names.txt", "w", encoding="utf-8") as file:
-    for class_name in class_names:
-        file.write(f"{class_name}\n")
 
 print("\nTraining complete.")
 print(f"Model saved to: {MODEL_DIR / 'civicpulse_classifier.keras'}")

@@ -1,0 +1,4 @@
+garbage
+pothole
+streetlight
+water_leak
