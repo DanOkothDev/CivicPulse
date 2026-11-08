@@ -1,10 +1,10 @@
 from flask import Blueprint, jsonify, request
 
-from ..auth_utils import current_user, roles_required, serialize_user
+from ..auth_utils import current_user, login_required, roles_required, serialize_user
 from ..constants import ROLES
 from ..errors import ApiError
 from ..extensions import db
-from ..models import User
+from ..models import User, now
 
 bp = Blueprint('users', __name__)
 
@@ -14,6 +14,17 @@ def _int(value):
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _onboarding_preferences(user):
+    return {
+        'onboarding_completed': bool(user.onboarding_completed),
+        'product_tour_enabled': bool(user.product_tour_enabled),
+        'feature_tips_enabled': bool(user.feature_tips_enabled),
+        'onboarding_completed_at': (
+            user.onboarding_completed_at.isoformat() if user.onboarding_completed_at else None
+        ),
+    }
 
 
 @bp.get('/users')
@@ -44,6 +55,52 @@ def list_users():
         for item in items:
             item.pop('email')
     return jsonify(items)
+
+
+@bp.get('/users/me/preferences')
+@login_required
+def get_my_preferences():
+    return jsonify(_onboarding_preferences(current_user()))
+
+
+@bp.patch('/users/me/preferences')
+@login_required
+def update_my_preferences():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise ApiError('validation_error', 'Send a JSON body', 422)
+    if not data:
+        raise ApiError('validation_error', 'Send at least one onboarding preference', 422)
+
+    user = current_user()
+    allowed = {
+        'onboarding_completed',
+        'product_tour_enabled',
+        'feature_tips_enabled',
+    }
+    unknown = sorted(set(data) - allowed)
+    if unknown:
+        raise ApiError('validation_error', 'Unknown onboarding preference', 422, {'allowed': sorted(allowed)})
+
+    for key in allowed.intersection(data):
+        if not isinstance(data[key], bool):
+            raise ApiError('validation_error', f'{key} must be a boolean', 422)
+
+    if 'onboarding_completed' in data:
+        user.onboarding_completed = data['onboarding_completed']
+        if data['onboarding_completed']:
+            user.onboarding_completed_at = now()
+        else:
+            user.onboarding_completed_at = None
+
+    if 'product_tour_enabled' in data:
+        user.product_tour_enabled = data['product_tour_enabled']
+
+    if 'feature_tips_enabled' in data:
+        user.feature_tips_enabled = data['feature_tips_enabled']
+
+    db.session.commit()
+    return jsonify(_onboarding_preferences(user))
 
 
 @bp.patch('/users/<int:user_id>/role')

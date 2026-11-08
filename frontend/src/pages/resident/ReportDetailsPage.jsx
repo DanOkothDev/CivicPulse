@@ -115,6 +115,7 @@ export default function ReportDetailsPage() {
         {/* Follow / Upvote Button */}
         <div className="flex items-center gap-2.5">
           <button
+            data-tour="report-follow"
             onClick={handleToggleFollow}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
               following

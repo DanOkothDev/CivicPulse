@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { CheckCheck, ArrowRight } from "lucide-react";
 import { api } from "../../services/api";
 import { useToast } from "../../context/ToastContext";
+import { useNotifications } from "../../context/NotificationContext";
 
 /*
   Theme (same as the landing, login, register, admin, analytics and profile pages)
@@ -22,11 +23,11 @@ const kindLabel = (item) => (item.report_id ? "Report update" : "Update");
 
 export default function NotificationsPage() {
   const toast = useToast();
+  const { unreadCount, refreshUnreadCount } = useNotifications();
   const [notifications, setNotifications] = useState([]);
   const [selectedNotif, setSelectedNotif] = useState(null);
   const [filterTab, setFilterTab] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   // Load the theme font once
   useEffect(() => {
@@ -42,15 +43,14 @@ export default function NotificationsPage() {
   const fetchNotifs = async () => {
     setLoading(true);
     try {
-      const [data, unread] = await Promise.all([
+      const [data] = await Promise.all([
         api.notifications.list({
           unread: filterTab === "unread" ? true : undefined,
           per_page: 200,
         }),
-        api.notifications.getUnreadCount(),
+        refreshUnreadCount(),
       ]);
       setNotifications(data);
-      setUnreadCount(unread.count);
       setSelectedNotif(
         (current) =>
           data.find((item) => item.id === current?.id) || data[0] || null,
@@ -108,7 +108,7 @@ export default function NotificationsPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-extrabold text-[#5F5F5F] tracking-tight">
+            <h1 data-tour="resident-notifications-page" className="text-3xl font-extrabold text-[#5F5F5F] tracking-tight">
               Notifications
             </h1>
             {unreadCount > 0 && (

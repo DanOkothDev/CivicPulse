@@ -557,6 +557,7 @@ export default function AdminDashboardPage() {
             onClick={handleRecomputeHotspots}
             disabled={recomputing}
             title="Refresh hotspots"
+            data-tour="admin-hotspots"
           >
             {recomputing ? "Refreshing..." : "Refresh hotspots"}
           </PillButton>
@@ -617,6 +618,7 @@ export default function AdminDashboardPage() {
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
+            data-tour={`admin-${tab.id}`}
             className={`px-4 py-2.5 rounded-full text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
               activeTab === tab.id
                 ? `${GRADIENT} text-white shadow-[0_8px_18px_-8px_rgba(11,90,156,0.7)]`

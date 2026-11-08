@@ -163,6 +163,7 @@ export default function AuthorityDashboardPage() {
         <div className="flex items-center gap-1.5">
           {r.status === "assigned" && (
             <button
+              data-tour="authority-start-work"
               onClick={() => handleOpenStatusModal(r, "in_progress")}
               className="bg-[#0B5A9C] hover:bg-[#1B8FC0] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 transition-colors shadow-xs"
             >
@@ -172,6 +173,7 @@ export default function AuthorityDashboardPage() {
           )}
           {r.status === "in_progress" && (
             <button
+              data-tour="authority-resolve"
               onClick={() => handleOpenStatusModal(r, "resolved")}
               className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 transition-colors shadow-xs"
             >
@@ -204,7 +206,7 @@ export default function AuthorityDashboardPage() {
             <ShieldAlert className="w-3.5 h-3.5" />
             <span>Field Management & Dispatch</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-[#5F5F5F] tracking-tight">
+          <h1 data-tour="authority-dashboard" className="text-2xl font-extrabold text-[#5F5F5F] tracking-tight">
             Authority Field Dashboard
           </h1>
           <p className="text-xs text-[#5F5F5F] mt-1 max-w-2xl leading-relaxed">

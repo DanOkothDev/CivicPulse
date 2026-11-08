@@ -37,6 +37,13 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const refreshUser = async () => {
+    if (!token) return null;
+    const freshUser = await api.auth.getCurrentUser();
+    setUser(freshUser);
+    return freshUser;
+  };
+
   const login = async (email, password) => {
     setLoading(true);
     try {
@@ -78,6 +85,7 @@ export function AuthProvider({ children }) {
         login,
         register,
         logout,
+        refreshUser,
       }}
     >
       {children}

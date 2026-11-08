@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
+import { useNotifications } from "../../context/NotificationContext";
 
 /*
   Theme (taken from reference landing page)
@@ -24,6 +25,7 @@ const GRADIENT = "bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C]";
 
 export default function MobileNavigation() {
   const { role } = useAuth();
+  const { unreadCount } = useNotifications();
   const homeRoute =
     role === "admin"
       ? "/admin"
@@ -100,7 +102,14 @@ export default function MobileNavigation() {
       >
         <Bell className="w-5 h-5" />
         <span>Alerts</span>
-        <span className="absolute top-0 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-[#E6F5F8]" />
+        {unreadCount > 0 && (
+          <span
+            aria-label={`${unreadCount} unread notifications`}
+            className="absolute -top-1 right-0 min-w-4 h-4 rounded-full bg-rose-500 px-1 text-[9px] leading-4 text-white ring-2 ring-[#E6F5F8]"
+          >
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
       </NavLink>
 
       <NavLink

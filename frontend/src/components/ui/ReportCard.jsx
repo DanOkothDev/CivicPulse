@@ -26,7 +26,7 @@ export default function ReportCard({ report, onUpvote, compact = false }) {
           #RPT-{report.id}
         </div>
         {report.report_count > 1 && (
-          <div className="absolute bottom-3 left-3 bg-blue-600/90 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+          <div data-tour="resident-merged-count" className="absolute bottom-3 left-3 bg-blue-600/90 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
             <span>+{report.report_count - 1} Merged</span>
           </div>
         )}
@@ -51,6 +51,7 @@ export default function ReportCard({ report, onUpvote, compact = false }) {
 
           {/* Title & Description */}
           <Link
+            data-tour="resident-report-link"
             to={`/reports/${report.id}`}
             className="block group-hover:text-blue-600 transition-colors"
           >
@@ -75,6 +76,7 @@ export default function ReportCard({ report, onUpvote, compact = false }) {
             )}
 
             <button
+              data-tour="report-follow"
               onClick={() => onUpvote && onUpvote(report.id)}
               className="flex items-center gap-1.5 hover:text-blue-600 transition-colors font-medium"
             >

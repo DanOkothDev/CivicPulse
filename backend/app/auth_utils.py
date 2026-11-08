@@ -8,8 +8,24 @@ from .extensions import db
 from .models import User
 
 
-def serialize_user(u):
-    return {'id': u.id, 'name': u.name, 'email': u.email, 'role': u.role, 'area_id': u.area_id}
+def serialize_user(u, include_onboarding=False):
+    user = {
+        'id': u.id,
+        'name': u.name,
+        'email': u.email,
+        'role': u.role,
+        'area_id': u.area_id,
+    }
+    if include_onboarding:
+        user.update({
+            'onboarding_completed': bool(u.onboarding_completed),
+            'product_tour_enabled': bool(u.product_tour_enabled),
+            'feature_tips_enabled': bool(u.feature_tips_enabled),
+            'onboarding_completed_at': (
+                u.onboarding_completed_at.isoformat() if u.onboarding_completed_at else None
+            ),
+        })
+    return user
 
 
 def current_user():

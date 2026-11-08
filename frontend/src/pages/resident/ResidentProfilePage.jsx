@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   User,
   CheckCircle2,
@@ -7,10 +7,14 @@ import {
   MapPin,
   Mail,
   Shield,
+  Compass,
+  PlayCircle,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { api } from "../../services/api";
+import { Link } from "react-router-dom";
+import { roleFeatureGuides } from "../../components/onboarding/featureContent";
 import ReportCard from "../../components/ui/ReportCard";
 import EmptyState from "../../components/ui/EmptyState";
 import LoadingSkeleton from "../../components/ui/LoadingSkeleton";
@@ -62,12 +66,19 @@ function DetailTile({ label, icon: Icon, children }) {
 }
 
 export default function ResidentProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const toast = useToast();
   const [activeTab, setActiveTab] = useState("overview");
   const [reports, setReports] = useState([]);
   const [areas, setAreas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [preferences, setPreferences] = useState({
+    product_tour_enabled: true,
+    feature_tips_enabled: true,
+  });
+  const [savingPreference, setSavingPreference] = useState(false);
+  const [replayPending, setReplayPending] = useState(false);
+  const preferenceRequestRef = useRef(false);
 
   // Load the theme font once
   useEffect(() => {
@@ -107,6 +118,54 @@ export default function ResidentProfilePage() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    setPreferences({
+      product_tour_enabled: user.product_tour_enabled !== false,
+      feature_tips_enabled: user.feature_tips_enabled !== false,
+    });
+  }, [user]);
+
+  const updatePreference = async (key, value) => {
+    if (preferenceRequestRef.current) return;
+    preferenceRequestRef.current = true;
+    setSavingPreference(true);
+    const next = { ...preferences, [key]: value };
+    setPreferences(next);
+    try {
+      await api.users.updatePreferences({ [key]: value });
+      await refreshUser();
+    } catch (error) {
+      setPreferences((current) => ({ ...current, [key]: !value }));
+      toast.error(`Could not update your preference: ${error.message}`);
+    } finally {
+      preferenceRequestRef.current = false;
+      setSavingPreference(false);
+    }
+  };
+
+  const replayOnboarding = async () => {
+    if (preferenceRequestRef.current) return;
+    preferenceRequestRef.current = true;
+    setReplayPending(true);
+    setSavingPreference(true);
+    try {
+      await api.users.updatePreferences({
+        product_tour_enabled: true,
+        onboarding_completed: false,
+      });
+      await refreshUser();
+    } catch (error) {
+      toast.error(`Could not restart the user journey: ${error.message}`);
+      return;
+    } finally {
+      preferenceRequestRef.current = false;
+      setSavingPreference(false);
+      setReplayPending(false);
+    }
+    window.dispatchEvent(new CustomEvent('civicpulse:open-onboarding'));
+  };
 
   const resolvedCount = reports.filter(
     (report) => report.status === "resolved",
@@ -235,14 +294,103 @@ export default function ResidentProfilePage() {
         )}
 
         {activeTab === "settings" && (
-          <div className={`${CARD} p-6`}>
-            <h2 className="text-base font-extrabold text-[#5F5F5F]">
-              Settings
-            </h2>
-            <p className="text-xs text-[#5F5F5F] mt-2">
-              You can&apos;t edit your profile or notification choices yet. This
-              is coming later.
-            </p>
+          <div className="space-y-6">
+            <div className={`${CARD} p-6`}>
+              <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+                <div>
+                  <h2 className="text-base font-extrabold text-[#5F5F5F]">
+                    App Guide & Preferences
+                  </h2>
+                  <p className="text-xs text-[#5F5F5F] mt-1">
+                    Manage onboarding and helpful guidance across CivicPulse.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={replayOnboarding}
+                  disabled={replayPending || savingPreference}
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#38C6DC] to-[#0B5A9C] px-4 py-2 text-xs font-bold text-white shadow-[0_10px_18px_-10px_rgba(11,90,156,0.8)] disabled:cursor-wait disabled:opacity-60"
+                >
+                  <PlayCircle className="h-4 w-4" />
+                  {replayPending ? "Preparing..." : "Replay User Journey"}
+                </button>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div className="flex items-center justify-between rounded-2xl border border-[#cfe9f0] bg-[#E6F5F8] p-4">
+                  <div>
+                    <p className="text-sm font-bold text-[#5F5F5F]">Product Tour</p>
+                    <p className="text-[11px] text-[#5F5F5F]">Show a guided walkthrough when you sign in.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => updatePreference('product_tour_enabled', !preferences.product_tour_enabled)}
+                    disabled={savingPreference}
+                    aria-pressed={preferences.product_tour_enabled}
+                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition disabled:cursor-wait disabled:opacity-60 ${preferences.product_tour_enabled ? 'bg-[#38C6DC]' : 'bg-slate-300'}`}
+                    aria-label="Toggle product tour"
+                  >
+                    <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition ${preferences.product_tour_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between rounded-2xl border border-[#cfe9f0] bg-[#E6F5F8] p-4">
+                  <div>
+                    <p className="text-sm font-bold text-[#5F5F5F]">Contextual Tips</p>
+                    <p className="text-[11px] text-[#5F5F5F]">Allow helpful hints and tips across the app.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => updatePreference('feature_tips_enabled', !preferences.feature_tips_enabled)}
+                    disabled={savingPreference}
+                    aria-pressed={preferences.feature_tips_enabled}
+                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition disabled:cursor-wait disabled:opacity-60 ${preferences.feature_tips_enabled ? 'bg-[#38C6DC]' : 'bg-slate-300'}`}
+                    aria-label="Toggle contextual tips"
+                  >
+                    <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition ${preferences.feature_tips_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className={`${CARD} p-6`}>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-base font-extrabold text-[#5F5F5F]">
+                  Feature Guide
+                </h2>
+                <div className="flex items-center gap-1.5 text-[#1B8FC0]">
+                  <Compass className="h-4 w-4" />
+                  <span className="text-[11px] font-bold uppercase tracking-[0.22em]">Browse</span>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                {(roleFeatureGuides[user?.role] || roleFeatureGuides.resident).map(
+                  ({ name, description, howTo, icon: Icon, to }) => (
+                  <article key={name} className="rounded-2xl border border-[#cfe9f0] bg-[#E6F5F8] p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`grid h-11 w-11 place-items-center rounded-2xl ${GRADIENT} text-white`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-[#5F5F5F]">{name}</p>
+                        <p className="text-[11px] text-[#5F5F5F]">{description}</p>
+                      </div>
+                    </div>
+                    <p className="mt-3 text-xs leading-5 text-[#5F5F5F]">
+                      <span className="font-bold">How to use:</span> {howTo}
+                    </p>
+                    <Link
+                      to={to}
+                      className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#0B5A9C] hover:underline"
+                    >
+                      Open feature
+                      <span aria-hidden="true">→</span>
+                    </Link>
+                  </article>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>

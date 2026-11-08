@@ -13,6 +13,7 @@ import {
   Home,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useNotifications } from "../../context/NotificationContext";
 
 /*
   Theme (taken from reference landing page)
@@ -28,6 +29,7 @@ const GRADIENT = "bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C]";
 
 export default function Sidebar({ isOpen, onClose }) {
   const { user, role } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
 
   // Navigation definition strictly tailored to the 4 roles
@@ -405,9 +407,11 @@ export default function Sidebar({ isOpen, onClose }) {
                   <Bell className="w-4 h-4 shrink-0" />
                   <span>Notifications</span>
                 </div>
-                <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-bold">
-                  3
-                </span>
+                {unreadCount > 0 && (
+                  <span className="min-w-4 h-4 rounded-full bg-rose-500 px-1 text-white text-[10px] flex items-center justify-center font-bold">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
               </NavLink>
             </nav>
           </div>
