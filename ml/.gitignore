@@ -18,3 +18,8 @@ classifier/saved_model/
 __pycache__/
 .pytest_cache/
 *.py[cod]
+
+# Include the trained CivicPulse classifier for deployment
+!classifier/saved_model/
+!classifier/saved_model/civicpulse_classifier.keras
+!classifier/saved_model/class_names.txt
