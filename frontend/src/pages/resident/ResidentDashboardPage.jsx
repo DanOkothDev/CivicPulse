@@ -214,7 +214,12 @@ export default function ResidentDashboardPage() {
           </div>
         </div>
 
-        <PillLink to="/report/new" icon={PlusCircle} className="shrink-0">
+        <PillLink
+          to="/report/new"
+          icon={PlusCircle}
+          className="shrink-0"
+          data-tour="resident-report"
+        >
           File a new issue
         </PillLink>
       </div>
@@ -262,6 +267,7 @@ export default function ResidentDashboardPage() {
                 ? `${GRADIENT} text-white shadow-[0_8px_18px_-8px_rgba(11,90,156,0.7)]`
                 : "text-[#5F5F5F] hover:bg-white/70"
             }`}
+            data-tour={tab.id === "my_reports" ? "resident-my-reports" : "resident-following"}
           >
             {tab.label}
           </button>

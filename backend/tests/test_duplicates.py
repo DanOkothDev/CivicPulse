@@ -85,13 +85,19 @@ def test_suggestion_permissions(client, who, resident, new_report):
 
 def test_merge_and_unmerge(client, app, who, resident, new_report):
     verifier, _ = who('verifier')
+    watcher, _ = who('resident')
     parent, child = new_report(), new_report()
     with app.app_context():
         save_suggestions(child, [{'report_id': parent, 'score': 0.83, 'reasons': {}}])
     assert client.post(f'/api/v1/reports/{child}/follow', headers=resident).status_code == 204
+    assert client.post(f'/api/v1/reports/{child}/follow', headers=watcher).status_code == 204
 
     r = merge(client, verifier, child, parent)
     assert r.status_code == 200 and r.json['id'] == parent and r.json['report_count'] == 2
+    merge_notifications = client.get('/api/v1/notifications', headers=resident).json
+    assert any('combined with report' in item['message'] for item in merge_notifications)
+    watcher_merge_notifications = client.get('/api/v1/notifications', headers=watcher).json
+    assert any('combined with report' in item['message'] for item in watcher_merge_notifications)
     merged = get(client, verifier, child)
     assert merged['duplicate_of'] == parent
     with app.app_context():
@@ -105,6 +111,10 @@ def test_merge_and_unmerge(client, app, who, resident, new_report):
     back = unmerge(client, verifier, child)
     assert back.status_code == 200 and back.json['duplicate_of'] is None
     assert get(client, verifier, parent)['report_count'] == 1
+    unmerge_notifications = client.get('/api/v1/notifications', headers=resident).json
+    assert any('separated from report' in item['message'] for item in unmerge_notifications)
+    watcher_unmerge_notifications = client.get('/api/v1/notifications', headers=watcher).json
+    assert any('separated from report' in item['message'] for item in watcher_unmerge_notifications)
     assert unmerge(client, verifier, child).json['error']['code'] == 'not_merged'
 
 

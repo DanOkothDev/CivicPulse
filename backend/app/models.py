@@ -36,6 +36,10 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False, default='resident')
     area_id = db.Column(db.Integer, db.ForeignKey('areas.id', ondelete='SET NULL'))
+    onboarding_completed = db.Column(db.Boolean, nullable=False, default=False)
+    product_tour_enabled = db.Column(db.Boolean, nullable=False, default=True)
+    feature_tips_enabled = db.Column(db.Boolean, nullable=False, default=True)
+    onboarding_completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=now, nullable=False)
     __table_args__ = (db.CheckConstraint(f'role IN ({_in(ROLES)})', name='ck_users_role'),)
 

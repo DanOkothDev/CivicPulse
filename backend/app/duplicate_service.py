@@ -1,7 +1,7 @@
 from .errors import ApiError
 from .extensions import db
 from .models import DuplicateSuggestion, Follow, Report, StatusEvent
-from .notifications import notify_merged
+from .notifications import notify_merged, notify_unmerged
 
 OPEN_STATUSES = ('reported', 'verified', 'assigned', 'in_progress')  # a report can absorb duplicates
 MERGEABLE_STATUSES = ('reported', 'verified')                         # a report can be absorbed
@@ -93,6 +93,7 @@ def unmerge_report(report_id, user):
     report.duplicate_score = None
     db.session.add(StatusEvent(report_id=report.id, status=report.status, changed_by=user.id,
                                note=f'Unmerged from #{old_parent}'))
+    notify_unmerged(report, parent, user)
     recount(parent)
     db.session.commit()
     return report

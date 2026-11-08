@@ -105,6 +105,19 @@ export const api = {
     },
   },
 
+  users: {
+    getPreferences() {
+      return request('/users/me/preferences');
+    },
+
+    updatePreferences(patch) {
+      return request('/users/me/preferences', {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
+    },
+  },
+
   reports: {
     list(params = {}) {
       return request(`/reports${queryString(params)}`);

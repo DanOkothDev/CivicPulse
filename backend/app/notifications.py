@@ -55,7 +55,20 @@ def notify_reassigned(report, old_assignee_id, actor):
 
 
 def notify_merged(child, parent, actor):
-    if child.created_by != actor.id:
-        _add([child.created_by], parent,
-             f'Your report #{child.id} ({child.category.name}) was combined with report #{parent.id}, '
-             f'which covers the same issue. You will get updates on #{parent.id}.')
+    recipients = {child.created_by}
+    recipients |= {
+        uid for (uid,) in db.session.query(Follow.user_id).filter(Follow.report_id == child.id)
+    }
+    _add(recipients - {actor.id}, parent,
+         f'Report #{child.id} ({child.category.name}) was combined with report #{parent.id}, '
+         f'which covers the same issue. You will get updates on #{parent.id}.')
+
+
+def notify_unmerged(report, parent, actor):
+    recipients = {report.created_by, parent.created_by}
+    recipients |= {
+        uid for (uid,) in db.session.query(Follow.user_id)
+        .filter(Follow.report_id.in_([report.id, parent.id]))
+    }
+    _add(recipients - {actor.id}, report,
+         f'Report #{report.id} was separated from report #{parent.id} and is now tracked independently.')

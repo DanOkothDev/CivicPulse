@@ -182,7 +182,7 @@ export default function VerifierDashboardPage() {
               <span>Operations Desk • Verifier Triage Engine</span>
             </div>
 
-            <h1 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">
+            <h1 data-tour="verifier-queue" className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">
               Verifier Queue & Duplicate Resolution
             </h1>
 
@@ -225,11 +225,12 @@ export default function VerifierDashboardPage() {
             </h3>
 
             <div className="space-y-3">
-              {queue.map((item) => {
+              {queue.map((item, index) => {
                 const isSelected = selectedReport?.id === item.id;
                 return (
                   <div
                     key={item.id}
+                    data-tour={index === 0 ? "verifier-report" : undefined}
                     role="button"
                     tabIndex={0}
                     onClick={() => handleSelectReport(item)}
@@ -388,6 +389,7 @@ export default function VerifierDashboardPage() {
 
                     {/* Reject Button */}
                     <button
+                      data-tour="verifier-reject"
                       type="button"
                       onClick={() => setRejectModalOpen(true)}
                       disabled={actionLoading}
@@ -400,6 +402,7 @@ export default function VerifierDashboardPage() {
                     {/* Split / Unmerge if already merged */}
                     {selectedReport.duplicate_of && (
                       <button
+                        data-tour="verifier-unmerge"
                         type="button"
                         onClick={handleSplit}
                         disabled={actionLoading}

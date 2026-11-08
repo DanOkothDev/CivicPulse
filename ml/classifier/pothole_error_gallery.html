@@ -1,0 +1,159 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivicPulse - Classification Errors</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f3f4f6;
+            margin: 0;
+            padding: 25px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 30px auto;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px #00000015;
+        }
+
+        img {
+            width: 100%;
+            height: 240px;
+            object-fit: contain;
+            background: #e5e7eb;
+        }
+
+        .details {
+            overflow-wrap: anywhere;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>CivicPulse - Pothole Misclassifications</h1>
+
+    <p style="text-align:center">
+        Images incorrectly classified as water leaks: 9
+    </p>
+
+    <div class="gallery">
+        
+        <div class="card">
+            <img src="file:///C:/Users/levono/Desktop/CivicPulse/ml/datasets/civicpulse_classifier/validation/pothole/img-311_jpg.rf.30d3259ab55533414d0ea575d45c750a.jpg" alt="img-311_jpg.rf.30d3259ab55533414d0ea575d45c750a.jpg">
+
+            <div class="details">
+                <h3>img-311_jpg.rf.30d3259ab55533414d0ea575d45c750a.jpg</h3>
+                <p>Actual: <strong>pothole</strong></p>
+                <p>Predicted: <strong>water_leak</strong></p>
+                <p>Confidence: <strong>60.84%</strong></p>
+            </div>
+        </div>
+    
+        <div class="card">
+            <img src="file:///C:/Users/levono/Desktop/CivicPulse/ml/datasets/civicpulse_classifier/validation/pothole/img-323_jpg.rf.ac26c25eba7c87ed39766cf2dbe12ea5.jpg" alt="img-323_jpg.rf.ac26c25eba7c87ed39766cf2dbe12ea5.jpg">
+
+            <div class="details">
+                <h3>img-323_jpg.rf.ac26c25eba7c87ed39766cf2dbe12ea5.jpg</h3>
+                <p>Actual: <strong>pothole</strong></p>
+                <p>Predicted: <strong>water_leak</strong></p>
+                <p>Confidence: <strong>57.93%</strong></p>
+            </div>
+        </div>
+    
+        <div class="card">
+            <img src="file:///C:/Users/levono/Desktop/CivicPulse/ml/datasets/civicpulse_classifier/validation/pothole/img-368_jpg.rf.fd17ffa2522241844ea37dc7f8ac69f8.jpg" alt="img-368_jpg.rf.fd17ffa2522241844ea37dc7f8ac69f8.jpg">
+
+            <div class="details">
+                <h3>img-368_jpg.rf.fd17ffa2522241844ea37dc7f8ac69f8.jpg</h3>
+                <p>Actual: <strong>pothole</strong></p>
+                <p>Predicted: <strong>water_leak</strong></p>
+                <p>Confidence: <strong>41.09%</strong></p>
+            </div>
+        </div>
+    
+        <div class="card">
+            <img src="file:///C:/Users/levono/Desktop/CivicPulse/ml/datasets/civicpulse_classifier/validation/pothole/img-469_jpg.rf.1e8939d4f375b5638fb99a5032f5400a.jpg" alt="img-469_jpg.rf.1e8939d4f375b5638fb99a5032f5400a.jpg">
+
+            <div class="details">
+                <h3>img-469_jpg.rf.1e8939d4f375b5638fb99a5032f5400a.jpg</h3>
+                <p>Actual: <strong>pothole</strong></p>
+                <p>Predicted: <strong>water_leak</strong></p>
+                <p>Confidence: <strong>39.71%</strong></p>
+            </div>
+        </div>
+    
+        <div class="card">
+            <img src="file:///C:/Users/levono/Desktop/CivicPulse/ml/datasets/civicpulse_classifier/validation/pothole/img-493_jpg.rf.ebde584b780396825efc2a093a071085.jpg" alt="img-493_jpg.rf.ebde584b780396825efc2a093a071085.jpg">
+
+            <div class="details">
+                <h3>img-493_jpg.rf.ebde584b780396825efc2a093a071085.jpg</h3>
+                <p>Actual: <strong>pothole</strong></p>
+                <p>Predicted: <strong>water_leak</strong></p>
+                <p>Confidence: <strong>57.71%</strong></p>
+            </div>
+        </div>
+    
+        <div class="card">
+            <img src="file:///C:/Users/levono/Desktop/CivicPulse/ml/datasets/civicpulse_classifier/validation/pothole/img-586_jpg.rf.eb0998a04d6bddba5fd9edb348473657.jpg" alt="img-586_jpg.rf.eb0998a04d6bddba5fd9edb348473657.jpg">
+
+            <div class="details">
+                <h3>img-586_jpg.rf.eb0998a04d6bddba5fd9edb348473657.jpg</h3>
+                <p>Actual: <strong>pothole</strong></p>
+                <p>Predicted: <strong>water_leak</strong></p>
+                <p>Confidence: <strong>60.19%</strong></p>
+            </div>
+        </div>
+    
+        <div class="card">
+            <img src="file:///C:/Users/levono/Desktop/CivicPulse/ml/datasets/civicpulse_classifier/validation/pothole/img-591_jpg.rf.77ad0ae60b3d40d08e91f0706ea8d3fd.jpg" alt="img-591_jpg.rf.77ad0ae60b3d40d08e91f0706ea8d3fd.jpg">
+
+            <div class="details">
+                <h3>img-591_jpg.rf.77ad0ae60b3d40d08e91f0706ea8d3fd.jpg</h3>
+                <p>Actual: <strong>pothole</strong></p>
+                <p>Predicted: <strong>water_leak</strong></p>
+                <p>Confidence: <strong>62.77%</strong></p>
+            </div>
+        </div>
+    
+        <div class="card">
+            <img src="file:///C:/Users/levono/Desktop/CivicPulse/ml/datasets/civicpulse_classifier/validation/pothole/img-603_jpg.rf.ccf6f509b24238575b3752b4238c3b8f.jpg" alt="img-603_jpg.rf.ccf6f509b24238575b3752b4238c3b8f.jpg">
+
+            <div class="details">
+                <h3>img-603_jpg.rf.ccf6f509b24238575b3752b4238c3b8f.jpg</h3>
+                <p>Actual: <strong>pothole</strong></p>
+                <p>Predicted: <strong>water_leak</strong></p>
+                <p>Confidence: <strong>48.07%</strong></p>
+            </div>
+        </div>
+    
+        <div class="card">
+            <img src="file:///C:/Users/levono/Desktop/CivicPulse/ml/datasets/civicpulse_classifier/validation/pothole/img-643_jpg.rf.703cd3fd6234efb8363d814ce519e62d.jpg" alt="img-643_jpg.rf.703cd3fd6234efb8363d814ce519e62d.jpg">
+
+            <div class="details">
+                <h3>img-643_jpg.rf.703cd3fd6234efb8363d814ce519e62d.jpg</h3>
+                <p>Actual: <strong>pothole</strong></p>
+                <p>Predicted: <strong>water_leak</strong></p>
+                <p>Confidence: <strong>59.34%</strong></p>
+            </div>
+        </div>
+    
+    </div>
+</body>
+</html>

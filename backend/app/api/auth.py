@@ -23,7 +23,7 @@ def _json():
 def _auth_response(user, status):
     # JWT identity must be text, so the id is converted with str().
     token = create_access_token(identity=str(user.id))
-    return jsonify(token=token, user=serialize_user(user)), status
+    return jsonify(token=token, user=serialize_user(user, include_onboarding=True)), status
 
 
 @bp.post('/auth/register')
@@ -80,4 +80,4 @@ def login():
 @bp.get('/auth/me')
 @login_required
 def me():
-    return jsonify(serialize_user(current_user()))
+    return jsonify(serialize_user(current_user(), include_onboarding=True))

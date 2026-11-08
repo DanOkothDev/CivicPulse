@@ -25,6 +25,7 @@ tags:
   - name: Reference
   - name: Analytics
   - name: Admin
+  - name: Preferences
 security:
   - bearerAuth: []
 paths:
@@ -77,8 +78,38 @@ paths:
           description: The logged-in user
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/User'}
+              schema: {$ref: '#/components/schemas/AuthenticatedUser'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+  /users/me/preferences:
+    get:
+      tags: [Preferences]
+      summary: Get the authenticated user's onboarding preferences
+      responses:
+        '200':
+          description: The current user's preferences
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OnboardingPreferences'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    patch:
+      tags: [Preferences]
+      summary: Update the authenticated user's onboarding preferences
+      description: |
+        Preferences are scoped to the authenticated user. The completion timestamp is set by the
+        server when onboarding_completed changes to true and cannot be supplied by the client.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/OnboardingPreferenceUpdate'}
+      responses:
+        '200':
+          description: The updated preferences
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OnboardingPreferences'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '422': {$ref: '#/components/responses/Invalid'}
   /reports:
     post:
       tags: [Reports]
@@ -672,7 +703,7 @@ components:
       type: object
       properties:
         token: {type: string}
-        user: {$ref: '#/components/schemas/User'}
+        user: {$ref: '#/components/schemas/AuthenticatedUser'}
     User:
       type: object
       properties:
@@ -681,6 +712,30 @@ components:
         email: {type: string, format: email}
         role: {$ref: '#/components/schemas/Role'}
         area_id: {type: integer, nullable: true}
+    AuthenticatedUser:
+      allOf:
+        - {$ref: '#/components/schemas/User'}
+        - type: object
+          properties:
+            onboarding_completed: {type: boolean}
+            product_tour_enabled: {type: boolean}
+            feature_tips_enabled: {type: boolean}
+            onboarding_completed_at: {type: string, format: date-time, nullable: true}
+    OnboardingPreferences:
+      type: object
+      properties:
+        onboarding_completed: {type: boolean}
+        product_tour_enabled: {type: boolean}
+        feature_tips_enabled: {type: boolean}
+        onboarding_completed_at: {type: string, format: date-time, nullable: true}
+    OnboardingPreferenceUpdate:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        onboarding_completed: {type: boolean}
+        product_tour_enabled: {type: boolean}
+        feature_tips_enabled: {type: boolean}
     Category:
       type: object
       properties:

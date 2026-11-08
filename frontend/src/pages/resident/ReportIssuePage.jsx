@@ -260,6 +260,7 @@ export default function ReportIssuePage() {
               </label>
               <div className="relative">
                 <select
+                  data-tour="report-category"
                   value={categoryId}
                   onChange={(e) => setCategoryId(Number(e.target.value))}
                   className={`${INPUT} pr-10 font-semibold appearance-none cursor-pointer`}
@@ -304,6 +305,7 @@ export default function ReportIssuePage() {
                 </span>
               </div>
               <textarea
+                data-tour="report-description"
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value.slice(0, 500))}
@@ -327,6 +329,7 @@ export default function ReportIssuePage() {
 
             {/* GPS button, same pill style as the rest of the app */}
             <button
+              data-tour="report-location"
               type="button"
               onClick={handleGetLocation}
               disabled={gpsLocating}
@@ -404,6 +407,7 @@ export default function ReportIssuePage() {
 
             {/* Submit */}
             <button
+              data-tour="report-submit"
               type="submit"
               disabled={loading}
               className={`w-full rounded-full ${GRADIENT} px-6 py-3 text-sm font-bold text-white shadow-[0_8px_18px_-8px_rgba(11,90,156,0.7)] hover:brightness-110 transition disabled:opacity-50 flex items-center justify-center gap-2 mt-2`}

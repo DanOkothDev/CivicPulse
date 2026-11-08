@@ -236,6 +236,7 @@ export default function ImageUploadComponent({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
+                data-tour="report-photo"
                 className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition-colors flex items-center gap-2"
               >
                 <Upload className="w-4 h-4 text-slate-500" />

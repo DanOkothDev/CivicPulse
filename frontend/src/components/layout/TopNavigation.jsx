@@ -10,8 +10,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { api } from "../../services/api";
-import { useToast } from "../../context/ToastContext";
+import { useNotifications } from "../../context/NotificationContext";
 import SearchBar from "../ui/SearchBar";
 
 /*
@@ -28,10 +27,9 @@ const GRADIENT = "bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C]";
 
 export default function TopNavigation({ onMenuClick }) {
   const { user, role, logout } = useAuth();
-  const toast = useToast();
   const [searchVal, setSearchVal] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
 
   // Load Montserrat font dynamically
@@ -44,17 +42,6 @@ export default function TopNavigation({ onMenuClick }) {
       "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap";
     document.head.appendChild(link);
   }, []);
-
-  React.useEffect(() => {
-    if (user) {
-      api.notifications
-        .getUnreadCount()
-        .then((data) => setUnreadCount(data?.count || 0))
-        .catch((error) =>
-          toast.error(`Could not load notification count: ${error.message}`),
-        );
-    }
-  }, [user]);
 
   return (
     <header
@@ -110,6 +97,7 @@ export default function TopNavigation({ onMenuClick }) {
 
         {/* Notifications Icon with Unread Badge */}
         <Link
+          data-tour="resident-notifications"
           to="/notifications"
           className="relative p-2 text-[#5F5F5F] hover:text-[#0B5A9C] hover:bg-white/80 rounded-xl transition-colors border border-transparent hover:border-[#cfe9f0]"
           title="Notifications"
