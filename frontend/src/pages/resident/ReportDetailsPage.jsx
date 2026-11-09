@@ -65,7 +65,7 @@ export default function ReportDetailsPage() {
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto p-4 space-y-4">
+      <div className="max-w-5xl mx-auto rounded-3xl bg-[#E6F5F8] p-4 sm:p-6 space-y-4">
         <LoadingSkeleton count={2} type="card" />
       </div>
     );
@@ -73,9 +73,9 @@ export default function ReportDetailsPage() {
 
   if (!report) {
     return (
-      <div className="text-center py-12">
-        <h3 className="text-base font-bold text-slate-800">Report Not Found</h3>
-        <Link to="/community-map" className="text-blue-600 text-xs font-bold hover:underline mt-2 inline-block">
+      <div className="max-w-3xl mx-auto rounded-3xl bg-[#E6F5F8] border border-[#cfe9f0] p-8 text-center">
+        <h3 className="text-base font-extrabold text-[#4a4a4a]">Report Not Found</h3>
+        <Link to="/community-map" className="text-[#0B5A9C] text-xs font-bold hover:underline mt-2 inline-block">
           Return to map
         </Link>
       </div>
@@ -83,30 +83,37 @@ export default function ReportDetailsPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="relative isolate max-w-6xl mx-auto overflow-hidden rounded-3xl bg-[#E6F5F8] p-4 sm:p-6 space-y-6">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 -right-24 -z-10 h-80 w-80 rounded-full bg-gradient-to-br from-[#38C6DC]/30 to-[#0B5A9C]/20 blur-2xl"
+      />
       {/* Back button & dossier ID bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-slate-200">
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#cfe9f0]">
         <div className="flex items-center gap-3">
           <Link
             to="/dashboard"
-            className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors"
+            className="p-2 rounded-xl bg-white/80 border border-[#cfe9f0] hover:bg-white text-[#5F5F5F] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-blue-600">
+              <span className="font-mono text-xs font-bold text-[#0B5A9C]">
                 #RPT-{report.id}
               </span>
               <StatusBadge status={report.status} />
               {report.ai_suggested_category && (
                 <span className="bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-purple-600" />
-                  <span>AI Classified ({Math.round(report.ai_suggested_category.confidence * 100)}%)</span>
+                  <span>
+                    AI suggestion: {report.ai_suggested_category.name} (
+                    {Math.round(report.ai_suggested_category.confidence * 100)}%)
+                  </span>
                 </span>
               )}
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#4a4a4a] tracking-tight mt-2">
               {report.category?.name} Report Details
             </h1>
           </div>
@@ -119,8 +126,8 @@ export default function ReportDetailsPage() {
             onClick={handleToggleFollow}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
               following
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C] text-white shadow-[0_8px_18px_-8px_rgba(11,90,156,0.7)]'
+                : 'bg-white text-[#0B5A9C] border border-[#cfe9f0] hover:bg-[#f4fbfd]'
             }`}
           >
             <ThumbsUp className={`w-4 h-4 ${following ? 'fill-white' : ''}`} />
@@ -133,29 +140,29 @@ export default function ReportDetailsPage() {
         {/* Left Column (7 cols): Photo evidence & description */}
         <div className="lg:col-span-7 space-y-6">
           {/* Main Photo Card */}
-          <div className="bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-sm">
-            <div className="relative h-72 sm:h-96 bg-slate-900">
+          <div className="bg-white/80 rounded-3xl border border-[#cfe9f0] overflow-hidden shadow-[0_10px_30px_-14px_rgba(11,90,156,0.3)]">
+            <div className="relative h-72 sm:h-96 bg-[#0B5A9C]">
               <img
                 src={report.photo_url}
                 alt={report.category?.name}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-white text-xs font-semibold px-3 py-1 rounded-lg">
+              <div className="absolute top-4 left-4 bg-[#0B5A9C]/85 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-xl">
                 Submitted photo
               </div>
             </div>
 
             <div className="p-6">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#1B8FC0] mb-2">
                 Physical Description & Triage Notes
               </h3>
-              <p className="text-sm text-slate-800 leading-relaxed">
+              <p className="text-sm text-[#4a4a4a] leading-relaxed">
                 {report.description}
               </p>
 
               {report.landmark && (
-                <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 flex items-start gap-2">
-                  <MapPin className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <div className="mt-4 p-3 bg-[#E6F5F8] rounded-2xl border border-[#cfe9f0] text-xs text-[#5F5F5F] flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-[#1B8FC0] shrink-0 mt-0.5" />
                   <span><strong>Landmark reference:</strong> {report.landmark}</span>
                 </div>
               )}
@@ -163,15 +170,15 @@ export default function ReportDetailsPage() {
           </div>
 
           {/* Audit Trail Timeline */}
-          <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6 pb-2 border-b border-slate-100">
+          <div className="bg-white/80 rounded-3xl border border-[#cfe9f0] p-5 sm:p-6 shadow-[0_10px_30px_-14px_rgba(11,90,156,0.3)]">
+            <div className="flex items-center justify-between mb-6 pb-3 border-b border-[#cfe9f0]">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-blue-600" />
-                <h3 className="text-sm font-bold text-slate-900">
+                <Clock className="w-5 h-5 text-[#1B8FC0]" />
+                <h3 className="text-sm font-extrabold text-[#4a4a4a]">
                   Lifecycle Audit Trail & Status Events
                 </h3>
               </div>
-              <span className="text-xs font-bold text-slate-400">
+              <span className="text-xs font-semibold text-[#7a8a90]">
                 {history.length} Event{history.length !== 1 ? 's' : ''} Recorded
               </span>
             </div>
@@ -183,12 +190,12 @@ export default function ReportDetailsPage() {
         {/* Right Column (5 cols): Spatial location & metadata */}
         <div className="lg:col-span-5 space-y-6">
           {/* Map snapshot */}
-          <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-sm space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+          <div className="bg-white/80 rounded-3xl border border-[#cfe9f0] p-5 shadow-[0_10px_30px_-14px_rgba(11,90,156,0.3)] space-y-3">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#1B8FC0]">
               Geographic Telemetry & Coordinates
             </h3>
 
-            <div className="h-56 rounded-2xl overflow-hidden border border-slate-200">
+            <div className="h-56 rounded-2xl overflow-hidden border border-[#cfe9f0]">
               <MapComponent
                 center={[report.location.lat, report.location.lon]}
                 zoom={15}
@@ -197,53 +204,61 @@ export default function ReportDetailsPage() {
               />
             </div>
 
-            <div className="p-3 bg-slate-50 rounded-xl text-xs space-y-1">
+            <div className="p-3 bg-[#E6F5F8] border border-[#cfe9f0] rounded-2xl text-xs space-y-2">
               <div className="flex justify-between">
-                <span className="text-slate-500">Address:</span>
-                <span className="font-semibold text-slate-800 truncate max-w-[200px]">
+                <span className="text-[#5F5F5F]">Address:</span>
+                <span className="font-semibold text-[#4a4a4a] truncate max-w-[200px]">
                   {report.area_id == null ? 'No service area assigned' : `Area ${report.area_id}`}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Coordinates:</span>
-                <span className="font-mono text-slate-700">{report.location.lat.toFixed(4)}, {report.location.lon.toFixed(4)}</span>
+                <span className="text-[#5F5F5F]">Coordinates:</span>
+                <span className="font-mono text-[#0B5A9C]">{report.location.lat.toFixed(4)}, {report.location.lon.toFixed(4)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#5F5F5F]">Responsible county:</span>
+                <span className="font-semibold text-[#0B5A9C]">{report.county?.name || 'Unavailable'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#5F5F5F]">Responsible department:</span>
+                <span className="font-semibold text-[#4a4a4a]">{report.department?.name || 'Not assigned'}</span>
               </div>
             </div>
           </div>
 
           {/* Metadata Cards */}
-          <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+          <div className="bg-white/80 rounded-3xl border border-[#cfe9f0] p-5 shadow-[0_10px_30px_-14px_rgba(11,90,156,0.3)] space-y-4">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#1B8FC0]">
               Municipal Operations Context
             </h3>
 
             <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
-                <span className="text-slate-500 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-slate-400" />
+              <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-[#E6F5F8] border border-[#cfe9f0]">
+                <span className="text-[#5F5F5F] flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-[#1B8FC0]" />
                   Assigned Team
                 </span>
-                <span className="font-bold text-slate-900">
+                <span className="font-bold text-[#4a4a4a] text-right">
                   {report.assigned_to == null ? 'Not assigned' : `User #${report.assigned_to}`}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
-                <span className="text-slate-500 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-slate-400" />
+              <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-[#E6F5F8] border border-[#cfe9f0]">
+                <span className="text-[#5F5F5F] flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#1B8FC0]" />
                   Target SLA Date
                 </span>
-                <span className="font-bold text-slate-900">
+                <span className="font-bold text-[#4a4a4a] text-right">
                   {report.due_date || 'Not set'}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
-                <span className="text-slate-500 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-slate-400" />
+              <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-[#E6F5F8] border border-[#cfe9f0]">
+                <span className="text-[#5F5F5F] flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-[#1B8FC0]" />
                   Filing Citizen
                 </span>
-                <span className="font-bold text-slate-900">
+                <span className="font-bold text-[#4a4a4a] text-right">
                   {report.created_by == null ? 'Unavailable' : `User #${report.created_by}`}
                 </span>
               </div>

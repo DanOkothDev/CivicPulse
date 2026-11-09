@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from ..auth_utils import roles_required
 from ..errors import ApiError
 from ..extensions import db
-from ..models import Area, Category
+from ..models import Area, Category, County, Department
 
 bp = Blueprint('reference', __name__)
 
@@ -86,6 +86,21 @@ def categories():
     return jsonify([{'id': c.id, 'name': c.name, 'icon': c.icon} for c in rows])
 
 
+@bp.get('/counties')
+def counties():
+    rows = County.query.order_by(County.name).all()
+    return jsonify([{'id': c.id, 'name': c.name, 'code': c.code} for c in rows])
+
+
+@bp.get('/counties/<int:county_id>/departments')
+def departments_for_county(county_id):
+    county = db.session.get(County, county_id)
+    if county is None:
+        raise ApiError('not_found', 'County not found', 404)
+    rows = Department.query.filter_by(county_id=county_id).order_by(Department.name).all()
+    return jsonify([{'id': d.id, 'county_id': d.county_id, 'name': d.name, 'code': d.code} for d in rows])
+
+
 @bp.get('/areas')
 def areas():
     rows = Area.query.order_by(Area.name).all()
@@ -132,8 +147,14 @@ def create_area():
     if Area.query.filter_by(name=name).first():
         raise ApiError('area_exists', 'An area with this name already exists', 409)
 
+    county_id = data.get('county_id')
+    if county_id is not None and (not isinstance(county_id, int) or isinstance(county_id, bool)
+                                 or db.session.get(County, county_id) is None):
+        raise ApiError('validation_error', 'Choose a valid county or leave it unassigned', 422, {
+            'county_id': 'Choose a valid county or leave it unassigned',
+        })
     boundary = _validated_boundary(data.get('boundary'))
-    area = Area(name=name, boundary=boundary)
+    area = Area(name=name, boundary=boundary, county_id=county_id)
     db.session.add(area)
     try:
         db.session.commit()
@@ -154,6 +175,16 @@ def update_area(area_id):
         raise ApiError('validation_error', 'Send a boundary (GeoJSON Polygon or null)', 422, {
             'boundary': 'Boundary is required',
         })
+    if 'county_id' in data:
+        county_id = data['county_id']
+        if county_id is not None and (
+            not isinstance(county_id, int) or isinstance(county_id, bool)
+            or db.session.get(County, county_id) is None
+        ):
+            raise ApiError('validation_error', 'Choose a valid county or leave it unassigned', 422, {
+                'county_id': 'Choose a valid county or leave it unassigned',
+            })
+        area.county_id = county_id
     area.boundary = _validated_boundary(data['boundary'])
     db.session.commit()
     return jsonify(_area_json(area))

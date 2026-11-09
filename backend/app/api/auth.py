@@ -7,7 +7,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from ..auth_utils import current_user, login_required, serialize_user
 from ..errors import ApiError
 from ..extensions import db
-from ..models import Area, User
+from ..models import Area, County, User
 
 bp = Blueprint('auth', __name__)
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
@@ -33,6 +33,7 @@ def register():
     email = str(data.get('email') or '').strip().lower()
     password = data.get('password')
     area_id = data.get('area_id')
+    county_id = data.get('county_id')
 
     errors = {}
     if not name:
@@ -47,6 +48,8 @@ def register():
         errors['password'] = 'Use at least 8 characters'
     if area_id is not None and (not isinstance(area_id, int) or not db.session.get(Area, area_id)):
         errors['area_id'] = 'Unknown area'
+    if county_id is not None and (not isinstance(county_id, int) or not db.session.get(County, county_id)):
+        errors['county_id'] = 'Unknown county'
     if errors:
         raise ApiError('validation_error', 'Please fix the highlighted fields', 422, errors)
 
@@ -54,7 +57,7 @@ def register():
         raise ApiError('email_taken', 'An account with this email already exists', 409)
 
     # Anyone who registers is a resident. Other roles are given by an admin (or `flask create-user`).
-    user = User(name=name, email=email, role='resident', area_id=area_id,
+    user = User(name=name, email=email, role='resident', area_id=area_id, county_id=county_id,
                 password_hash=generate_password_hash(password))
     db.session.add(user)
     try:

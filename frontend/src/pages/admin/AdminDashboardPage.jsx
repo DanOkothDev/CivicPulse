@@ -13,12 +13,14 @@ import {
   ArrowRight,
   Sliders,
   UserPlus,
+  Building2,
 } from "lucide-react";
 import { api } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import DataTable from "../../components/ui/DataTable";
 import Modal from "../../components/ui/Modal";
+import DepartmentManagementPanel from "./DepartmentManagementPanel";
 
 /*
   Theme (taken from the landing page design)
@@ -94,7 +96,7 @@ function StatTile({ title, value, note, icon: Icon }) {
       </div>
       <div>
         <p className="text-xs font-semibold text-[#5F5F5F]">{title}</p>
-        <p className="text-2xl font-extrabold text-[#0B5A9C] leading-tight">
+        <p className="text-xl font-extrabold text-[#0B5A9C] leading-tight">
           {value}
         </p>
         <p className="text-[11px] text-[#7a8a90]">{note}</p>
@@ -141,6 +143,10 @@ export default function AdminDashboardPage() {
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [newRole, setNewRole] = useState("resident");
+  const [authorityDepartments, setAuthorityDepartments] = useState([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
+  const [loadingAuthorityDepartments, setLoadingAuthorityDepartments] = useState(false);
+  const [authorityDepartmentError, setAuthorityDepartmentError] = useState("");
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -188,14 +194,48 @@ export default function AdminDashboardPage() {
   const handleOpenRoleModal = (u) => {
     setSelectedUser(u);
     setNewRole(u.role);
+    setSelectedDepartmentId(u.department_id == null ? "" : String(u.department_id));
     setRoleModalOpen(true);
   };
+
+  useEffect(() => {
+    let active = true;
+    if (newRole !== "authority" || !selectedUser?.county_id) {
+      setAuthorityDepartments([]);
+      setAuthorityDepartmentError("");
+      setLoadingAuthorityDepartments(false);
+      return () => { active = false; };
+    }
+    setLoadingAuthorityDepartments(true);
+    setAuthorityDepartmentError("");
+    api.reference.getDepartments(selectedUser.county_id)
+      .then((rows) => {
+        if (active) setAuthorityDepartments(rows || []);
+      })
+      .catch((error) => {
+        if (active) setAuthorityDepartmentError(error.message);
+      })
+      .finally(() => {
+        if (active) setLoadingAuthorityDepartments(false);
+      });
+    return () => { active = false; };
+  }, [newRole, selectedUser?.county_id]);
 
   const handleUpdateRole = async (e) => {
     e.preventDefault();
     if (!selectedUser) return;
+    if (newRole === "authority" && (!selectedUser.county_id || !selectedDepartmentId)) {
+      toast.error("Choose the authority user's county department before saving.");
+      return;
+    }
     try {
       await api.admin.updateUserRole(selectedUser.id, newRole);
+      if (newRole === "authority") {
+        await api.admin.updateUserDepartment(
+          selectedUser.id,
+          Number(selectedDepartmentId),
+        );
+      }
       toast.success(`${selectedUser.name} is now a ${newRole}.`);
       setRoleModalOpen(false);
       loadData();
@@ -327,6 +367,13 @@ export default function AdminDashboardPage() {
     return matchesRole && matchesSearch;
   });
 
+  const eligibleAuthorities = users.filter((candidate) =>
+    candidate.role === "authority" &&
+    candidate.county_id === reportToAssign?.county_id &&
+    candidate.department_id === reportToAssign?.department_id &&
+    reportToAssign?.department_id != null
+  );
+
   // Columns for reports table
   const reportColumns = [
     {
@@ -370,6 +417,15 @@ export default function AdminDashboardPage() {
       render: (r) => (
         <span className="font-semibold text-xs text-[#4a4a4a]">
           {r.category?.name || "No category"}
+        </span>
+      ),
+    },
+    {
+      header: "Responsible County",
+      accessor: "county",
+      render: (r) => (
+        <span className="text-xs text-[#5F5F5F]">
+          {r.county?.name || "Unresolved"}
         </span>
       ),
     },
@@ -489,6 +545,24 @@ export default function AdminDashboardPage() {
       ),
     },
     {
+      header: "County",
+      accessor: "county",
+      render: (u) => (
+        <span className="text-xs text-[#5F5F5F]">
+          {u.county?.name || "No county"}
+        </span>
+      ),
+    },
+    {
+      header: "Department",
+      accessor: "department",
+      render: (u) => (
+        <span className="text-xs text-[#5F5F5F]">
+          {u.department?.name || "Not assigned"}
+        </span>
+      ),
+    },
+    {
       header: "Ward",
       accessor: "area_id",
       render: (u) => (
@@ -542,7 +616,7 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-[#5F5F5F] tracking-tight">
+          <h1 className="text-2xl font-extrabold text-[#5F5F5F] tracking-tight">
             Admin dashboard
           </h1>
           <p className="text-xs text-[#5F5F5F] mt-2 max-w-xl leading-relaxed">
@@ -612,6 +686,7 @@ export default function AdminDashboardPage() {
             icon: Layers,
           },
           { id: "areas", label: `Wards (${areas.length})`, icon: MapPin },
+          { id: "departments", label: "Departments", icon: Building2 },
           { id: "system", label: "Settings", icon: Sliders },
         ].map((tab) => (
           <button
@@ -787,6 +862,10 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
+      {activeTab === "departments" && (
+        <DepartmentManagementPanel user={user} toast={toast} />
+      )}
+
       {/* Settings */}
       {activeTab === "system" && (
         <div className="space-y-6">
@@ -955,6 +1034,42 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
+          {newRole === "authority" && (
+            <div>
+              <label htmlFor="authority-department" className="mb-1 block text-xs font-bold text-[#5F5F5F]">
+                Assigned department
+              </label>
+              {selectedUser?.county_id ? (
+                <>
+                <select
+                  id="authority-department"
+                  value={selectedDepartmentId}
+                  onChange={(event) => setSelectedDepartmentId(event.target.value)}
+                  disabled={loadingAuthorityDepartments}
+                  required
+                  className={INPUT}
+                >
+                  <option value="">
+                    {loadingAuthorityDepartments ? "Loading departments..." : "Select a department"}
+                  </option>
+                  {authorityDepartments.map((department) => (
+                    <option key={department.id} value={department.id}>{department.name}</option>
+                  ))}
+                </select>
+                {authorityDepartmentError && (
+                  <p role="alert" className="mt-1 text-xs text-rose-700">
+                    Could not load departments: {authorityDepartmentError}
+                  </p>
+                )}
+                </>
+              ) : (
+                <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+                  This user needs a registered county before being assigned an authority role.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#cfe9f0]">
             <WhiteButton onClick={() => setRoleModalOpen(false)}>
               Cancel
@@ -1046,17 +1161,17 @@ export default function AdminDashboardPage() {
             >
               <option value="">Select an authority</option>
               {users
-                .filter((candidate) => candidate.role === "authority")
+                .filter((candidate) => eligibleAuthorities.some((eligible) => eligible.id === candidate.id))
                 .map((authority) => (
                   <option key={authority.id} value={authority.id}>
-                    {authority.name}
+                    {authority.name} · {authority.department?.name}
                   </option>
                 ))}
             </select>
-            {users.every((candidate) => candidate.role !== "authority") && (
+            {eligibleAuthorities.length === 0 && (
               <p className="text-[11px] text-amber-700 mt-1">
-                There are no authority accounts yet. Change a user&apos;s role
-                to Authority first.
+                No authority is assigned to this report&apos;s county and department.
+                Assign a user to that department first.
               </p>
             )}
           </div>
@@ -1090,7 +1205,7 @@ export default function AdminDashboardPage() {
               type="submit"
               disabled={
                 assigning ||
-                !users.some((candidate) => candidate.role === "authority")
+                eligibleAuthorities.length === 0
               }
             >
               {assigning ? "Assigning..." : "Assign report"}

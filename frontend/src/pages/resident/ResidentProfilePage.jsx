@@ -71,7 +71,10 @@ export default function ResidentProfilePage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [reports, setReports] = useState([]);
   const [areas, setAreas] = useState([]);
+  const [counties, setCounties] = useState([]);
+  const [selectedCountyId, setSelectedCountyId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [countyLoading, setCountyLoading] = useState(false);
   const [preferences, setPreferences] = useState({
     product_tour_enabled: true,
     feature_tips_enabled: true,
@@ -114,10 +117,23 @@ export default function ResidentProfilePage() {
       })
       .catch(() => {});
 
+    api.reference
+      .getCounties()
+      .then((list) => {
+        if (mounted) setCounties(list || []);
+      })
+      .catch((error) => {
+        if (mounted) toast.error(`Could not load counties: ${error.message}`);
+      });
+
     return () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    setSelectedCountyId(user?.county_id == null ? "" : String(user.county_id));
+  }, [user?.county_id]);
 
   useEffect(() => {
     if (!user) return;
@@ -142,6 +158,21 @@ export default function ResidentProfilePage() {
     } finally {
       preferenceRequestRef.current = false;
       setSavingPreference(false);
+    }
+  };
+
+  const updateCounty = async (event) => {
+    event.preventDefault();
+    if (!selectedCountyId || countyLoading) return;
+    setCountyLoading(true);
+    try {
+      await api.users.updateProfile({ county_id: Number(selectedCountyId) });
+      await refreshUser();
+      toast.success("Your registered county has been updated.");
+    } catch (error) {
+      toast.error(`Could not update your county: ${error.message}`);
+    } finally {
+      setCountyLoading(false);
     }
   };
 
@@ -174,6 +205,11 @@ export default function ResidentProfilePage() {
     user?.area_id == null
       ? "No ward chosen"
       : areas.find((area) => area.id === user.area_id)?.name || "Loading...";
+  const countyName =
+    user?.county?.name ||
+    (user?.county_id == null
+      ? "No county chosen"
+      : counties.find((county) => county.id === user.county_id)?.name || `County #${user.county_id}`);
 
   return (
     <div
@@ -261,7 +297,7 @@ export default function ResidentProfilePage() {
               <h2 className="text-base font-extrabold text-[#5F5F5F]">
                 Your details
               </h2>
-              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+              <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
                 <DetailTile label="Email" icon={Mail}>
                   {user?.email}
                 </DetailTile>
@@ -270,6 +306,9 @@ export default function ResidentProfilePage() {
                 </DetailTile>
                 <DetailTile label="Ward" icon={MapPin}>
                   {wardName}
+                </DetailTile>
+                <DetailTile label="County" icon={MapPin}>
+                  {countyName}
                 </DetailTile>
               </dl>
             </div>
@@ -295,6 +334,43 @@ export default function ResidentProfilePage() {
 
         {activeTab === "settings" && (
           <div className="space-y-6">
+            {user?.role === "resident" && (
+              <form onSubmit={updateCounty} className={`${CARD} p-6 space-y-4`}>
+                <div>
+                  <h2 className="text-base font-extrabold text-[#5F5F5F]">
+                    Registered county
+                  </h2>
+                  <p className="text-xs text-[#5F5F5F] mt-1">
+                    Update the county associated with your resident profile. Report routing still uses each report's map location.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <select
+                    aria-label="Registered county"
+                    value={selectedCountyId}
+                    onChange={(event) => setSelectedCountyId(event.target.value)}
+                    disabled={countyLoading || counties.length === 0}
+                    required
+                    className="min-w-0 flex-1 rounded-xl border border-[#cfe9f0] bg-white px-3 py-2 text-xs text-[#4a4a4a] focus:border-[#1B8FC0] focus:outline-none"
+                  >
+                    <option value="" disabled>
+                      {counties.length ? "Select your county" : "Counties unavailable"}
+                    </option>
+                    {counties.map((county) => (
+                      <option key={county.id} value={county.id}>{county.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={countyLoading || !selectedCountyId || Number(selectedCountyId) === user?.county_id}
+                    className="rounded-full bg-gradient-to-r from-[#38C6DC] to-[#0B5A9C] px-5 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {countyLoading ? "Saving..." : "Update county"}
+                  </button>
+                </div>
+              </form>
+            )}
+
             <div className={`${CARD} p-6`}>
               <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
                 <div>

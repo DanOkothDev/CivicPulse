@@ -40,7 +40,7 @@ function StatTile({ title, value, note, icon: Icon }) {
       </div>
       <div>
         <p className="text-xs font-semibold text-[#5F5F5F]">{title}</p>
-        <p className="text-2xl font-extrabold text-[#0B5A9C] leading-tight">
+        <p className="text-xl font-extrabold text-[#0B5A9C] leading-tight">
           {value}
         </p>
         <p className="text-[11px] text-[#7a8a90]">{note}</p>
@@ -180,7 +180,7 @@ export default function AnalyticsDashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-[#5F5F5F] tracking-tight">
+          <h1 className="text-2xl font-extrabold text-[#5F5F5F] tracking-tight">
             Reports at a glance
           </h1>
           <p className="text-xs text-[#5F5F5F] mt-2 max-w-xl leading-relaxed">

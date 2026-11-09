@@ -72,6 +72,26 @@ def test_assignee_must_be_an_authority(client, who, report_id):
         assert r.status_code == 422 and 'assignee_id' in r.json['error']['details']
 
 
+def test_assignee_must_match_report_county_and_department(client, app, who, report_id):
+    from app.models import Department, User
+
+    verifier, _ = who('verifier')
+    _, authority_id = who('authority')
+    with app.app_context():
+        authority = db.session.get(User, authority_id)
+        other_department = Department.query.filter(
+            Department.county_id == authority.county_id,
+            Department.id != authority.department_id,
+        ).first()
+        authority.department_id = other_department.id
+        db.session.commit()
+
+    assert status(client, verifier, report_id, 'verified').status_code == 200
+    response = assign(client, verifier, report_id, assignee_id=authority_id)
+    assert response.status_code == 422
+    assert 'county and department' in response.json['error']['details']['assignee_id']
+
+
 def test_due_date_validation(client, who, report_id):
     verifier, _ = who('verifier')
     _, aid = who('authority')

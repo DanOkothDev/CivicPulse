@@ -2,9 +2,11 @@
 import importlib
 import logging
 import os
+import sys
 import time
 from contextlib import contextmanager, nullcontext
 from datetime import timedelta
+from pathlib import Path
 
 from flask import current_app, has_app_context
 from geoalchemy2 import Geography, Geometry
@@ -51,6 +53,16 @@ def load_hook(config_key):
     if not path:
         return None
     module, _, name = path.partition(':')
+    if module == 'ml' or module.startswith('ml.'):
+        ml_dir = current_app.config.get('ML_DIR')
+        import_root = (
+            Path(ml_dir).resolve().parent
+            if ml_dir
+            else Path(__file__).resolve().parents[2]
+        )
+        import_root = str(import_root)
+        if import_root not in sys.path:
+            sys.path.insert(0, import_root)
     return getattr(importlib.import_module(module), name)
 
 
@@ -131,6 +143,8 @@ def _apply_classification(report, result):
         logger.warning('Report %s: classifier result out of range: %r', report.id, result)
         return 'ignored: out of range'
     report.ai_category_id, report.ai_confidence = category_id, confidence
+    class_name = result.get('class_name')
+    report.ai_class_name = str(class_name)[:100] if class_name else None
     db.session.commit()
     return 'saved'
 

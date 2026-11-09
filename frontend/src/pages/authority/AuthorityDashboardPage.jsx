@@ -214,6 +214,10 @@ export default function AuthorityDashboardPage() {
             active progress, and record resolution notes with completion
             details.
           </p>
+          <p className="text-xs font-bold text-[#0B5A9C] mt-2">
+            {user?.county?.name || (user?.county_id ? `County #${user.county_id}` : "County not assigned")}
+            {user?.department?.name ? ` · ${user.department.name}` : ""}
+          </p>
         </div>
 
         <div className="bg-white/80 border border-[#7FD0E0] text-[#0B5A9C] rounded-2xl px-4 py-2 text-xs font-extrabold flex items-center gap-2 shadow-2xs">

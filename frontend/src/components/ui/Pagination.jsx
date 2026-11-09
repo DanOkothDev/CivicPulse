@@ -14,13 +14,13 @@ export default function Pagination({
   const end = Math.min(currentPage * pageSize, totalItems);
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-slate-200 sm:px-6 rounded-b-2xl">
+    <div className="flex items-center justify-between px-4 py-3 bg-white/80 border-t border-[#cfe9f0] sm:px-6 rounded-b-3xl">
       <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs text-slate-600">
-            Showing <span className="font-semibold text-slate-900">{start}</span> to{' '}
-            <span className="font-semibold text-slate-900">{end}</span> of{' '}
-            <span className="font-semibold text-slate-900">{totalItems}</span> records
+          <p className="text-xs text-[#5F5F5F]">
+            Showing <span className="font-semibold text-[#0B5A9C]">{start}</span> to{' '}
+            <span className="font-semibold text-[#0B5A9C]">{end}</span> of{' '}
+            <span className="font-semibold text-[#0B5A9C]">{totalItems}</span> records
           </p>
         </div>
         <div>
@@ -28,7 +28,7 @@ export default function Pagination({
             <button
               onClick={() => onPageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="relative inline-flex items-center px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="relative inline-flex items-center px-2.5 py-1.5 rounded-xl border border-[#cfe9f0] bg-white text-xs font-medium text-[#5F5F5F] hover:bg-[#E6F5F8] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -39,8 +39,8 @@ export default function Pagination({
                 onClick={() => onPageChange(page)}
                 className={`relative inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold ${
                   currentPage === page
-                    ? 'z-10 bg-blue-600 text-white'
-                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                    ? 'z-10 bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C] text-white shadow-sm'
+                    : 'bg-white border border-[#cfe9f0] text-[#5F5F5F] hover:bg-[#E6F5F8]'
                 }`}
               >
                 {page}
@@ -50,7 +50,7 @@ export default function Pagination({
             <button
               onClick={() => onPageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="relative inline-flex items-center px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="relative inline-flex items-center px-2.5 py-1.5 rounded-xl border border-[#cfe9f0] bg-white text-xs font-medium text-[#5F5F5F] hover:bg-[#E6F5F8] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

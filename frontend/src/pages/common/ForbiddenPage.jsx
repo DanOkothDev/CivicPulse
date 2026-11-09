@@ -14,17 +14,17 @@ export default function ForbiddenPage({ requiredRole = 'higher authority' }) {
       <span className="text-xs font-bold uppercase tracking-wider text-rose-600 mb-1">
         Access Restricted (403)
       </span>
-      <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-2">
+      <h1 className="text-2xl sm:text-3xl font-extrabold text-[#4a4a4a] mb-2">
         Municipal Clearance Required
       </h1>
-      <p className="text-sm text-slate-500 max-w-md mb-6 leading-relaxed">
-        Your current session is logged in as <span className="font-bold capitalize text-slate-800">{role}</span>. This operational view requires <span className="font-bold text-slate-800">{requiredRole}</span> clearance.
+      <p className="text-sm text-[#5F5F5F] max-w-md mb-6 leading-relaxed">
+        Your current session is logged in as <span className="font-bold capitalize text-[#4a4a4a]">{role}</span>. This operational view requires <span className="font-bold text-[#4a4a4a]">{requiredRole}</span> clearance.
       </p>
 
       <div className="flex items-center gap-3">
         <Link
           to="/dashboard"
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm transition-colors flex items-center gap-2"
+          className="bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C] hover:brightness-110 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm transition flex items-center gap-2"
         >
           <Home className="w-4 h-4" />
           <span>Go to Resident Dashboard</span>

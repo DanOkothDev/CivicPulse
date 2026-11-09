@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Home } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 
@@ -273,6 +273,13 @@ export default function LoginPage() {
                 <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
+            <Link
+              to="/"
+              className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[#1B8FC0] hover:text-[#0B5A9C] hover:underline"
+            >
+              <Home className="h-3.5 w-3.5" />
+              Return to landing page
+            </Link>
           </div>
 
           <div className="pt-6 mt-6 border-t border-[#cfe9f0] flex flex-wrap items-center justify-between text-[11px] text-[#7a8a90] gap-2">

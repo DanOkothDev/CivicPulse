@@ -1,14 +1,44 @@
 -- Generated from app/models.py (the models are the source of truth).
 -- Needs: CREATE EXTENSION IF NOT EXISTS postgis;
 
+CREATE TABLE counties (
+	id SERIAL NOT NULL,
+	name VARCHAR(120) NOT NULL,
+	code VARCHAR(20) NOT NULL,
+	boundary geography(GEOMETRY,4326),
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	PRIMARY KEY (id),
+	UNIQUE (name),
+	UNIQUE (code)
+);
+CREATE INDEX idx_counties_boundary ON counties USING gist (boundary);
+
+CREATE TABLE departments (
+	id SERIAL NOT NULL,
+	county_id INTEGER NOT NULL,
+	name VARCHAR(120) NOT NULL,
+	code VARCHAR(60),
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_department_county_name UNIQUE (county_id, name),
+	CONSTRAINT uq_department_county_code UNIQUE (county_id, code),
+	FOREIGN KEY(county_id) REFERENCES counties (id) ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX uq_department_county_name_ci
+	ON departments (county_id, lower(name));
+CREATE INDEX ix_departments_county ON departments (county_id, name);
+
 CREATE TABLE areas (
 	id SERIAL NOT NULL, 
 	name VARCHAR(120) NOT NULL, 
 	boundary geography(POLYGON,4326), 
+	county_id INTEGER,
 	PRIMARY KEY (id), 
-	UNIQUE (name)
+	UNIQUE (name),
+	FOREIGN KEY(county_id) REFERENCES counties (id) ON DELETE SET NULL
 );
 CREATE INDEX idx_areas_boundary ON areas USING gist (boundary);
+CREATE INDEX ix_areas_county ON areas (county_id);
 
 CREATE TABLE categories (
 	id SERIAL NOT NULL, 
@@ -37,12 +67,22 @@ CREATE TABLE users (
 	password_hash VARCHAR(255) NOT NULL, 
 	role VARCHAR(20) NOT NULL, 
 	area_id INTEGER, 
+	county_id INTEGER,
+	department_id INTEGER,
+	onboarding_completed BOOLEAN NOT NULL,
+	product_tour_enabled BOOLEAN NOT NULL,
+	feature_tips_enabled BOOLEAN NOT NULL,
+	onboarding_completed_at TIMESTAMP WITH TIME ZONE,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
 	PRIMARY KEY (id), 
 	CONSTRAINT ck_users_role CHECK (role IN ('resident', 'verifier', 'authority', 'admin')), 
 	UNIQUE (email), 
-	FOREIGN KEY(area_id) REFERENCES areas (id) ON DELETE SET NULL
+	FOREIGN KEY(area_id) REFERENCES areas (id) ON DELETE SET NULL,
+	FOREIGN KEY(county_id) REFERENCES counties (id) ON DELETE SET NULL,
+	FOREIGN KEY(department_id) REFERENCES departments (id) ON DELETE SET NULL
 );
+CREATE INDEX ix_users_county ON users (county_id);
+CREATE INDEX ix_users_department ON users (department_id);
 
 CREATE TABLE reports (
 	id SERIAL NOT NULL, 
@@ -53,6 +93,8 @@ CREATE TABLE reports (
 	status VARCHAR(20) NOT NULL, 
 	location geography(POINT,4326) NOT NULL, 
 	area_id INTEGER, 
+	county_id INTEGER,
+	department_id INTEGER,
 	photo_path VARCHAR(255) NOT NULL, 
 	created_by INTEGER NOT NULL, 
 	assigned_to INTEGER, 
@@ -61,6 +103,7 @@ CREATE TABLE reports (
 	duplicate_score FLOAT, 
 	report_count INTEGER NOT NULL, 
 	ai_category_id INTEGER, 
+	ai_class_name VARCHAR(100),
 	ai_confidence FLOAT, 
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
@@ -68,6 +111,8 @@ CREATE TABLE reports (
 	CONSTRAINT ck_reports_status CHECK (status IN ('reported', 'verified', 'rejected', 'assigned', 'in_progress', 'resolved')), 
 	FOREIGN KEY(category_id) REFERENCES categories (id), 
 	FOREIGN KEY(area_id) REFERENCES areas (id) ON DELETE SET NULL, 
+	FOREIGN KEY(county_id) REFERENCES counties (id) ON DELETE SET NULL,
+	FOREIGN KEY(department_id) REFERENCES departments (id) ON DELETE SET NULL,
 	FOREIGN KEY(created_by) REFERENCES users (id), 
 	FOREIGN KEY(assigned_to) REFERENCES users (id), 
 	FOREIGN KEY(duplicate_of) REFERENCES reports (id) ON DELETE SET NULL, 
@@ -77,6 +122,51 @@ CREATE INDEX idx_reports_location ON reports USING gist (location);
 CREATE INDEX ix_reports_category ON reports (category_id);
 CREATE INDEX ix_reports_duplicate_of ON reports (duplicate_of);
 CREATE INDEX ix_reports_status_created ON reports (status, created_at);
+CREATE INDEX ix_reports_county_status ON reports (county_id, status, created_at);
+CREATE INDEX ix_reports_department ON reports (department_id);
+
+CREATE TABLE classification_feedback (
+	id SERIAL NOT NULL,
+	report_id INTEGER NOT NULL,
+	image_path VARCHAR(255) NOT NULL,
+	predicted_class VARCHAR(100) NOT NULL,
+	predicted_category_id INTEGER,
+	confidence FLOAT NOT NULL,
+	selected_category_id INTEGER NOT NULL,
+	accepted BOOLEAN NOT NULL,
+	submitted_by INTEGER,
+	review_status VARCHAR(20) NOT NULL,
+	training_eligible BOOLEAN NOT NULL,
+	reviewed_by INTEGER,
+	reviewed_at TIMESTAMP WITH TIME ZONE,
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_classification_feedback_report UNIQUE (report_id),
+	CONSTRAINT ck_classification_feedback_review_status CHECK (
+		review_status IN ('pending', 'approved', 'rejected')
+	),
+	CONSTRAINT ck_classification_feedback_confidence CHECK (
+		confidence >= 0 AND confidence <= 1
+	),
+	CONSTRAINT ck_classification_feedback_training_approval CHECK (
+		NOT training_eligible OR review_status = 'approved'
+	),
+	CONSTRAINT ck_classification_feedback_accepted_category CHECK (
+		NOT accepted OR (
+			predicted_category_id IS NOT NULL AND
+			selected_category_id = predicted_category_id
+		)
+	),
+	FOREIGN KEY(report_id) REFERENCES reports (id) ON DELETE CASCADE,
+	FOREIGN KEY(predicted_category_id) REFERENCES categories (id),
+	FOREIGN KEY(selected_category_id) REFERENCES categories (id),
+	FOREIGN KEY(submitted_by) REFERENCES users (id) ON DELETE SET NULL,
+	FOREIGN KEY(reviewed_by) REFERENCES users (id) ON DELETE SET NULL
+);
+CREATE INDEX ix_classification_feedback_review
+	ON classification_feedback (review_status, created_at);
+CREATE INDEX ix_classification_feedback_training
+	ON classification_feedback (training_eligible, review_status);
 
 CREATE TABLE duplicate_suggestions (
 	id SERIAL NOT NULL, 

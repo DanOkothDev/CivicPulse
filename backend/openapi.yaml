@@ -80,6 +80,128 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/AuthenticatedUser'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+  /counties:
+    get:
+      tags: [Reference]
+      summary: List the configured counties
+      security: []
+      responses:
+        '200':
+          description: County records; the local seed contains Kenya's 47 counties
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/County'}
+  /counties/{county_id}/departments:
+    get:
+      tags: [Reference]
+      summary: List departments configured for a county
+      security: []
+      parameters:
+        - name: county_id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: Departments in the county
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Department'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      tags: [Admin]
+      summary: Create a department in a county (county admin or national admin)
+      parameters:
+        - name: county_id
+          in: path
+          required: true
+          schema: {type: integer}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name: {type: string, minLength: 1, maxLength: 120}
+                code: {type: string, nullable: true, maxLength: 60, pattern: '^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$'}
+      responses:
+        '201':
+          description: Created department
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Department'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Invalid'}
+  /departments/{department_id}:
+    parameters:
+      - name: department_id
+        in: path
+        required: true
+        schema: {type: integer}
+    patch:
+      tags: [Admin]
+      summary: Update a department in the admin's authorized county
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              additionalProperties: false
+              properties:
+                name: {type: string, minLength: 1, maxLength: 120}
+                code: {type: string, nullable: true, maxLength: 60, pattern: '^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$'}
+      responses:
+        '200':
+          description: Updated department
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Department'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Invalid'}
+    delete:
+      tags: [Admin]
+      summary: Delete an unreferenced department in the admin's authorized county
+      description: Returns 409 when any user or report is still assigned to the department; no records are cascade-deleted.
+      responses:
+        '204': {description: Department deleted}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /users/me/profile:
+    patch:
+      tags: [Auth]
+      summary: Update the resident's registered county
+      description: Residents may update county_id only. Role and department assignments are not editable here.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [county_id]
+              additionalProperties: false
+              properties:
+                county_id: {type: integer}
+      responses:
+        '200':
+          description: Updated authenticated user profile
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthenticatedUser'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/Invalid'}
   /users/me/preferences:
     get:
       tags: [Preferences]
@@ -116,6 +238,7 @@ paths:
       summary: Submit a report (resident)
       description: |
         Sent as multipart/form-data [a request format that carries a file plus normal form fields].
+        The report county is resolved from these geographic coordinates, not the resident's registered county.
         After saving, the API queues an AI job (category suggestion and duplicate check).
       requestBody:
         required: true
@@ -163,6 +286,105 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ReportPage'}
+  /reports/classify:
+    post:
+      tags: [Reports]
+      summary: Get a non-blocking AI category suggestion
+      description: |
+        Authenticated JPEG/PNG upload. Category names are mapped from supported
+        model classes; unsupported or unavailable predictions do not block
+        manual report submission.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo: {type: string, format: binary}
+      responses:
+        '200':
+          description: A supported category suggestion or an unavailable/unsupported result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available: {type: boolean}
+                  supported: {type: boolean}
+                  category:
+                    allOf:
+                      - {$ref: '#/components/schemas/Category'}
+                    nullable: true
+                  confidence: {type: number, minimum: 0, maximum: 1}
+                  class_name: {type: string}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '422': {$ref: '#/components/responses/Invalid'}
+        '503':
+          description: Classification failed; manual category selection remains available
+  /reports/{id}/classification-feedback:
+    parameters:
+      - {$ref: '#/components/parameters/ReportId'}
+    post:
+      tags: [Reports]
+      summary: Submit resident classification feedback
+      description: One feedback record per owned report. It starts pending and is not training-eligible.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [predicted_class, confidence, selected_category_id, accepted]
+              properties:
+                predicted_class: {type: string, maxLength: 100}
+                predicted_category_id: {type: integer, nullable: true}
+                confidence: {type: number, minimum: 0, maximum: 1}
+                selected_category_id: {type: integer}
+                accepted: {type: boolean}
+      responses:
+        '201': {description: Pending feedback stored against the report image}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: The authenticated resident does not own the report}
+        '409': {description: Feedback already exists for the report}
+        '422': {$ref: '#/components/responses/Invalid'}
+  /classification-feedback:
+    get:
+      tags: [Workflow]
+      summary: List feedback for verifier review
+      description: Verifier/admin only. Defaults to pending feedback.
+      parameters:
+        - name: status
+          in: query
+          schema: {type: string, enum: [pending, approved, rejected], default: pending}
+      responses:
+        '200': {description: Feedback records with report, prediction, selected category, and review status}
+        '403': {description: Verifier or administrator role required}
+  /classification-feedback/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer}
+    patch:
+      tags: [Workflow]
+      summary: Approve or reject resident feedback
+      description: Verifier/admin only. Approval marks the example eligible for explicit dataset export.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [review_status]
+              properties:
+                review_status: {type: string, enum: [approved, rejected]}
+      responses:
+        '200': {description: Reviewed feedback}
+        '403': {description: Verifier or administrator role required}
+        '409': {description: Feedback has already been reviewed}
+        '422': {$ref: '#/components/responses/Invalid'}
   /reports/{id}:
     parameters:
       - {$ref: '#/components/parameters/ReportId'}
@@ -230,9 +452,9 @@ paths:
       tags: [Workflow]
       summary: Assign to an authority user (verifier, authority, admin)
       description: |
-        The report must be verified. assignee_id must be a user with the authority role (422 otherwise).
-        due_date is optional and cannot be in the past. A report that is assigned but not started can be
-        reassigned with the same call; once in_progress it cannot (409 cannot_reassign).
+        The report must be verified. assignee_id must be an authority assigned to the report's county
+        and department. due_date is optional and cannot be in the past. A report that is assigned but
+        not started can be reassigned with the same call; once in_progress it cannot (409 cannot_reassign).
       requestBody:
         required: true
         content:
@@ -654,6 +876,31 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Invalid'}
+  /users/{id}/department:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer}}
+    patch:
+      tags: [Admin]
+      summary: Assign an authority user to a department in their county
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [department_id]
+              additionalProperties: false
+              properties:
+                department_id: {type: integer, nullable: true}
+      responses:
+        '200':
+          description: Updated authority user
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthenticatedUser'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Invalid'}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
@@ -699,6 +946,7 @@ components:
         email: {type: string, format: email, maxLength: 255}
         password: {type: string, minLength: 8}
         area_id: {type: integer}
+        county_id: {type: integer, description: County record ID obtained from GET /counties}
     AuthResponse:
       type: object
       properties:
@@ -712,6 +960,29 @@ components:
         email: {type: string, format: email}
         role: {$ref: '#/components/schemas/Role'}
         area_id: {type: integer, nullable: true}
+        county_id: {type: integer, nullable: true}
+        county:
+          allOf:
+            - {$ref: '#/components/schemas/County'}
+          nullable: true
+        department_id: {type: integer, nullable: true}
+        department:
+          allOf:
+            - {$ref: '#/components/schemas/Department'}
+          nullable: true
+    County:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        code: {type: string}
+    Department:
+      type: object
+      properties:
+        id: {type: integer}
+        county_id: {type: integer}
+        name: {type: string}
+        code: {type: string, nullable: true}
     AuthenticatedUser:
       allOf:
         - {$ref: '#/components/schemas/User'}
@@ -780,6 +1051,16 @@ components:
         status: {$ref: '#/components/schemas/Status'}
         location: {$ref: '#/components/schemas/Location'}
         area_id: {type: integer, nullable: true}
+        county_id: {type: integer, nullable: true, description: Determined from the report's coordinates}
+        county:
+          allOf:
+            - {$ref: '#/components/schemas/County'}
+          nullable: true
+        department_id: {type: integer, nullable: true}
+        department:
+          allOf:
+            - {$ref: '#/components/schemas/Department'}
+          nullable: true
         photo_url: {type: string}
         created_by: {type: integer}
         assigned_to: {type: integer, nullable: true}
@@ -791,7 +1072,18 @@ components:
           nullable: true
           properties:
             category_id: {type: integer}
+            name: {type: string}
             confidence: {type: number, minimum: 0, maximum: 1}
+        classification_feedback:
+          type: object
+          nullable: true
+          properties:
+            predicted_category: {$ref: '#/components/schemas/Category'}
+            confidence: {type: number, minimum: 0, maximum: 1}
+            selected_category: {$ref: '#/components/schemas/Category'}
+            accepted: {type: boolean}
+            review_status: {type: string, enum: [pending, approved, rejected]}
+            training_eligible: {type: boolean}
         is_following: {type: boolean}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}

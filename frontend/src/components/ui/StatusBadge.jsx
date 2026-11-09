@@ -10,10 +10,10 @@ const STATUS_CONFIG = {
   },
   verified: {
     label: 'Verified',
-    bg: 'bg-blue-50',
-    text: 'text-blue-700',
-    border: 'border-blue-200',
-    dot: 'bg-blue-600',
+    bg: 'bg-[#E6F5F8]',
+    text: 'text-[#0B5A9C]',
+    border: 'border-[#7FD0E0]',
+    dot: 'bg-[#1B8FC0]',
   },
   assigned: {
     label: 'Assigned',

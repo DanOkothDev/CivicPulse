@@ -8,6 +8,7 @@ import {
   EyeOff,
   MapPin,
   ArrowRight,
+  Home,
   ChevronDown,
   CheckCircle2,
 } from "lucide-react";
@@ -37,8 +38,13 @@ export default function RegisterPage() {
     password: "",
     confirmPassword: "",
     area_id: "",
+    county_id: "",
   });
   const [areas, setAreas] = useState([]);
+  const [counties, setCounties] = useState([]);
+  const [countiesLoading, setCountiesLoading] = useState(true);
+  const [countiesError, setCountiesError] = useState("");
+  const [countyRetry, setCountyRetry] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(true);
@@ -65,6 +71,26 @@ export default function RegisterPage() {
       .catch((error) => toast.error(`Could not load wards: ${error.message}`));
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    setCountiesLoading(true);
+    setCountiesError("");
+    api.reference
+      .getCounties()
+      .then((records) => {
+        if (active) setCounties(records);
+      })
+      .catch((error) => {
+        if (active) setCountiesError(error.message);
+      })
+      .finally(() => {
+        if (active) setCountiesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [countyRetry]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -73,7 +99,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.email || !formData.password) {
+    if (!formData.name || !formData.email || !formData.password || !formData.county_id) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -95,6 +121,7 @@ export default function RegisterPage() {
         email: formData.email,
         password: formData.password,
         area_id: formData.area_id ? Number(formData.area_id) : undefined,
+        county_id: Number(formData.county_id),
       });
       toast.success("Your account is ready. Welcome to CivicPulse!");
       navigate("/dashboard");
@@ -235,6 +262,60 @@ export default function RegisterPage() {
                 </div>
               </div>
 
+              {/* County */}
+              <div>
+                <label htmlFor="reg-county" className={LABEL}>
+                  Your county <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-[#1B8FC0] absolute left-3.5 top-3 pointer-events-none" />
+                  <select
+                    id="reg-county"
+                    name="county_id"
+                    value={formData.county_id}
+                    onChange={handleChange}
+                    required
+                    disabled={countiesLoading || Boolean(countiesError) || counties.length === 0}
+                    aria-describedby="reg-county-status"
+                    className={`${INPUT} appearance-none cursor-pointer pr-10 disabled:cursor-not-allowed disabled:bg-slate-50`}
+                  >
+                    <option value="">
+                      {countiesLoading
+                        ? "Loading counties..."
+                        : countiesError
+                          ? "Counties unavailable"
+                          : counties.length === 0
+                            ? "No counties available"
+                            : "Select your county"}
+                    </option>
+                    {counties.map((county) => (
+                      <option key={county.id} value={county.id}>
+                        {county.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#7a8a90] absolute right-3.5 top-3 pointer-events-none" />
+                </div>
+                <p id="reg-county-status" role={countiesError ? "alert" : undefined} className="mt-1 text-[11px] text-[#7a8a90]">
+                  {countiesLoading
+                    ? "Loading the county list..."
+                    : countiesError
+                      ? `Could not load counties: ${countiesError}`
+                      : counties.length === 0
+                        ? "County selection is temporarily unavailable. Please try again later."
+                        : "Choose the county where you are registered to live."}
+                </p>
+                {countiesError && (
+                  <button
+                    type="button"
+                    onClick={() => setCountyRetry((attempt) => attempt + 1)}
+                    className="mt-1 text-[11px] font-bold text-[#0B5A9C] underline"
+                  >
+                    Try loading counties again
+                  </button>
+                )}
+              </div>
+
               {/* Ward */}
               <div>
                 <label htmlFor="reg-area" className={LABEL}>
@@ -350,13 +431,22 @@ export default function RegisterPage() {
             </form>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-[#cfe9f0] text-center text-xs text-[#5F5F5F]">
-            Already have an account?{" "}
+          <div className="mt-6 pt-4 border-t border-[#cfe9f0] flex flex-col items-center gap-3 text-xs text-[#5F5F5F]">
+            <p>
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="font-bold text-[#0B5A9C] hover:underline"
+              >
+                Sign in
+              </Link>
+            </p>
             <Link
-              to="/login"
-              className="font-bold text-[#0B5A9C] hover:underline"
+              to="/"
+              className="inline-flex items-center gap-1.5 font-semibold text-[#1B8FC0] hover:text-[#0B5A9C] hover:underline"
             >
-              Sign in
+              <Home className="h-3.5 w-3.5" />
+              Return to landing page
             </Link>
           </div>
         </div>

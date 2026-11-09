@@ -7,6 +7,7 @@ from .cli import register_cli
 from .config import Config
 from .errors import register_errors
 from .extensions import cors, db, jwt, migrate
+from .models import Area, Category, County
 
 
 def create_app(config=None):
@@ -21,6 +22,12 @@ def create_app(config=None):
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
     db.init_app(app)
+    with app.app_context():
+        # Schema changes are managed by Alembic migrations; this app must not
+        # auto-create or rebuild tables during startup.
+        Area.ensure_default()
+        Category.ensure_seed()
+        County.ensure_seed()
     migrate.init_app(app, db)
     jwt.init_app(app)
     cors.init_app(app, resources={r'/api/*': {'origins': app.config['CORS_ORIGINS']}})
