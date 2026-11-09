@@ -124,7 +124,7 @@ export default function ImageUploadComponent({
 
       {image ? (
         /* Image Preview Box matching report issue.png */
-        <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 shadow-md group">
+        <div className="relative rounded-3xl overflow-hidden border border-[#cfe9f0] bg-[#0B5A9C] shadow-[0_10px_30px_-14px_rgba(11,90,156,0.35)] group">
           <img
             src={image.previewUrl}
             alt="Report evidence"
@@ -133,7 +133,7 @@ export default function ImageUploadComponent({
 
           {/* Top badges */}
           <div className="absolute top-3 left-3 flex items-center gap-2">
-            <span className="bg-slate-900/80 backdrop-blur-md text-emerald-400 text-xs font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1.5 border border-emerald-500/30">
+            <span className="bg-[#0B5A9C]/85 backdrop-blur-md text-emerald-300 text-xs font-semibold px-2.5 py-1 rounded-xl flex items-center gap-1.5 border border-emerald-300/30">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               <span>Captured: {image.capturedTime || 'Today 09:14 AM'}</span>
             </span>
@@ -156,7 +156,7 @@ export default function ImageUploadComponent({
               <p className="font-mono font-semibold truncate max-w-[220px]">
                 {image.name || 'IMG_20241014_RAW.jpg'}
               </p>
-              <p className="text-slate-300 text-[11px]">
+              <p className="text-white/75 text-[11px]">
                 {image.sizeMb ? `${image.sizeMb} MB • ` : ''}EXIF Verified
               </p>
             </div>
@@ -177,13 +177,13 @@ export default function ImageUploadComponent({
             ref={videoRef}
             autoPlay
             playsInline
-            className="w-full max-h-[28rem] rounded-2xl bg-slate-950 object-contain"
+            className="w-full max-h-[28rem] rounded-3xl bg-[#0B5A9C] object-contain"
           />
           <div className="flex justify-center gap-3">
             <button
               type="button"
               onClick={handleCapture}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-colors flex items-center gap-2"
+              className="bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C] hover:brightness-110 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition flex items-center gap-2"
             >
               <Camera className="w-4 h-4" />
               <span>Capture Photo</span>
@@ -191,7 +191,7 @@ export default function ImageUploadComponent({
             <button
               type="button"
               onClick={() => setCameraStream(null)}
-              className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition-colors"
+              className="bg-white hover:bg-[#E6F5F8] text-[#0B5A9C] border border-[#cfe9f0] text-xs font-bold px-4 py-2 rounded-xl transition-colors"
             >
               Cancel
             </button>
@@ -205,21 +205,21 @@ export default function ImageUploadComponent({
           onDrop={handleDrop}
           className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center transition-all ${
             dragOver
-              ? 'border-blue-500 bg-blue-50/50'
+              ? 'border-[#1B8FC0] bg-[#E6F5F8]'
               : error
               ? 'border-rose-300 bg-rose-50/30'
-              : 'border-slate-300 hover:border-blue-400 bg-slate-50/50 hover:bg-white'
+              : 'border-[#cfe9f0] hover:border-[#1B8FC0] bg-white/70 hover:bg-white'
           }`}
         >
           <div className="flex flex-col items-center justify-center">
-            <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 shadow-sm">
+            <div className="w-14 h-14 rounded-2xl bg-[#E6F5F8] border border-[#cfe9f0] text-[#1B8FC0] flex items-center justify-center mb-4">
               <Camera className="w-7 h-7" />
             </div>
 
-            <h4 className="text-sm font-bold text-slate-800 mb-1">
+            <h4 className="text-sm font-extrabold text-[#4a4a4a] mb-1">
               Upload On-Site Photo Evidence
             </h4>
-            <p className="text-xs text-slate-500 max-w-sm mb-5 leading-relaxed">
+            <p className="text-xs text-[#5F5F5F] max-w-sm mb-5 leading-relaxed">
               High-resolution photos allow municipal teams to gauge severity and safety hazards before rolling trucks. Max 5 MB (JPEG/PNG).
             </p>
 
@@ -227,7 +227,7 @@ export default function ImageUploadComponent({
               <button
                 type="button"
                 onClick={handleCameraOpen}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-colors flex items-center gap-2"
+                className="bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C] hover:brightness-110 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition flex items-center gap-2"
               >
                 <Camera className="w-4 h-4" />
                 <span>Take Photo</span>
@@ -237,9 +237,9 @@ export default function ImageUploadComponent({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 data-tour="report-photo"
-                className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition-colors flex items-center gap-2"
+                className="bg-white hover:bg-[#E6F5F8] text-[#0B5A9C] border border-[#cfe9f0] text-xs font-bold px-4 py-2 rounded-xl transition-colors flex items-center gap-2"
               >
-                <Upload className="w-4 h-4 text-slate-500" />
+                <Upload className="w-4 h-4 text-[#1B8FC0]" />
                 <span>Browse File</span>
               </button>
             </div>

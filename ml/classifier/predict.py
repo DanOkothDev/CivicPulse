@@ -6,12 +6,14 @@ IMAGE_SIZE = (224, 224)
 MODEL_PATH = Path(__file__).parent / "saved_model" / "civicpulse_classifier.keras"
 CLASS_NAMES_PATH = Path(__file__).parent / "saved_model" / "class_names.txt"
 
-# Mapping dataset directory names to backend Category IDs (from constants.py seeding order)
-CATEGORY_ID_MAP = {
-    "garbage": 4,
-    "pothole": 1,
-    "streetlight": 2,
-    "water_leak": 5,
+# Classifier outputs map to database category names, never database IDs.
+CATEGORY_NAME_MAP = {
+    "garbage": "Garbage",
+    "pothole": "Pothole",
+    "streetlight": "Streetlight",
+    "water_leak": "Water leak",
+    "drainage": "Drainage",
+    "public_facility": "Public facility",
 }
 _MODEL = None
 _CLASS_NAMES = None
@@ -24,9 +26,7 @@ def load_resources():
         with open(CLASS_NAMES_PATH, "r", encoding="utf-8") as file:
             _CLASS_NAMES = [line.strip() for line in file if line.strip()]
 
-        expected_classes = {"garbage", "pothole", "streetlight", "water_leak"}
-
-        if set(_CLASS_NAMES) != expected_classes:
+        if not _CLASS_NAMES or len(set(_CLASS_NAMES)) != len(_CLASS_NAMES):
             raise ValueError(
                 f"Unexpected classifier classes: {_CLASS_NAMES}"
             )
@@ -39,7 +39,8 @@ def load_resources():
 def classify(photo_path):
     """
     Classifies a civic issue photo.
-    Returns: {"category_id": int, "confidence": float}
+    Returns the model's class name and confidence; the backend resolves the
+    mapped category name against the current category table.
     """
     load_resources()
 
@@ -53,10 +54,9 @@ def classify(photo_path):
     confidence = float(probabilities[predicted_index])
 
     predicted_name = _CLASS_NAMES[predicted_index]
-    category_id = CATEGORY_ID_MAP.get(predicted_name)
-
     return {
-        "category_id": category_id,
+        "class_name": predicted_name,
+        "category": CATEGORY_NAME_MAP.get(predicted_name),
         "confidence": round(confidence, 4),
     }
 

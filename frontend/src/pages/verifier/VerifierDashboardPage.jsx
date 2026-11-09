@@ -53,6 +53,13 @@ export default function VerifierDashboardPage() {
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [mergeParentId, setMergeParentId] = useState(null);
 
+  const feedback = selectedReport?.classification_feedback;
+  const displayedAiPrediction = feedback
+    ? feedback.predicted_category
+      ? { ...feedback.predicted_category, confidence: feedback.confidence }
+      : null
+    : selectedReport?.ai_suggested_category;
+
   const fetchQueue = async () => {
     setLoading(true);
     try {
@@ -167,6 +174,25 @@ export default function VerifierDashboardPage() {
     }
   };
 
+  const handleFeedbackReview = async (reviewStatus) => {
+    const feedback = selectedReport?.classification_feedback;
+    if (!feedback) return;
+    setActionLoading(true);
+    try {
+      await api.classificationFeedback.review(feedback.id, reviewStatus);
+      toast.success(
+        reviewStatus === "approved"
+          ? "AI feedback approved for supervised-learning export."
+          : "AI feedback rejected.",
+      );
+      await fetchQueue();
+    } catch (error) {
+      toast.error(`Could not review AI feedback: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-8 pb-10">
       {/* Header banner */}
@@ -182,7 +208,7 @@ export default function VerifierDashboardPage() {
               <span>Operations Desk • Verifier Triage Engine</span>
             </div>
 
-            <h1 data-tour="verifier-queue" className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">
+            <h1 data-tour="verifier-queue" className="mt-3 text-xl font-extrabold tracking-tight sm:text-2xl">
               Verifier Queue & Duplicate Resolution
             </h1>
 
@@ -197,7 +223,7 @@ export default function VerifierDashboardPage() {
               <Clock className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-extrabold leading-none">
+              <p className="text-xl font-extrabold leading-none">
                 {queue.length}
               </p>
               <p className="mt-1 text-xs text-white/85">Pending Intake Items</p>
@@ -342,27 +368,106 @@ export default function VerifierDashboardPage() {
                       </div>
                       <div className="rounded-2xl bg-[#e6f5f8] p-3">
                         <span className="block font-bold text-[#1a77ab]">
+                          Responsible county
+                        </span>
+                        <span className="font-semibold text-[#2a2f33]">
+                          {selectedReport.county?.name || "Unavailable"}
+                        </span>
+                      </div>
+                      <div className="rounded-2xl bg-[#e6f5f8] p-3">
+                        <span className="block font-bold text-[#1a77ab]">
+                          Responsible department
+                        </span>
+                        <span className="font-semibold text-[#2a2f33]">
+                          {selectedReport.department?.name || "Not assigned"}
+                        </span>
+                      </div>
+                      <div className="rounded-2xl bg-[#e6f5f8] p-3">
+                        <span className="block font-bold text-[#1a77ab]">
                           Reported By
                         </span>
                         <span className="font-semibold text-[#2a2f33]">
                           {selectedReport.creator_name || "Resident"}
                         </span>
                       </div>
-                      {selectedReport.ai_suggested_category && (
-                        <div className="flex items-center gap-2 rounded-2xl bg-gradient-to-br from-[#3cc3dd] to-[#0d5694] p-3 text-white shadow-md shadow-[#0d5694]/20">
-                          <Sparkles className="h-4 w-4 shrink-0" />
-                          <span className="font-semibold">
-                            Suggested category #
-                            {selectedReport.ai_suggested_category.category_id} (
-                            {Math.round(
-                              selectedReport.ai_suggested_category.confidence *
-                                100,
-                            )}
-                            % confidence)
-                          </span>
-                        </div>
-                      )}
                     </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#d3eaf0] bg-[#f3fafc] p-4">
+                    <h3 className="flex items-center gap-2 text-xs font-extrabold text-[#1a77ab]">
+                      <Sparkles className="h-4 w-4" />
+                      AI classification
+                    </h3>
+                    {displayedAiPrediction ? (
+                      <p className="mt-2 text-xs text-[#2a2f33]">
+                        Predicted category:{" "}
+                        <strong>{displayedAiPrediction.name}</strong>
+                        {" · "}
+                        Confidence:{" "}
+                        <strong>
+                          {Math.round(
+                            displayedAiPrediction.confidence * 100,
+                          )}
+                          %
+                        </strong>
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-xs text-[#626569]">
+                        No supported AI category prediction is available.
+                      </p>
+                    )}
+                    {feedback && (
+                      <div className="mt-3 border-t border-[#d3eaf0] pt-3 text-xs text-[#2a2f33]">
+                        <p>
+                          Resident{" "}
+                          <strong>
+                            {feedback.accepted
+                              ? "accepted"
+                              : "corrected"}
+                          </strong>{" "}
+                          the suggestion.
+                        </p>
+                        {!feedback.accepted && (
+                          <p className="mt-1">
+                            Resident correction:{" "}
+                            <strong>
+                              {feedback.selected_category.name}
+                            </strong>
+                          </p>
+                        )}
+                        <p className="mt-1">
+                          Feedback review:{" "}
+                          <strong>
+                            {feedback.review_status}
+                          </strong>
+                            {feedback.training_eligible
+                            ? " · Eligible for training export"
+                            : ""}
+                        </p>
+                          {feedback.review_status ===
+                          "pending" &&
+                          (user?.role === "verifier" || user?.role === "admin") && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled={actionLoading}
+                                onClick={() => handleFeedbackReview("approved")}
+                                className={`rounded-lg px-3 py-2 text-xs font-bold disabled:opacity-60 ${gradientButton}`}
+                              >
+                                Approve feedback
+                              </button>
+                              <button
+                                type="button"
+                                disabled={actionLoading}
+                                onClick={() => handleFeedbackReview("rejected")}
+                                className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 disabled:opacity-60"
+                              >
+                                Reject feedback
+                              </button>
+                            </div>
+                          )}
+                      </div>
+                    )}
                   </div>
 
                   <div>

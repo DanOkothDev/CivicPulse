@@ -1,5 +1,7 @@
 from .analytics import bp as analytics_bp
 from .auth import bp as auth_bp
+from .classification_feedback import bp as classification_feedback_bp
+from .counties import bp as counties_bp
 from .duplicates import bp as duplicates_bp
 from .health import bp as health_bp
 from .hotspots import bp as hotspots_bp
@@ -17,8 +19,10 @@ def register_blueprints(app):
     for bp in (
         health_bp,
         reference_bp,
+        counties_bp,
         auth_bp,
         reports_bp,
+        classification_feedback_bp,
         workflow_bp,
         users_bp,
         duplicates_bp,

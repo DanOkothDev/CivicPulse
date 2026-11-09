@@ -1,4 +1,7 @@
 from pathlib import Path
+from datetime import datetime
+import argparse
+import csv
 import numpy as np
 import tensorflow as tf
 from model import build_model
@@ -14,6 +17,22 @@ IMAGE_SIZE = (224, 224)
 BATCH_SIZE = 32
 EPOCHS = 15
 SEED = 42
+
+parser = argparse.ArgumentParser(description="Train a versioned classifier candidate.")
+parser.add_argument(
+    "--candidate-dir",
+    type=Path,
+    help="Output directory for this candidate (defaults to a timestamped version directory).",
+)
+parser.add_argument(
+    "--feedback-manifest",
+    type=Path,
+    help="Optional CSV from export-approved-feedback; examples are added to training only.",
+)
+args = parser.parse_args()
+OUTPUT_DIR = args.candidate_dir or (
+    MODEL_DIR / "versions" / datetime.now().strftime("%Y%m%d-%H%M%S")
+)
 
 # ============================================================ #
 # LOAD DATA
@@ -37,11 +56,52 @@ validation_dataset = tf.keras.utils.image_dataset_from_directory(
 )
 
 class_names = train_dataset.class_names
+if validation_dataset.class_names != class_names:
+    raise ValueError("Training and validation folders must contain the same class directories")
 num_classes = len(class_names)
 
-MODEL_DIR.mkdir(parents=True, exist_ok=True)
+if args.feedback_manifest:
+    feedback_paths = []
+    feedback_labels = []
+    class_indices = {name: index for index, name in enumerate(class_names)}
+    with args.feedback_manifest.open(newline="", encoding="utf-8") as file:
+        for row in csv.DictReader(file):
+            image_path = Path(row["image_path"])
+            label = row["label"].strip().lower().replace(" ", "_").replace("-", "_")
+            if label not in class_indices:
+                raise ValueError(
+                    f"Feedback label {row['label']!r} is not in the training class folders. "
+                    "Add reviewed training and validation examples for that class first."
+                )
+            if not image_path.is_file():
+                raise FileNotFoundError(f"Feedback image is missing: {image_path}")
+            feedback_paths.append(str(image_path))
+            feedback_labels.append(class_indices[label])
 
-with open(MODEL_DIR / "class_names.txt", "w", encoding="utf-8") as file:
+    if feedback_paths:
+        feedback_dataset = tf.data.Dataset.from_tensor_slices((
+            feedback_paths, feedback_labels,
+        ))
+
+        def load_feedback_image(path, label):
+            image = tf.io.decode_image(
+                tf.io.read_file(path), channels=3, expand_animations=False,
+            )
+            image = tf.image.resize(image, IMAGE_SIZE)
+            return image, label
+
+        feedback_dataset = (
+            feedback_dataset
+            .map(load_feedback_image, num_parallel_calls=tf.data.AUTOTUNE)
+            .shuffle(len(feedback_paths), seed=SEED)
+            .batch(BATCH_SIZE)
+        )
+        train_dataset = train_dataset.concatenate(feedback_dataset)
+        print(f"Added {len(feedback_paths)} approved feedback examples to training.")
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=False)
+
+with open(OUTPUT_DIR / "class_names.txt", "w", encoding="utf-8") as file:
     for class_name in class_names:
         file.write(f"{class_name}\n")
 
@@ -73,7 +133,7 @@ model = build_model(num_classes=num_classes)
 callbacks = [
     tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3, restore_best_weights=True),
     tf.keras.callbacks.ModelCheckpoint(
-        filepath=MODEL_DIR / "civicpulse_classifier.keras",
+        filepath=OUTPUT_DIR / "civicpulse_classifier.keras",
         monitor="val_accuracy",
         save_best_only=True,
     ),
@@ -89,4 +149,4 @@ history = model.fit(
 )
 
 print("\nTraining complete.")
-print(f"Model saved to: {MODEL_DIR / 'civicpulse_classifier.keras'}")
+print(f"Candidate model saved to: {OUTPUT_DIR / 'civicpulse_classifier.keras'}")

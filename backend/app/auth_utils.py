@@ -5,7 +5,7 @@ from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
 from .errors import ApiError
 from .extensions import db
-from .models import User
+from .models import Report, User
 
 
 def serialize_user(u, include_onboarding=False):
@@ -15,6 +15,17 @@ def serialize_user(u, include_onboarding=False):
         'email': u.email,
         'role': u.role,
         'area_id': u.area_id,
+        'county_id': u.county_id,
+        'county': (
+            {'id': u.county.id, 'name': u.county.name, 'code': u.county.code}
+            if u.county else None
+        ),
+        'department_id': u.department_id,
+        'department': (
+            {'id': u.department.id, 'county_id': u.department.county_id,
+             'name': u.department.name, 'code': u.department.code}
+            if u.department else None
+        ),
     }
     if include_onboarding:
         user.update({
@@ -31,6 +42,37 @@ def serialize_user(u, include_onboarding=False):
 def current_user():
     """The logged-in User. Only call inside a route protected by the decorators below."""
     return g.user
+
+
+def user_can_access_county(user, county_id):
+    if user.role == 'admin':
+        return user.county_id is None or user.county_id == county_id
+    if county_id is None:
+        return False
+    if user.county_id is None:
+        return False
+    return user.county_id == county_id
+
+
+def user_can_access_report(user, report):
+    if user.role == 'admin':
+        return user.county_id is None or user.county_id == report.county_id
+    if user.role == 'resident':
+        return report.created_by == user.id
+    if user.role in {'verifier', 'authority'}:
+        if user.county_id is None:
+            return False
+        if report.county_id is None:
+            return False
+        if report.county_id != user.county_id:
+            return False
+        if user.role == 'authority':
+            return (
+                user.department_id is not None
+                and report.department_id == user.department_id
+            )
+        return True
+    return False
 
 
 def _load_user():

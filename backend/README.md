@@ -38,16 +38,22 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 | POST | `/auth/register` | Anyone | Create a resident account. Returns `{token, user}` |
 | POST | `/auth/login` | Anyone | Log in. Returns `{token, user}` |
 | GET | `/auth/me` | Logged in | The current user |
+| GET | `/counties` | Anyone | List the seeded Kenyan counties |
+| GET | `/counties/{id}/departments` | Anyone | List departments configured for a county |
+| POST | `/counties/{id}/departments` | County admin, national admin | Create a county department |
+| PATCH | `/departments/{id}` | County admin, national admin | Update a department in the authorized county |
+| DELETE | `/departments/{id}` | County admin, national admin | Delete an unreferenced department |
+| PATCH | `/users/{id}/department` | County admin, national admin | Assign an authority to a department in their county |
 | POST | `/reports` | Logged in | Submit a report (multipart form, see below) |
 | GET | `/reports` | Logged in | List reports (filters below; search includes description, address, landmark, and category) |
 | GET | `/reports/{id}` | Logged in | One report |
 | PATCH | `/reports/{id}/status` | Verifier, authority, admin | Move a report to its next status (rules below) |
 | GET | `/reports/{id}/history` | Logged in | The status trail, oldest first |
-| POST | `/reports/{id}/assign` | Verifier, authority, admin | Assign a verified report to an authority user, with an optional due date |
+| POST | `/reports/{id}/assign` | Verifier, authority, admin | Assign a verified report to an authority user in the report's county and department |
 | PATCH | `/reports/{id}/area` | Admin | Set or clear the report's service area |
-| GET | `/reports/{id}/duplicates` | Verifier, admin | The AI's duplicate suggestions for a report, best first, with reasons |
-| POST | `/reports/{id}/merge` | Verifier, admin | Fold this report into `parent_id`. Returns the parent |
-| POST | `/reports/{id}/unmerge` | Verifier, admin | Split a wrongly merged report back out |
+| GET | `/reports/{id}/duplicates` | Verifier, admin | County-authorized duplicate suggestions, best first |
+| POST | `/reports/{id}/merge` | Verifier, admin | Fold an authorized report into `parent_id`. Returns the parent |
+| POST | `/reports/{id}/unmerge` | Verifier, admin | Split an authorized wrongly merged report back out |
 | GET | `/notifications` | Logged in | Your notifications, newest first (`?unread=true`, `page`, `per_page`) |
 | GET | `/notifications/unread-count` | Logged in | `{"count": 3}` for the bell badge |
 | POST | `/notifications/{id}/read` | Logged in | Mark one as read (safe to repeat) |
@@ -135,11 +141,12 @@ Use Python 3.12 or 3.13. Commands are for Windows PowerShell.
    `python -m venv venv`, then `.\venv\Scripts\Activate.ps1`, then `pip install -r requirements.txt`
 3. Copy settings: `Copy-Item .env.example .env`
 4. Put strong secrets in `.env`. Run `python -c "import secrets; print(secrets.token_hex(32))"` twice and use the results for `SECRET_KEY` and `JWT_SECRET_KEY`.
-5. Create the tables and starter data: `flask --app wsgi init-db` then `flask --app wsgi seed`
-6. Create your first admin: `flask --app wsgi create-user --name "Your Name" --email you@example.com --role admin`
-7. Start the server: `flask --app wsgi run`
-8. Check it: open http://localhost:5000/api/v1/health (should show `"status": "ok"` and the PostGIS version)
-9. Run the endpoint and service tests: `pytest`
+5. In the local database, enable PostGIS (`CREATE EXTENSION IF NOT EXISTS postgis`) and apply schema migrations: `flask --app wsgi db upgrade`
+6. Seed reference data and import the pinned county boundaries: `flask --app wsgi seed` then `flask --app wsgi import-county-boundaries`
+7. Create your first admin: `flask --app wsgi create-user --name "Your Name" --email you@example.com --role admin`
+8. Start the server: `flask --app wsgi run`
+9. Check it: open http://localhost:5000/api/v1/health (should show `"status": "ok"` and the PostGIS version)
+10. Run tests only against a dedicated database configured as described under **Backend tests and database safety**.
 
 Keep the `SQLAlchemy==2.0.54` pin in `requirements.txt`: newer versions break GeoAlchemy2.
 
@@ -175,7 +182,7 @@ Slow work must not make a resident wait, so the API saves the report, answers im
 POST /reports -> saved -> job queued -> response sent
                               |
                     worker runs process_new_report(report_id)
-                              -> classifier: stores ai_category_id and ai_confidence
+                              -> classifier: stores a mapped category name and confidence
                               -> find_duplicates: stores suggestions for the verifier
 ```
 
@@ -198,14 +205,43 @@ AI_DUPLICATES=ml.duplicates.detector:find_duplicates
 
 | Function | Receives | Must return |
 |---|---|---|
-| `classify(photo_path)` | Full path to the saved photo | `{"category_id": 3, "confidence": 0.91}` or `{"category": "Drainage", "confidence": 0.91}` (names match the database names, ignoring capitals, `_` and `-`) |
+| `classify(photo_path)` | Full path to the saved photo | `{"class_name": "pothole", "category": "Pothole", "confidence": 0.91}` |
 | `find_duplicates(report, candidates)` | `report` and a list of `candidates`, each shaped `{id, lat, lon, category_id, category, created_at, photo_path}` (candidates also have `distance_m`) | `[{"report_id": 42, "score": 0.83, "reasons": {...}}]`, best match first |
 
 **Candidates:** the backend does the database work. It passes every report that is still open, not already merged, created before this one (within the last 30 days) and within 200 m, closest first, at most 50. So `find_duplicates` is plain Python with no database access. Change the limits with `DUPLICATE_CANDIDATE_RADIUS_M` and `DUPLICATE_WINDOW_DAYS`. If there are no candidates, the function is not called. Suggestions without a `report_id` or with a `score` outside 0 to 1 are skipped with a log warning. A `reasons` dict is stored as given; the simple `{"reason": ..., "distance_meters": ...}` style is also accepted.
 
 **TensorFlow in the worker:** the image classifier requires the optional AI libraries and a trained model under `ml/classifier/saved_model/`. Put `INSTALL_ML=1` in `.env`, configure `AI_CLASSIFIER=ml.classifier.predict:classify`, then run `docker compose up -d --build`. `requirements-ml.txt` lists the libraries. The worker sees the repo's `ml/` folder through a read-only shared folder; if yours is elsewhere, set `ML_DIR` in `.env`. The worker runs jobs in one process (`SimpleWorker`), so the model is loaded once and reused.
 
-The classifier step is skipped unless `AI_CLASSIFIER` is set. Out-of-range or malformed classifier output is ignored with a log warning. Jobs can be run twice safely (results are replaced, not duplicated).
+The classifier step is skipped unless `AI_CLASSIFIER` is set. For local `ml.*` hooks, the backend adds the repository root to Python's import path, so starting Flask from `backend/` can still load the sibling `ml/` package. Set `ML_DIR` if that package is stored elsewhere. Out-of-range or malformed classifier output is ignored with a log warning. Jobs can be run twice safely (results are replaced, not duplicated).
+
+### Resident classification feedback and supervised-learning review
+
+`POST /api/v1/reports/classify` accepts an authenticated JPEG/PNG photo for an
+on-demand suggestion. It returns an actual category name only for a class that
+the current model explicitly maps to an existing category. If inference is
+unavailable, the resident can still submit a report with a manually selected
+category.
+
+When a resident explicitly accepts or corrects a supported suggestion, the API
+stores one feedback record per report. The record points to the report's
+existing `photo_path`; it does not upload a second copy. Feedback begins
+pending and is not training-eligible. `GET /api/v1/classification-feedback`
+and `PATCH /api/v1/classification-feedback/{id}` are limited to verifiers and
+admins. Approving marks an example eligible; rejection does not.
+
+Apply the additive schema change using the existing Flask-Migrate workflow:
+`flask --app wsgi db upgrade`. Export only approved examples with
+`flask --app wsgi export-approved-feedback --output <csv-path>`. The export is
+a manifest of image references and resident-selected labels. No model is
+retrained or deployed by feedback submission or export.
+
+The classifier training command can consume that manifest with
+`--feedback-manifest`, but labels must first exist in both curated training and
+validation class folders. It writes versioned candidates under
+`ml/classifier/saved_model/versions/`; use `evaluate.py --model-dir <candidate>`
+to report validation metrics and compare shared-class accuracy against the
+active model. The candidate must meet the no-regression comparison and be
+reviewed against release criteria before a separate, deliberate deployment.
 
 ## Protecting routes
 
@@ -221,10 +257,12 @@ def change_status(id):
 
 Roles: `resident`, `verifier`, `authority`, `admin`. The role is read from the database on every request, so role changes apply immediately.
 
-## The schema (9 tables)
+## The schema (12 tables)
 
 - `users`: name, email, password hash, role, area
 - `areas`: name and optional boundary polygon
+- `counties`: Kenyan county names, stable codes, and Polygon/MultiPolygon boundaries
+- `departments`: county-scoped department names and codes
 - `categories`: Pothole, Streetlight, Drainage, Garbage, Water leak, Public facility (ids 1 to 6)
 - `reports`: category, status, `location`, photo, creator, assignee, duplicate info, AI suggestions
 - `status_events`: one row per status change (who, when, note), used to calculate days to resolve
@@ -244,6 +282,65 @@ Statuses: `reported`, `verified`, `rejected`, `assigned`, `in_progress`, `resolv
 - **Queue names:** the worker listens on the `default` queue, which matches `QUEUE_NAME`. Tests use a private queue name so they never touch real jobs.
 - **Photos** are saved under a random name in `uploads/reports/`. The path is stored in `photo_path` and the API returns a full `photo_url`.
 - **Schema updates:** `flask init-db` safely adds the nullable `address` and `landmark` report columns to an existing local database. For an existing deployment, apply [`docs/migrations/20261017_report_context.sql`](./docs/migrations/20261017_report_context.sql) once before deploying code that reads those fields. Continue to use Flask-Migrate for future schema changes.
+
+## Kenyan county boundaries
+
+The local boundary importer uses the pinned **geoBoundaries Humanitarian** Kenya
+ADM1 release, sourced to IEBC and HDX: [geoBoundaries record](https://www.geoboundaries.org/api/current/gbHumanitarian/KEN/ADM1/)
+and [HDX dataset](https://data.humdata.org/dataset/cod-ab-ken). The record represents
+2018 boundaries, was built on Dec 12, 2023, and reports 47 administrative units.
+The source metadata lists **Creative Commons Attribution 3.0 Intergovernmental
+Organisations (CC BY 3.0 IGO)**. It is an operational layer, **not an official
+national administrative boundary dataset** (the source identifies its canonical
+boundary authority as unknown). Do not use it as legal or cadastral authority.
+
+The import pins the source GeoJSON to geoBoundaries commit `9469f09` and verifies
+SHA-256 `B56CC477AF2EC6A915D33EAD7DFB32871C5EA62886EEE388AEF786E96A6445D2`.
+Its declared CRS is CRS84 (WGS84 longitude/latitude, equivalent to EPSG:4326 for
+these coordinates); the importer checks every feature and geometry in PostGIS.
+Stable source `shapeID` values map explicitly to the existing county `code`
+values. Re-running the importer only updates `counties.boundary`; it does not
+insert counties or alter IDs, names, departments, or unrelated county data.
+
+After reviewing and applying the additive schema migration, seed county metadata
+and run the import locally:
+
+```powershell
+cd backend
+flask --app wsgi db upgrade
+flask --app wsgi seed
+flask --app wsgi import-county-boundaries
+```
+
+An offline copy can be supplied with
+`flask --app wsgi import-county-boundaries --source-file C:\path\to\geoBoundaries-KEN-ADM1.geojson`.
+The command refuses a mismatched checksum, missing/extra county identifiers,
+invalid or empty geometries, incorrect CRS, or failed Nairobi/Kisumu/outside
+coverage checks. Reports are routed by their submitted coordinates and the
+selected county's configured category department, never by the resident's
+registered county. Coordinates outside all configured boundaries return
+`422 unresolved_location`.
+
+Department deletion is rejected with `409 department_in_use` while any user or
+report references it; assignments are preserved, and no users or reports are
+cascade-deleted. Authorities are limited to reports in their assigned county
+and department; an authority without a department has no report access.
+
+## Backend tests and database safety
+
+The backend test fixture drops and recreates tables in its configured database.
+Set `CIVICPULSE_TEST_DATABASE` to a **dedicated disposable database** before
+running tests; the fixture refuses to run without this explicit setting. Never
+point it at a development or production database. For example:
+
+```powershell
+$env:CIVICPULSE_TEST_DATABASE = 'civicpulse_county_test'
+pytest
+```
+
+Create that database separately, set `DATABASE_URL` to point to it, enable
+PostGIS, and apply `flask --app wsgi db upgrade` before running pytest. Do not
+use the development database for the test setting.
 
 ## For teammates
 

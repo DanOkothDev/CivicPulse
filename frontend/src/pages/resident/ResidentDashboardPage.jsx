@@ -83,7 +83,7 @@ function StatTile({ title, value, note, icon: Icon }) {
       </div>
       <div>
         <p className="text-xs font-semibold text-[#5F5F5F]">{title}</p>
-        <p className="text-2xl font-extrabold text-[#0B5A9C] leading-tight">
+        <p className="text-xl font-extrabold text-[#0B5A9C] leading-tight">
           {value}
         </p>
         <p className="text-[11px] text-[#7a8a90]">{note}</p>
@@ -196,7 +196,7 @@ export default function ResidentDashboardPage() {
             {user?.name?.charAt(0)?.toUpperCase()}
           </div>
           <div>
-            <h1 className="text-3xl font-extrabold text-[#5F5F5F] tracking-tight">
+            <h1 className="text-2xl font-extrabold text-[#5F5F5F] tracking-tight">
               {user?.name}
             </h1>
             <div className="flex flex-wrap items-center gap-2 text-xs text-[#5F5F5F] mt-1">
@@ -206,9 +206,7 @@ export default function ResidentDashboardPage() {
               <span aria-hidden="true">|</span>
               <span className="inline-flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-[#1B8FC0]" />
-                {user?.area_id
-                  ? `Service area #${user.area_id}`
-                  : "No service area assigned"}
+                {user?.county?.name || (user?.county_id ? `County #${user.county_id}` : "No county chosen")}
               </span>
             </div>
           </div>

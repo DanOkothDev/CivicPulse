@@ -103,9 +103,42 @@ export const api = {
     getAreas() {
       return request('/areas');
     },
+
+    getCounties() {
+      return request('/counties');
+    },
+
+    getDepartments(countyId) {
+      return request(`/counties/${countyId}/departments`);
+    },
+
+    createDepartment(countyId, data) {
+      return request(`/counties/${countyId}/departments`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+
+    updateDepartment(id, data) {
+      return request(`/departments/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+
+    deleteDepartment(id) {
+      return request(`/departments/${id}`, { method: 'DELETE' });
+    },
   },
 
   users: {
+    updateProfile(patch) {
+      return request('/users/me/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
+    },
+
     getPreferences() {
       return request('/users/me/preferences');
     },
@@ -131,6 +164,22 @@ export const api = {
       return request('/reports', {
         method: 'POST',
         body: formData,
+      });
+    },
+
+    classify(photo) {
+      const formData = new FormData();
+      formData.append('photo', photo);
+      return request('/reports/classify', {
+        method: 'POST',
+        body: formData,
+      });
+    },
+
+    submitClassificationFeedback(id, feedback) {
+      return request(`/reports/${id}/classification-feedback`, {
+        method: 'POST',
+        body: JSON.stringify(feedback),
       });
     },
 
@@ -251,10 +300,30 @@ export const api = {
       return request(`/users${queryString(params)}`);
     },
 
+    classificationFeedback: {
+      list(status = 'pending') {
+        return request(`/classification-feedback${queryString({ status })}`);
+      },
+
+      review(id, review_status) {
+        return request(`/classification-feedback/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ review_status }),
+        });
+      },
+    },
+
     updateUserRole(id, role) {
       return request(`/users/${id}/role`, {
         method: 'PATCH',
         body: JSON.stringify({ role }),
+      });
+    },
+
+    updateUserDepartment(id, department_id) {
+      return request(`/users/${id}/department`, {
+        method: 'PATCH',
+        body: JSON.stringify({ department_id }),
       });
     },
 

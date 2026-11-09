@@ -6,13 +6,13 @@ from geoalchemy2.elements import WKTElement
 from sqlalchemy import and_, cast, func, or_
 from sqlalchemy.orm import joinedload
 
-from ..auth_utils import current_user, login_required
-from ..constants import STATUSES
+from ..auth_utils import current_user, login_required, user_can_access_report
+from ..constants import DEPARTMENT_CATEGORY_MAP, STATUSES
 from ..errors import ApiError
 from ..extensions import db
 from ..jobqueue import enqueue
 from ..jobs import process_new_report
-from ..models import Area, Category, Follow, Report, StatusEvent
+from ..models import Area, Category, ClassificationFeedback, County, Department, Follow, Report, StatusEvent
 from ..storage import delete_photo, photo_extension, save_photo
 
 bp = Blueprint('reports', __name__)
@@ -51,6 +51,17 @@ def _report_json(r, lon, lat, following):
         'status': r.status,
         'location': {'lat': lat, 'lon': lon},
         'area_id': r.area_id,
+        'county_id': r.county_id,
+        'county': (
+            {'id': r.county.id, 'name': r.county.name, 'code': r.county.code}
+            if r.county else None
+        ),
+        'department_id': r.department_id,
+        'department': (
+            {'id': r.department.id, 'county_id': r.department.county_id,
+             'name': r.department.name, 'code': r.department.code}
+            if r.department else None
+        ),
         'photo_url': url_for('media.uploaded_file', filename=r.photo_path, _external=True),
         'created_by': r.created_by,
         'assigned_to': r.assigned_to,
@@ -58,15 +69,42 @@ def _report_json(r, lon, lat, following):
         'report_count': r.report_count,
         'duplicate_of': r.duplicate_of,
         'ai_suggested_category': (
-            {'category_id': r.ai_category_id, 'confidence': r.ai_confidence} if r.ai_category_id else None),
+            {'category_id': r.ai_category_id, 'name': r.ai_category.name,
+             'confidence': r.ai_confidence} if r.ai_category_id else None),
+        'classification_feedback': _feedback_json(r.classification_feedback),
         'is_following': following,
         'created_at': r.created_at.isoformat(),
         'updated_at': r.updated_at.isoformat(),
     }
 
 
+def _feedback_json(feedback):
+    if feedback is None:
+        return None
+    predicted = feedback.predicted_category
+    selected = feedback.selected_category
+    return {
+        'id': feedback.id,
+        'predicted_category': (
+            {'id': predicted.id, 'name': predicted.name} if predicted else None),
+        'confidence': feedback.confidence,
+        'selected_category': {'id': selected.id, 'name': selected.name},
+        'accepted': feedback.accepted,
+        'review_status': feedback.review_status,
+        'training_eligible': feedback.training_eligible,
+        'created_at': feedback.created_at.isoformat(),
+    }
+
+
 def _query():
-    return Report.query.options(joinedload(Report.category)).add_columns(LON, LAT)
+    return Report.query.options(
+        joinedload(Report.category),
+        joinedload(Report.ai_category),
+        joinedload(Report.classification_feedback).joinedload(
+            ClassificationFeedback.selected_category),
+        joinedload(Report.classification_feedback).joinedload(
+            ClassificationFeedback.predicted_category),
+    ).add_columns(LON, LAT)
 
 
 def _followed(user_id, report_ids):
@@ -118,14 +156,38 @@ def create_report():
 
     user = current_user()
     point = WKTElement(f'POINT({lon} {lat})', srid=4326)  # longitude first
-    # If areas have boundaries drawn, put the report in the area that contains it.
-    area = Area.query.filter(func.ST_Covers(Area.boundary, cast(point, Geography))).first()
+    # If areas have boundaries drawn, assign the report to the most specific area that contains it.
+    # Ordering by area size keeps multiple overlapping boundaries deterministic while still honoring
+    # the actual geography of the report rather than the resident's home area.
+    point_geom = cast(point, Geometry)
+    area = (
+        Area.query.filter(Area.boundary.isnot(None))
+        .filter(func.ST_Covers(cast(Area.boundary, Geometry), point_geom))
+        .order_by(func.ST_Area(cast(Area.boundary, Geometry)).asc())
+        .first()
+    )
+    county = County.resolve_for_point(lat, lon)
+    if county is None:
+        raise ApiError(
+            'unresolved_location',
+            'The report location could not be resolved to a county boundary. Please move the marker to a point within a Kenyan county.',
+            422,
+        )
+
+    category = db.session.get(Category, category_id)
+    department_name = DEPARTMENT_CATEGORY_MAP.get(category.name) if category else None
+
+    department = None
+    if county is not None and department_name:
+        department = Department.query.filter_by(county_id=county.id, name=department_name).first()
 
     photo_path = save_photo(photo, ext)
     try:
         report = Report(category_id=category_id, description=description or None,
                         address=address, landmark=landmark, location=point,
-                        area_id=area.id if area else None, photo_path=photo_path, created_by=user.id)
+                        area_id=area.id if area else None, county_id=county.id if county else None,
+                        department_id=department.id if department else None,
+                        photo_path=photo_path, created_by=user.id)
         db.session.add(report)
         db.session.flush()
         db.session.add(StatusEvent(report_id=report.id, status='reported', changed_by=user.id))
@@ -166,12 +228,24 @@ def list_reports():
             raise ApiError('validation_error', 'bbox must be min_lon,min_lat,max_lon,max_lat', 422)
         envelope = func.ST_MakeEnvelope(*parts, 4326)
         q = q.filter(func.ST_Intersects(Report.location, cast(envelope, Geography)))
-    for name, column in (('category_id', Report.category_id), ('area_id', Report.area_id)):
+    for name, column in (('category_id', Report.category_id), ('area_id', Report.area_id), ('county_id', Report.county_id), ('department_id', Report.department_id)):
         if args.get(name):
             value = _int(args[name])
             if value is None:
                 raise ApiError('validation_error', f'{name} must be a number', 422)
             q = q.filter(column == value)
+    if user.role in {'verifier', 'authority'} or (
+        user.role == 'admin' and user.county_id is not None
+    ):
+        if user.county_id is None:
+            q = q.filter(Report.id == -1)
+        else:
+            q = q.filter(Report.county_id == user.county_id)
+        if user.role == 'authority':
+            if user.department_id is None:
+                q = q.filter(Report.id == -1)
+            else:
+                q = q.filter(Report.department_id == user.department_id)
     if args.get('status'):
         if args['status'] not in STATUSES:
             raise ApiError('validation_error', 'Unknown status', 422, {'allowed': list(STATUSES)})
@@ -201,7 +275,14 @@ def list_reports():
     page, per_page = max(page, 1), min(max(per_page, 1), 200)
 
     total = q.count()
-    rows = (q.options(joinedload(Report.category)).add_columns(LON, LAT)
+    rows = (q.options(
+                joinedload(Report.category),
+                joinedload(Report.ai_category),
+                joinedload(Report.classification_feedback).joinedload(
+                    ClassificationFeedback.selected_category),
+                joinedload(Report.classification_feedback).joinedload(
+                    ClassificationFeedback.predicted_category),
+            ).add_columns(LON, LAT)
             .order_by(Report.created_at.desc(), Report.id.desc())
             .offset((page - 1) * per_page).limit(per_page).all())
     followed = _followed(user.id, [r.id for r, _, _ in rows])
@@ -212,7 +293,13 @@ def list_reports():
 @bp.get('/reports/<int:report_id>')
 @login_required
 def get_report(report_id):
-    return jsonify(_one(report_id, current_user().id))
+    user = current_user()
+    report = db.session.get(Report, report_id)
+    if report is None:
+        raise ApiError('not_found', 'Report not found', 404)
+    if not user_can_access_report(user, report):
+        raise ApiError('forbidden', 'You cannot access that report', 403)
+    return jsonify(_one(report_id, user.id))
 
 
 @bp.post('/reports/<int:report_id>/follow')

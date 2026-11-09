@@ -12,16 +12,16 @@ export function BarChart({ data = [], height = 220 }) {
         const heightPct = Math.max(8, Math.round((item.value / maxVal) * 100));
         return (
           <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group">
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[10px] font-bold py-1 px-1.5 rounded mb-1 shadow-sm whitespace-nowrap">
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-[#0B5A9C] text-white text-[10px] font-bold py-1 px-1.5 rounded-lg mb-1 shadow-sm whitespace-nowrap">
               {item.value} ({item.label})
             </div>
-            <div className="w-full bg-slate-100 rounded-t-lg overflow-hidden flex flex-col justify-end h-full">
+            <div className="w-full bg-[#E6F5F8] rounded-t-xl overflow-hidden flex flex-col justify-end h-full">
               <div
-                className={`w-full rounded-t-lg transition-all duration-500 ${item.color || 'bg-blue-600'}`}
+                className={`w-full rounded-t-xl transition-all duration-500 ${item.color || 'bg-gradient-to-t from-[#0B5A9C] to-[#38C6DC]'}`}
                 style={{ height: `${heightPct}%` }}
               />
             </div>
-            <span className="text-[11px] font-semibold text-slate-500 mt-2 truncate max-w-full text-center">
+            <span className="text-[11px] font-semibold text-[#5F5F5F] mt-2 truncate max-w-full text-center">
               {item.label}
             </span>
           </div>
@@ -59,7 +59,7 @@ export function DonutChart({ data = [], size = 160 }) {
                 cy={center}
                 r={radius}
                 fill="transparent"
-                stroke={item.color || '#3b82f6'}
+                stroke={item.color || '#1B8FC0'}
                 strokeWidth={strokeWidth}
                 strokeDasharray={strokeDasharray}
                 strokeDashoffset={strokeDashoffset}
@@ -69,8 +69,8 @@ export function DonutChart({ data = [], size = 160 }) {
           })}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-          <span className="text-xl font-extrabold text-slate-900">{total}</span>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</span>
+          <span className="text-xl font-extrabold text-[#0B5A9C]">{total}</span>
+          <span className="text-[10px] font-bold text-[#7a8a90] uppercase tracking-wider">Total</span>
         </div>
       </div>
 
@@ -79,9 +79,9 @@ export function DonutChart({ data = [], size = 160 }) {
           <div key={idx} className="flex items-center justify-between text-xs gap-3">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-              <span className="text-slate-600 font-medium truncate max-w-[120px]">{item.label}</span>
+              <span className="text-[#5F5F5F] font-medium truncate max-w-[120px]">{item.label}</span>
             </div>
-            <span className="font-bold text-slate-900">{item.value}</span>
+            <span className="font-bold text-[#0B5A9C]">{item.value}</span>
           </div>
         ))}
       </div>

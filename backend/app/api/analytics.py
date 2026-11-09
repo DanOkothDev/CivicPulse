@@ -9,11 +9,11 @@ from flask import Blueprint, jsonify, request
 from geoalchemy2 import Geometry
 from sqlalchemy import and_, cast, func
 
-from ..auth_utils import roles_required
-from ..constants import STATUSES
+from ..auth_utils import current_user, roles_required
+from ..constants import DEPARTMENT_CATEGORY_MAP, STATUSES
 from ..errors import ApiError
 from ..extensions import db
-from ..models import Area, Category, Hotspot, Report, StatusEvent
+from ..models import Area, Category, County, Hotspot, Report, StatusEvent
 
 bp = Blueprint('analytics', __name__)
 
@@ -21,9 +21,24 @@ FINAL_STATUSES = ('resolved', 'rejected')
 staff_only = roles_required('authority', 'admin')
 
 
+def _staff_report_scope():
+    user = current_user()
+    conditions = []
+    if user.role == 'authority' and user.county_id is None:
+        conditions.append(Report.id == -1)
+    elif user.role in {'authority', 'admin'} and user.county_id is not None:
+        conditions.append(Report.county_id == user.county_id)
+    if user.role == 'authority':
+        if user.department_id is None:
+            conditions.append(Report.id == -1)
+        else:
+            conditions.append(Report.department_id == user.department_id)
+    return conditions
+
+
 def _case_conditions():
-    """Filters for 'one row per real problem', optionally limited to one area (?area_id=)."""
-    conditions = [Report.duplicate_of.is_(None)]
+    """Filters for one row per case, optionally limited to an area."""
+    conditions = [Report.duplicate_of.is_(None), *_staff_report_scope()]
     raw = request.args.get('area_id')
     if raw not in (None, ''):
         try:
@@ -31,6 +46,34 @@ def _case_conditions():
         except ValueError:
             raise ApiError('validation_error', 'area_id must be a number', 422)
     return conditions
+
+
+def _scope_hotspots(query):
+    user = current_user()
+    if user.role == 'admin' and user.county_id is not None:
+        return query.join(
+            County, County.id == user.county_id
+        ).filter(func.ST_Covers(
+            cast(County.boundary, Geometry), cast(Hotspot.center, Geometry)
+        ))
+    if user.role == 'authority':
+        if user.county_id is None or user.department_id is None:
+            return query.filter(Hotspot.id == -1)
+        department_name = user.department.name if user.department else None
+        category_names = [
+            category for category, department in DEPARTMENT_CATEGORY_MAP.items()
+            if department == department_name
+        ]
+        category_ids = Category.query.filter(Category.name.in_(category_names)).with_entities(
+            Category.id
+        )
+        return query.join(
+            County, County.id == user.county_id
+        ).filter(
+            func.ST_Covers(cast(County.boundary, Geometry), cast(Hotspot.center, Geometry)),
+            Hotspot.top_category_id.in_(category_ids),
+        )
+    return query
 
 
 def _area_id():
@@ -71,19 +114,49 @@ def summary():
                    .join(StatusEvent, and_(StatusEvent.report_id == Report.id, StatusEvent.status == 'resolved'))
                    .filter(*conditions, Report.status == 'resolved').scalar())
 
-    hotspot_query = Hotspot.query
+    hotspot_query = _scope_hotspots(Hotspot.query)
     if area_id is not None:
         hotspot_query = hotspot_query.join(Area, Area.id == area_id).filter(
             Area.boundary.isnot(None),
             func.ST_Covers(cast(Area.boundary, Geometry), cast(Hotspot.center, Geometry)),
         )
 
+    county_rows = []
+    counties = County.query.order_by(County.name)
+    user = current_user()
+    if user.role == 'authority' and (
+        user.county_id is None or user.department_id is None
+    ):
+        counties = counties.filter(County.id == -1)
+    if user.role in {'authority', 'admin'} and user.county_id is not None:
+        counties = counties.filter(County.id == user.county_id)
+    for county in counties.all():
+        county_q = Report.query.filter(Report.duplicate_of.is_(None), Report.county_id == county.id)
+        if user.role == 'authority':
+            county_q = county_q.filter(Report.department_id == user.department_id) if user.department_id else county_q.filter(Report.id == -1)
+        county_total = county_q.count()
+        county_resolved = county_q.filter(Report.status == 'resolved').count()
+        county_pending = county_q.filter(Report.status.in_(['reported', 'assigned', 'in_progress', 'verified'])).count()
+        county_rows.append({
+            'county_id': county.id,
+            'county_name': county.name,
+            'total_reports': county_total,
+            'resolved_reports': county_resolved,
+            'pending_reports': county_pending,
+            'resolution_rate': round((county_resolved / county_total) * 100, 2) if county_total else 0,
+        })
+
     return jsonify({
         'total_reports': total,
         'open_reports': sum(n for status, n in by_status.items() if status not in FINAL_STATUSES),
         'resolved_reports': by_status['resolved'],
         'hotspot_count': hotspot_query.count(),
+        'county_count': counties.count(),
         'by_status': by_status,
+        'by_county': sorted(
+            county_rows,
+            key=lambda item: (-item['total_reports'], -item['resolved_reports'], -item['pending_reports'], item['county_name'])
+        ),
         'by_category': {name: n for _, name, n in _counts_by_category(conditions)},
         'open_by_area': [{'area_id': area_id, 'area': name or 'No area', 'open': n}
                          for area_id, name, n in open_rows],
@@ -121,7 +194,7 @@ def report_trends():
     cutoff = datetime.combine(start_day, datetime.min.time(), tzinfo=timezone.utc)
 
     rows = (db.session.query(func.date(Report.created_at).label('day'), func.count(Report.id))
-            .filter(Report.created_at >= cutoff)
+            .filter(Report.created_at >= cutoff, *_staff_report_scope())
             .group_by(func.date(Report.created_at)).order_by(func.date(Report.created_at)).all())
     counts = {(day.isoformat() if hasattr(day, 'isoformat') else str(day)): n for day, n in rows}
 

@@ -2,7 +2,7 @@ from datetime import date
 
 from flask import Blueprint, jsonify, request
 
-from ..auth_utils import current_user, login_required, roles_required
+from ..auth_utils import current_user, login_required, roles_required, user_can_access_report
 from ..constants import STATUSES
 from ..errors import ApiError
 from ..extensions import db
@@ -13,10 +13,12 @@ from .reports import _one
 bp = Blueprint('workflow', __name__)
 
 
-def _get_report(report_id, lock=False):
+def _get_report(report_id, lock=False, user=None):
     report = db.session.get(Report, report_id, with_for_update=lock)
     if report is None:
         raise ApiError('not_found', 'Report not found', 404)
+    if user is not None and not user_can_access_report(user, report):
+        raise ApiError('forbidden', 'You cannot access that report', 403)
     return report
 
 
@@ -33,8 +35,8 @@ def update_status(report_id):
     if note and len(note) > 500:
         raise ApiError('validation_error', 'Keep the note under 500 characters', 422)
 
-    report = _get_report(report_id, lock=True)  # lock the row so two people can't change it at once
     user = current_user()
+    report = _get_report(report_id, lock=True, user=user)  # lock the row so two people can't change it at once
     change_status(report, new_status, user, note)
     return jsonify(_one(report_id, user.id))
 
@@ -42,7 +44,8 @@ def update_status(report_id):
 @bp.get('/reports/<int:report_id>/history')
 @login_required
 def history(report_id):
-    _get_report(report_id)
+    user = current_user()
+    _get_report(report_id, user=user)
     events = (StatusEvent.query.filter_by(report_id=report_id)
               .order_by(StatusEvent.created_at, StatusEvent.id).all())
     return jsonify([{'id': e.id, 'report_id': e.report_id, 'status': e.status,
@@ -53,7 +56,8 @@ def history(report_id):
 @bp.post('/reports/<int:report_id>/assign')
 @roles_required('verifier', 'authority', 'admin')
 def assign(report_id):
-    report = _get_report(report_id, lock=True)
+    user = current_user()
+    report = _get_report(report_id, lock=True, user=user)
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         raise ApiError('validation_error', 'Send a JSON body', 422)
@@ -66,6 +70,15 @@ def assign(report_id):
         assignee = db.session.get(User, assignee_id)
         if assignee is None or assignee.role != 'authority':
             errors['assignee_id'] = 'Choose an authority user'
+        elif (
+            report.county_id is None
+            or assignee.county_id != report.county_id
+            or report.department_id is None
+            or assignee.department_id != report.department_id
+        ):
+            errors['assignee_id'] = (
+                'Choose an authority assigned to this report county and department'
+            )
     if data.get('due_date') is not None:
         try:
             due = date.fromisoformat(data['due_date'])
@@ -76,7 +89,6 @@ def assign(report_id):
     if errors:
         raise ApiError('validation_error', 'Please fix the highlighted fields', 422, errors)
 
-    user = current_user()
     updates = {'assigned_to': assignee.id, 'due_date': due}
     due_text = f', due {due.isoformat()}' if due else ''
     if report.status in ('assigned', 'in_progress', 'resolved'):  # already had an assignee
@@ -90,7 +102,8 @@ def assign(report_id):
 @bp.patch('/reports/<int:report_id>/area')
 @roles_required('admin')
 def update_area(report_id):
-    report = _get_report(report_id, lock=True)
+    user = current_user()
+    report = _get_report(report_id, lock=True, user=user)
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or 'area_id' not in data:
         raise ApiError('validation_error', 'Send an area_id in a JSON body', 422)

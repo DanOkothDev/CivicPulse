@@ -69,6 +69,50 @@ export default function ReportIssuePage() {
   const [landmark, setLandmark] = useState("");
   const [loading, setLoading] = useState(false);
   const [gpsLocating, setGpsLocating] = useState(false);
+  const [classification, setClassification] = useState(null);
+  const [classificationLoading, setClassificationLoading] = useState(false);
+  const [classificationError, setClassificationError] = useState("");
+  const [feedbackChoice, setFeedbackChoice] = useState("");
+
+  const aiSuggestion =
+    classification?.available &&
+    classification?.supported &&
+    classification.confidence >= 0.6
+      ? classification
+      : null;
+  const unsupportedPrediction =
+    classification?.available && !classification.supported
+      ? classification
+      : null;
+
+  useEffect(() => {
+    if (!photo?.file) {
+      setClassification(null);
+      setClassificationError("");
+      setFeedbackChoice("");
+      return undefined;
+    }
+
+    let active = true;
+    setClassification(null);
+    setClassificationError("");
+    setFeedbackChoice("");
+    setClassificationLoading(true);
+    api.reports
+      .classify(photo.file)
+      .then((result) => {
+        if (active) setClassification(result);
+      })
+      .catch(() => {
+        if (active) setClassificationError("AI suggestions are unavailable. Choose a category manually.");
+      })
+      .finally(() => {
+        if (active) setClassificationLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [photo?.file]);
 
   // Load categories and parse deep link query params
   useEffect(() => {
@@ -169,9 +213,27 @@ export default function ReportIssuePage() {
         ? `${title.trim()}${description.trim() ? `: ${description.trim()}` : ""}`
         : description.trim();
       formData.append("description", fullDesc.slice(0, 500));
+      formData.append("address", address);
+      formData.append("landmark", landmark);
       formData.append("photo", photo.file);
 
       const created = await api.reports.create(formData);
+      if ((aiSuggestion && feedbackChoice) || unsupportedPrediction) {
+        const prediction = aiSuggestion || unsupportedPrediction;
+        try {
+          await api.reports.submitClassificationFeedback(created.id, {
+            predicted_class: prediction.class_name,
+            predicted_category_id: prediction.category?.id ?? null,
+            confidence: prediction.confidence,
+            selected_category_id: Number(categoryId),
+            accepted:
+              Boolean(prediction.category) &&
+              Number(categoryId) === prediction.category.id,
+          });
+        } catch (feedbackError) {
+          toast.warning(`Report submitted, but AI feedback could not be saved: ${feedbackError.message}`);
+        }
+      }
       toast.success(
         `Report #${created.id} submitted successfully! AI triage is now processing in the background.`,
       );
@@ -258,11 +320,89 @@ export default function ReportIssuePage() {
               <label className={LABEL}>
                 Category <span className="text-[#0B5A9C]">*</span>
               </label>
+              {classificationLoading && (
+                <p className="mb-2 text-xs text-[#5F5F5F]" role="status">
+                  Checking whether the photo suggests a category…
+                </p>
+              )}
+              {aiSuggestion && (
+                <div className="mb-3 rounded-2xl border border-[#cfe9f0] bg-[#E6F5F8] p-4">
+                  <p className="text-xs font-extrabold text-[#0B5A9C]">
+                    AI category suggestion
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-[#5F5F5F]">
+                    {aiSuggestion.category.name}
+                  </p>
+                  <p className="mt-1 text-xs text-[#5F5F5F]">
+                    Our AI identified a possible {aiSuggestion.category.name.toLowerCase()} in your photograph.
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[#5F5F5F]">
+                    Confidence: {Math.round(aiSuggestion.confidence * 100)}%
+                  </p>
+                  <p className="mt-2 text-xs text-[#5F5F5F]">
+                    This is an AI-generated suggestion. You are responsible for confirming the report category.
+                  </p>
+                  <p className="mt-3 text-xs font-bold text-[#5F5F5F]">
+                    Is this suggestion correct?
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCategoryId(aiSuggestion.category.id);
+                        setFeedbackChoice("accepted");
+                      }}
+                      className={`rounded-full px-3 py-2 text-xs font-bold ${feedbackChoice === "accepted" ? `${GRADIENT} text-white` : "border border-[#1B8FC0] text-[#0B5A9C]"}`}
+                    >
+                      Use this category
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFeedbackChoice("corrected")}
+                      className={`rounded-full px-3 py-2 text-xs font-bold ${feedbackChoice === "corrected" ? `${GRADIENT} text-white` : "border border-[#1B8FC0] text-[#0B5A9C]"}`}
+                    >
+                      Choose another category
+                    </button>
+                  </div>
+                </div>
+              )}
+              {classificationError && (
+                <p className="mb-2 text-xs text-[#5F5F5F]" role="status">
+                  {classificationError}
+                </p>
+              )}
+              {classification?.available === false && (
+                <p className="mb-2 text-xs text-[#5F5F5F]" role="status">
+                  AI suggestions are unavailable. Please choose a category manually.
+                </p>
+              )}
+              {unsupportedPrediction && (
+                <p className="mb-2 text-xs text-[#5F5F5F]" role="status">
+                  Our current classifier cannot suggest a supported category for this photo. Please choose a category manually; this correction will be reviewed before it can be used for model training.
+                </p>
+              )}
+              {classification?.available &&
+                classification.supported &&
+                classification.confidence < 0.6 && (
+                  <p className="mb-2 text-xs text-[#5F5F5F]" role="status">
+                    The AI is not confident enough to suggest a category. Please choose one manually.
+                  </p>
+                )}
               <div className="relative">
                 <select
                   data-tour="report-category"
                   value={categoryId}
-                  onChange={(e) => setCategoryId(Number(e.target.value))}
+                  onChange={(e) => {
+                    const selectedId = Number(e.target.value);
+                    setCategoryId(selectedId);
+                    if (aiSuggestion) {
+                      setFeedbackChoice(
+                        selectedId === aiSuggestion.category.id
+                          ? "accepted"
+                          : "corrected",
+                      );
+                    }
+                  }}
                   className={`${INPUT} pr-10 font-semibold appearance-none cursor-pointer`}
                 >
                   {categories.map((c) => (

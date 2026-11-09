@@ -41,7 +41,7 @@ export default function AppLayout() {
 
   return (
     <NotificationProvider>
-      <div className="min-h-screen bg-slate-50 flex flex-col">
+      <div className="min-h-screen bg-[#E6F5F8] flex flex-col">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         <div className="lg:pl-64 flex flex-col min-h-screen flex-1 pb-16 lg:pb-0">

@@ -4,7 +4,7 @@ from ..auth_utils import current_user, login_required, roles_required, serialize
 from ..constants import ROLES
 from ..errors import ApiError
 from ..extensions import db
-from ..models import User, now
+from ..models import County, Department, User, now
 
 bp = Blueprint('users', __name__)
 
@@ -47,6 +47,13 @@ def list_users():
     page, per_page = max(page, 1), min(max(per_page, 1), 200)
 
     q = User.query
+    if me.role == 'admin' and me.county_id is not None:
+        q = q.filter(User.county_id == me.county_id)
+    elif me.role in {'verifier', 'authority'}:
+        if me.county_id is None:
+            q = q.filter(User.id == -1)
+        else:
+            q = q.filter(User.county_id == me.county_id)
     if role:
         q = q.filter(User.role == role)
     users = q.order_by(User.name, User.id).offset((page - 1) * per_page).limit(per_page).all()
@@ -61,6 +68,33 @@ def list_users():
 @login_required
 def get_my_preferences():
     return jsonify(_onboarding_preferences(current_user()))
+
+
+@bp.patch('/users/me/profile')
+@login_required
+def update_my_profile():
+    user = current_user()
+    if user.role != 'resident':
+        raise ApiError('forbidden', 'Only residents can update their registered county', 403)
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise ApiError('validation_error', 'Send a JSON body', 422)
+    if set(data) != {'county_id'}:
+        raise ApiError('validation_error', 'Only county_id can be updated', 422, {
+            'allowed': ['county_id'],
+        })
+
+    county_id = data['county_id']
+    if (not isinstance(county_id, int) or isinstance(county_id, bool)
+            or db.session.get(County, county_id) is None):
+        raise ApiError('validation_error', 'Choose a valid county', 422, {
+            'county_id': 'Choose a valid county',
+        })
+
+    user.county_id = county_id
+    db.session.commit()
+    return jsonify(serialize_user(user))
 
 
 @bp.patch('/users/me/preferences')
@@ -116,6 +150,53 @@ def update_user_role(user_id):
     user = db.session.get(User, user_id)
     if user is None:
         raise ApiError('not_found', 'User not found', 404)
+    if current_user().county_id is not None and current_user().county_id != user.county_id:
+        raise ApiError('forbidden', 'You can only manage users in your county', 403)
     user.role = role
+    if role != 'authority':
+        user.department_id = None
+    db.session.commit()
+    return jsonify(serialize_user(user))
+
+
+@bp.patch('/users/<int:user_id>/department')
+@roles_required('admin')
+def update_user_department(user_id):
+    user = db.session.get(User, user_id)
+    if user is None:
+        raise ApiError('not_found', 'User not found', 404)
+
+    admin = current_user()
+    if admin.county_id is not None and admin.county_id != user.county_id:
+        raise ApiError('forbidden', 'You can only manage users in your county', 403)
+    if user.role != 'authority':
+        raise ApiError('validation_error', 'Only authority users can be assigned a department', 422, {
+            'department_id': 'The user must have the authority role',
+        })
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or set(data) != {'department_id'}:
+        raise ApiError('validation_error', 'Send only department_id', 422, {
+            'allowed': ['department_id'],
+        })
+    department_id = data['department_id']
+    if department_id is None:
+        user.department_id = None
+    elif not isinstance(department_id, int) or isinstance(department_id, bool):
+        raise ApiError('validation_error', 'Choose a valid department or null', 422, {
+            'department_id': 'Choose a valid department or null',
+        })
+    else:
+        department = db.session.get(Department, department_id)
+        if department is None:
+            raise ApiError('validation_error', 'Choose a valid department', 422, {
+                'department_id': 'Unknown department',
+            })
+        if user.county_id is None or department.county_id != user.county_id:
+            raise ApiError('validation_error', 'Department must belong to the authority user county', 422, {
+                'department_id': 'Department must belong to the authority user county',
+            })
+        user.department_id = department.id
+
     db.session.commit()
     return jsonify(serialize_user(user))

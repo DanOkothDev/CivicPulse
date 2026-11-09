@@ -82,17 +82,15 @@ export default function TopNavigation({ onMenuClick }) {
         </div>
       </div>
 
-      {/* Right: Service Area Pill, Notifications, and Profile */}
+      {/* Right: County Context, Notifications, and Profile */}
       <div className="flex items-center gap-2.5 sm:gap-4">
-        {/* Service Area Pill */}
+        {/* County and department are account context, not report-routing inputs. */}
         <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-white/80 border border-[#7FD0E0] text-[#0B5A9C] rounded-xl text-xs font-extrabold shadow-2xs">
           <MapPin className="w-3.5 h-3.5 text-[#1B8FC0]" />
-          <span>
-            {user?.area_id == null
-              ? "No service area assigned"
-              : `Service Area ${user.area_id}`}
+          <span className="max-w-40 truncate">
+            {user?.county?.name || (user?.county_id ? `County #${user.county_id}` : "No county chosen")}
+            {user?.department?.name ? ` · ${user.department.name}` : ""}
           </span>
-          <ChevronDown className="w-3.5 h-3.5 text-[#1B8FC0]" />
         </div>
 
         {/* Notifications Icon with Unread Badge */}

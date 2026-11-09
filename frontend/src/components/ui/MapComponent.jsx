@@ -4,7 +4,7 @@ import L from 'leaflet';
 // Status colors
 const STATUS_COLORS = {
   reported: '#f59e0b',   // Amber
-  verified: '#2563eb',   // Blue
+  verified: '#1B8FC0',   // CivicPulse blue
   assigned: '#7c3aed',   // Purple
   in_progress: '#ea580c',// Orange
   resolved: '#10b981',   // Emerald
@@ -26,7 +26,7 @@ function createPinIcon(color, isSelected = false) {
           <path d="M12 0C5.37 0 0 5.37 0 12c0 8.5 12 18 12 18s12-9.5 12-18c0-6.63-5.37-12-12-12z" fill="${color}" stroke="#ffffff" stroke-width="1.5" />
           <circle cx="12" cy="11" r="5" fill="#ffffff" />
         </svg>
-        ${isSelected ? '<div style="position: absolute; top: -4px; left: 6px; width: 8px; height: 8px; background: #3b82f6; border-radius: 50%; box-shadow: 0 0 8px #3b82f6;"></div>' : ''}
+        ${isSelected ? '<div style="position: absolute; top: -4px; left: 6px; width: 8px; height: 8px; background: #38C6DC; border-radius: 50%; box-shadow: 0 0 8px #38C6DC;"></div>' : ''}
       </div>
     `,
     iconSize: [30, 38],
@@ -114,7 +114,7 @@ export default function MapComponent({
         if (!pickerMarkerRef.current) {
           const pin = L.marker([pickedLocation.lat, pickedLocation.lon], {
             draggable: true,
-            icon: createPinIcon('#2563eb', true),
+            icon: createPinIcon('#0B5A9C', true),
           }).addTo(map);
 
           pin.on('dragend', () => {
@@ -153,7 +153,7 @@ export default function MapComponent({
       const lon = report.location?.lon;
       if (lat === undefined || lon === undefined) return;
 
-      const color = STATUS_COLORS[report.status] || '#2563eb';
+      const color = STATUS_COLORS[report.status] || '#1B8FC0';
       const isSelected = selectedReport?.id === report.id;
       const marker = L.marker([lat, lon], {
         icon: createPinIcon(color, isSelected),

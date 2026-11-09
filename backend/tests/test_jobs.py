@@ -1,8 +1,11 @@
 import io
 import os
+from pathlib import Path
+import sys
 import uuid
 
 import pytest
+from flask import Flask
 from redis import Redis
 
 from app import jobs
@@ -31,6 +34,25 @@ def fake_hooks(monkeypatch, classify=None, find=None):
     monkeypatch.setattr(jobs, 'load_hook', lambda key: hooks[key])
 
 
+def test_load_hook_resolves_repo_ml_package_from_backend_directory(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[2]
+    monkeypatch.setattr(
+        sys,
+        'path',
+        [path for path in sys.path if Path(path or os.getcwd()).resolve() != repo_root],
+    )
+    app = Flask(__name__)
+    app.config['AI_DUPLICATES'] = 'ml.duplicates.detector:find_duplicates'
+
+    with app.app_context():
+        hook = jobs.load_hook('AI_DUPLICATES')
+
+    assert hook.__module__ == 'ml.duplicates.detector'
+    assert Path(sys.modules[hook.__module__].__file__).resolve().is_relative_to(
+        repo_root / 'ml'
+    )
+
+
 def test_job_stores_ai_results(client, app, who, monkeypatch):
     resident, verifier = who('resident'), who('verifier')
     other = submit(client, resident).json['id']
@@ -52,7 +74,9 @@ def test_job_stores_ai_results(client, app, who, monkeypatch):
     assert outcome == {'classifier': 'saved', 'duplicates_saved': 1}
 
     report = client.get(f'/api/v1/reports/{rid}', headers=resident).json
-    assert report['ai_suggested_category'] == {'category_id': 3, 'confidence': 0.91}
+    assert report['ai_suggested_category'] == {
+        'category_id': 3, 'name': 'Drainage', 'confidence': 0.91
+    }
     suggestions = client.get(f'/api/v1/reports/{rid}/duplicates', headers=verifier).json
     assert [s['report_id'] for s in suggestions] == [other] and suggestions[0]['reasons'] == {'location': 0.8}
     assert os.path.exists(seen['photo'])                        # the classifier gets a real file path

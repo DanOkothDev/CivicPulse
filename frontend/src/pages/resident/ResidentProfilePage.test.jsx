@@ -12,9 +12,9 @@ vi.mock('../../context/AuthContext', () => ({ useAuth: vi.fn() }));
 vi.mock('../../context/ToastContext', () => ({ useToast: vi.fn() }));
 vi.mock('../../services/api', () => ({
   api: {
-    users: { updatePreferences: vi.fn() },
+    users: { updatePreferences: vi.fn(), updateProfile: vi.fn() },
     reports: { list: vi.fn() },
-    reference: { getAreas: vi.fn() },
+    reference: { getAreas: vi.fn(), getCounties: vi.fn() },
   },
 }));
 
@@ -27,6 +27,8 @@ const renderProfile = (role = 'resident') => {
       email: 'ada@example.test',
       role,
       area_id: null,
+      county_id: 1,
+      county: { id: 1, name: 'Nairobi' },
       product_tour_enabled: true,
       feature_tips_enabled: true,
     },
@@ -47,8 +49,24 @@ describe('App Guide & Preferences', () => {
     vi.clearAllMocks();
     useToast.mockReturnValue({ error: vi.fn() });
     api.users.updatePreferences.mockResolvedValue({});
+    api.users.updateProfile.mockResolvedValue({});
     api.reports.list.mockResolvedValue({ items: [] });
     api.reference.getAreas.mockResolvedValue([]);
+    api.reference.getCounties.mockResolvedValue([
+      { id: 1, name: 'Nairobi' },
+      { id: 2, name: 'Kisumu' },
+    ]);
+  });
+
+  it('shows the registered county and lets residents update it through the profile API', async () => {
+    const user = userEvent.setup();
+    renderProfile();
+    expect(await screen.findByText('Nairobi')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Registered county' }), '2');
+    await user.click(screen.getByRole('button', { name: 'Update county' }));
+
+    await waitFor(() => expect(api.users.updateProfile).toHaveBeenCalledWith({ county_id: 2 }));
   });
 
   it('shows a role-specific feature guide with usage instructions', async () => {

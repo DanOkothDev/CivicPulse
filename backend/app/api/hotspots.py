@@ -4,11 +4,12 @@ from flask import Blueprint, jsonify, request
 from geoalchemy2 import Geometry
 from sqlalchemy import cast, func
 
-from ..auth_utils import roles_required
+from ..auth_utils import current_user, roles_required
 from ..errors import ApiError
 from ..extensions import db
 from ..hotspot_service import recompute_hotspots
-from ..models import Area, Category, Hotspot
+from ..constants import DEPARTMENT_CATEGORY_MAP
+from ..models import Area, Category, County, Hotspot
 
 bp = Blueprint('hotspots', __name__)
 MAX_EPS_M = 20000
@@ -21,6 +22,23 @@ def list_hotspots():
     lat = func.ST_Y(cast(Hotspot.center, Geometry)).label('lat')
     query = (db.session.query(Hotspot, lon, lat, Category.name)
              .outerjoin(Category, Category.id == Hotspot.top_category_id))
+    user = current_user()
+    if user.role == 'admin' and user.county_id is not None:
+        query = query.join(County, County.id == user.county_id).filter(
+            func.ST_Covers(cast(County.boundary, Geometry), cast(Hotspot.center, Geometry))
+        )
+    elif user.role == 'authority':
+        if user.county_id is None or user.department_id is None or user.department is None:
+            query = query.filter(Hotspot.id == -1)
+        else:
+            category_names = [
+                category for category, department in DEPARTMENT_CATEGORY_MAP.items()
+                if department == user.department.name
+            ]
+            query = query.join(County, County.id == user.county_id).filter(
+                func.ST_Covers(cast(County.boundary, Geometry), cast(Hotspot.center, Geometry)),
+                Category.name.in_(category_names),
+            )
     raw_area_id = request.args.get('area_id')
     if raw_area_id not in (None, ''):
         try:
