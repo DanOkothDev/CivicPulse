@@ -25,6 +25,14 @@ Flask API for CivicPulse. The full contract is in `openapi.yaml`: build to match
 All paths start with `/api/v1`. Send the token on protected routes: `Authorization: Bearer <token>`.
 Errors always look like `{"error": {"code": "...", "message": "...", "details": {}}}`.
 
+### CivicAI setup
+
+CivicAI calls the provider from the backend. Set `GROQ_API_KEY` to use Groq without OpenAI credits; `GROQ_MODEL` defaults to `openai/gpt-oss-20b`. If Groq returns 403, run `flask civicai-models` from the backend directory. The command marks the small set currently verified for CivicAI's Responses API and function tools; discovery does not automatically select or permit other model IDs. Choose a marked model allowed for your Groq project, set `GROQ_MODEL`, and restart Flask. OpenAI remains supported with `CIVICAI_API_KEY` and optional `CIVICAI_MODEL` (default `gpt-4.1-mini`); when both keys are configured, CivicAI tries OpenAI first and falls back to Groq on provider errors. Configure at least one key. Never place provider keys in frontend configuration. Requests do not ask either provider to store conversation state; recent chat history is sent by CivicPulse from browser session storage. CivicAI can invoke only the fixed tools in `app/api/civicai.py`, and each request uses the authenticated user's database role and existing permission scopes. Apply the additive CivicAI retry migration with `flask db upgrade` before using report submission from chat.
+
+| Method | Path | Who | What it does |
+|---|---|---|---|
+| POST | `/civicai/chat` | Logged in | Respond to recent `messages` using CivicAI's role-scoped tools. |
+
 ### Working
 
 | Method | Path | Who | What it does |
@@ -63,6 +71,8 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 | POST | `/analytics/hotspots/recompute` | Admin | Re-run the clustering now. Optional `{"eps_m": 250, "min_samples": 3}` |
 | GET | `/analytics/categories`, `/analytics/statuses` | Authority, admin | The same counts as lists (optional `?area_id=`) |
 | GET | `/analytics/trends` | Authority, admin | Reports submitted per day (`?days=1..365`, default 30) |
+| GET | `/analytics/quarterly-digests` | Admin | In-app quarterly analytics briefings delivered to the signed-in admin |
+| POST | `/analytics/quarterly-digests/send` | National admin | Send the last completed quarter's aggregate briefing to other admins; recipients receive data scoped to their county, once per quarter |
 | GET | `/users` | Verifier, authority, admin | List users. Admins can filter any `role`; others only get authority users, without emails |
 | PATCH | `/users/{id}/role` | Admin | Change a user's role |
 | POST | `/reports/{id}/follow` | Logged in | Follow a report (safe to repeat) |
@@ -95,6 +105,8 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 ### Analytics
 
 Staff only (authority or admin): residents get 403 and anonymous requests get 401. Numbers count **cases**: a report merged into another is not counted twice. `trends` is the exception and counts every submitted report per day (UTC days). `avg_days_to_resolve` is the average time from submission to the `resolved` status event, and is `null` until something is resolved.
+
+Quarterly briefings are in-app, database-backed aggregate snapshots. They include county rank by resolution rate (with case denominator), national leaders and median, quarter-over-quarter report/resolution/time changes, and issue-category movement. Status values reflect the current status when the briefing is generated. A national admin can send the last completed calendar quarter once; county admins receive only their own county's metrics, while other national admins can receive the full aggregate. The report contains no resident identities or individual locations. Apply the additive `c72b930f7a2d` migration with `flask --app wsgi db upgrade` before enabling this feature. No email or automatic scheduler is configured; a national admin triggers each quarterly distribution from Admin Dashboard → Advanced Analytics.
 
 ### Notifications
 

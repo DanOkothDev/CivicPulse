@@ -38,6 +38,22 @@ def test_create_report(client, app, auth):
     assert photo.status_code == 200 and photo.data.startswith(b'\xff\xd8\xff')
 
 
+def test_civicai_report_retry_is_idempotent(client, auth):
+    key = str(uuid.uuid4())
+    headers = {**auth, 'Idempotency-Key': key}
+    first = post_report(client, headers, lat='-1.2921', lon='36.8219')
+    retry = post_report(client, headers, lat='-1.2921', lon='36.8219')
+    assert first.status_code == 201
+    assert retry.status_code == 200
+    assert retry.json['id'] == first.json['id']
+
+
+def test_civicai_report_retry_key_must_be_uuid(client, auth):
+    response = post_report(client, {**auth, 'Idempotency-Key': 'not-a-uuid'}, lat='-1.2921', lon='36.8219')
+    assert response.status_code == 422
+    assert response.json['error']['code'] == 'validation_error'
+
+
 def test_create_requires_login(client):
     assert post_report(client, {}).status_code == 401
 

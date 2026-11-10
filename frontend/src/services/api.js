@@ -62,6 +62,14 @@ function queryString(params) {
 }
 
 export const api = {
+  civicai: {
+    chat(messages) {
+      return request('/civicai/chat', {
+        method: 'POST',
+        body: JSON.stringify({ messages }),
+      });
+    },
+  },
   auth: {
     async login(email, password) {
       const response = await request('/auth/login', {
@@ -160,10 +168,11 @@ export const api = {
       return request(`/reports/${id}`);
     },
 
-    create(formData) {
+    create(formData, options = {}) {
       return request('/reports', {
         method: 'POST',
         body: formData,
+        headers: options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : undefined,
       });
     },
 
@@ -267,6 +276,22 @@ export const api = {
   },
 
   analytics: {
+    getQuarterlyDigests() {
+      return request('/analytics/quarterly-digests');
+    },
+
+    sendQuarterlyDigests() {
+      return request('/analytics/quarterly-digests/send', { method: 'POST' });
+    },
+
+    getLeaderboard(period = 'all_time') {
+      return request(`/leaderboard${queryString({ period })}`);
+    },
+
+    getPublic() {
+      return request('/analytics/public');
+    },
+
     getSummary(areaId) {
       return request(`/analytics/summary${queryString({ area_id: areaId })}`);
     },

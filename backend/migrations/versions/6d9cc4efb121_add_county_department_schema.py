@@ -18,7 +18,6 @@ depends_on = None
 
 
 def upgrade():
-    op.execute('CREATE EXTENSION IF NOT EXISTS postgis')
 
     op.create_table(
         'counties',

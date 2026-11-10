@@ -168,6 +168,8 @@ class Report(db.Model):
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id', ondelete='SET NULL'))
     photo_path = db.Column(db.String(255), nullable=False)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    # Optional key used by CivicAI retries; standard report submissions leave this NULL.
+    civicai_request_id = db.Column(db.String(36), nullable=True)
     assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'))
     due_date = db.Column(db.Date)
     # Duplicate handling: a duplicate points at its parent; the parent counts everyone.
@@ -200,6 +202,7 @@ class Report(db.Model):
         db.Index('ix_reports_duplicate_of', 'duplicate_of'),
         db.Index('ix_reports_county_status', 'county_id', 'status', 'created_at'),
         db.Index('ix_reports_department', 'department_id'),
+        db.UniqueConstraint('created_by', 'civicai_request_id', name='uq_report_civicai_request'),
     )
 
 
@@ -286,6 +289,33 @@ class Hotspot(db.Model):
     report_count = db.Column(db.Integer, nullable=False)
     top_category_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
     computed_at = db.Column(db.DateTime(timezone=True), default=now, nullable=False)
+
+
+class QuarterlyAnalyticsBatch(db.Model):
+    __tablename__ = 'quarterly_analytics_batches'
+    id = db.Column(db.Integer, primary_key=True)
+    period_start = db.Column(db.Date, nullable=False, unique=True)
+    period_end = db.Column(db.Date, nullable=False)
+    sent_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=now, nullable=False)
+    sender = db.relationship('User')
+    deliveries = db.relationship('QuarterlyAnalyticsDigest', back_populates='batch', cascade='all, delete-orphan')
+
+
+class QuarterlyAnalyticsDigest(db.Model):
+    __tablename__ = 'quarterly_analytics_digests'
+    id = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(db.Integer, db.ForeignKey('quarterly_analytics_batches.id', ondelete='CASCADE'), nullable=False)
+    recipient_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    recipient_county_id = db.Column(db.Integer, db.ForeignKey('counties.id', ondelete='SET NULL'))
+    snapshot = db.Column(db.JSON, nullable=False)
+    batch = db.relationship('QuarterlyAnalyticsBatch', back_populates='deliveries')
+    recipient = db.relationship('User')
+    recipient_county = db.relationship('County')
+    __table_args__ = (
+        db.UniqueConstraint('batch_id', 'recipient_id', name='uq_quarterly_analytics_digest_recipient'),
+        db.Index('ix_quarterly_analytics_recipient', 'recipient_id'),
+    )
 
 
 class DuplicateSuggestion(db.Model):

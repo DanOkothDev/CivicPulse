@@ -1,4 +1,5 @@
 import math
+import uuid
 
 from flask import Blueprint, current_app, jsonify, request, url_for
 from geoalchemy2 import Geography, Geometry
@@ -155,6 +156,17 @@ def create_report():
         raise ApiError('validation_error', 'Please fix the highlighted fields', 422, errors)
 
     user = current_user()
+    idempotency_key = request.headers.get('Idempotency-Key')
+    if idempotency_key:
+        try:
+            idempotency_key = str(uuid.UUID(idempotency_key))
+        except (ValueError, AttributeError):
+            raise ApiError('validation_error', 'Idempotency-Key must be a UUID.', 422)
+        existing = Report.query.filter_by(
+            created_by=user.id, civicai_request_id=idempotency_key
+        ).first()
+        if existing:
+            return jsonify(_one(existing.id, user.id)), 200
     point = WKTElement(f'POINT({lon} {lat})', srid=4326)  # longitude first
     # If areas have boundaries drawn, assign the report to the most specific area that contains it.
     # Ordering by area size keeps multiple overlapping boundaries deterministic while still honoring
@@ -187,14 +199,23 @@ def create_report():
                         address=address, landmark=landmark, location=point,
                         area_id=area.id if area else None, county_id=county.id if county else None,
                         department_id=department.id if department else None,
-                        photo_path=photo_path, created_by=user.id)
+                        photo_path=photo_path, created_by=user.id,
+                        civicai_request_id=idempotency_key)
         db.session.add(report)
         db.session.flush()
         db.session.add(StatusEvent(report_id=report.id, status='reported', changed_by=user.id))
         db.session.commit()
+        if idempotency_key:
+            current_app.logger.info('CivicAI report submitted user_id=%s report_id=%s', user.id, report.id)
     except Exception:
         db.session.rollback()
         delete_photo(photo_path)  # don't leave an orphan photo behind
+        if idempotency_key:
+            existing = Report.query.filter_by(
+                created_by=user.id, civicai_request_id=idempotency_key
+            ).first()
+            if existing:
+                return jsonify(_one(existing.id, user.id)), 200
         raise
     try:  # AI checks run in the background. A queue problem must never stop a resident's report.
         enqueue(process_new_report, report.id)

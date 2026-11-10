@@ -11,7 +11,15 @@ from app import create_app
 from app.auth_utils import roles_required
 from app.config import Config
 from app.extensions import db
-from app.models import Area, Category, County, Department, Report, User
+from app.models import (
+    Area,
+    Category,
+    County,
+    Department,
+    QuarterlyAnalyticsBatch,
+    Report,
+    User,
+)
 
 DOMAIN = '@test.civicpulse'
 
@@ -72,6 +80,8 @@ def app(tmp_path):
             Report.query.filter(
                 Report.created_by.in_(ids)
             ).delete(synchronize_session=False)
+
+            QuarterlyAnalyticsBatch.query.delete(synchronize_session=False)
 
             User.query.filter(
                 User.id.in_(ids)

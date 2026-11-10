@@ -22,6 +22,12 @@ class Config:
     # Teammate 3's functions as 'module:function', e.g. ml.classifier:classify. Empty means skipped.
     AI_CLASSIFIER = os.getenv('AI_CLASSIFIER', '')
     AI_DUPLICATES = os.getenv('AI_DUPLICATES', '')
+    CIVICAI_API_KEY = os.getenv('CIVICAI_API_KEY', '')
+    CIVICAI_MODEL = os.getenv('CIVICAI_MODEL', 'gpt-4.1-mini')
+    GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+    # This default is verified against Groq Responses API and function calling.
+    # CivicAI validates overrides against its provider capability allowlist.
+    GROQ_MODEL = os.getenv('GROQ_MODEL', 'openai/gpt-oss-20b')
     ML_DIR = os.getenv('ML_DIR')
     # Which existing reports are handed to find_duplicates as candidates.
     DUPLICATE_CANDIDATE_RADIUS_M = int(os.getenv('DUPLICATE_CANDIDATE_RADIUS_M', '200'))

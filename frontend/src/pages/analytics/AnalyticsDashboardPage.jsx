@@ -4,11 +4,9 @@ import {
   Clock,
   AlertTriangle,
   Layers,
-  RefreshCw,
   ChevronDown,
 } from "lucide-react";
 import { api } from "../../services/api";
-import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { BarChart, DonutChart } from "../../components/ui/Charts";
 import MapComponent from "../../components/ui/MapComponent";
@@ -50,7 +48,6 @@ function StatTile({ title, value, note, icon: Icon }) {
 }
 
 export default function AnalyticsDashboardPage() {
-  const { role } = useAuth();
   const toast = useToast();
 
   const [summary, setSummary] = useState(null);
@@ -58,7 +55,6 @@ export default function AnalyticsDashboardPage() {
   const [areas, setAreas] = useState([]);
   const [selectedArea, setSelectedArea] = useState("");
   const [loading, setLoading] = useState(true);
-  const [recomputing, setRecomputing] = useState(false);
 
   // Load the theme font once
   useEffect(() => {
@@ -92,25 +88,6 @@ export default function AnalyticsDashboardPage() {
   useEffect(() => {
     loadAnalytics();
   }, [selectedArea]);
-
-  const handleRecompute = async () => {
-    setRecomputing(true);
-    try {
-      const res = await api.analytics.recomputeHotspots({
-        eps_m: 250,
-        min_samples: 3,
-      });
-      toast.success(
-        `Hotspots refreshed. Found ${plural(res.clusters_created, "hotspot", "hotspots")}.`,
-      );
-      const spots = await api.analytics.getHotspots();
-      setHotspots(spots);
-    } catch (err) {
-      toast.error(err.message || "Could not refresh hotspots");
-    } finally {
-      setRecomputing(false);
-    }
-  };
 
   // Chart data, in the theme colors
   const statusChartData = summary
@@ -190,24 +167,6 @@ export default function AnalyticsDashboardPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {role === "admin" && (
-            <button
-              type="button"
-              onClick={handleRecompute}
-              disabled={recomputing}
-              className="inline-flex items-center gap-2 rounded-full bg-[#7FD0E0]/70 hover:bg-[#7FD0E0] py-1 pl-1 pr-5 text-xs font-semibold text-[#5F5F5F] transition-colors disabled:opacity-60"
-            >
-              <span className="grid h-8 w-8 place-items-center rounded-full border-2 border-[#38C6DC] bg-[#E6F5F8] text-[#1B8FC0]">
-                {recomputing ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Flame className="h-4 w-4" />
-                )}
-              </span>
-              <span>{recomputing ? "Refreshing..." : "Refresh hotspots"}</span>
-            </button>
-          )}
-
           <div className="relative">
             <select
               aria-label="Filter by ward"

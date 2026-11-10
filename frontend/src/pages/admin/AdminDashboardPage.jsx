@@ -14,6 +14,7 @@ import {
   Sliders,
   UserPlus,
   Building2,
+  BarChart3,
 } from "lucide-react";
 import { api } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
@@ -21,6 +22,7 @@ import { useToast } from "../../context/ToastContext";
 import DataTable from "../../components/ui/DataTable";
 import Modal from "../../components/ui/Modal";
 import DepartmentManagementPanel from "./DepartmentManagementPanel";
+import AdminAnalyticsDashboard from "./AdminAnalyticsDashboard";
 
 /*
   Theme (taken from the landing page design)
@@ -617,16 +619,17 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-[#5F5F5F] tracking-tight">
-            Admin dashboard
+            {activeTab === "analytics" ? "Analytics & performance" : "Admin dashboard"}
           </h1>
           <p className="text-xs text-[#5F5F5F] mt-2 max-w-xl leading-relaxed">
-            Review reports, choose who can do what, edit categories and wards,
-            and refresh the hotspot map.
+            {activeTab === "analytics"
+              ? "Compare county outcomes and monitor CivicPulse operations with live platform data."
+              : "Review reports, choose who can do what, edit categories and wards, and refresh the hotspot map."}
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <PillButton
+          {activeTab !== "analytics" && <PillButton
             icon={recomputing ? RefreshCw : Flame}
             onClick={handleRecomputeHotspots}
             disabled={recomputing}
@@ -634,7 +637,7 @@ export default function AdminDashboardPage() {
             data-tour="admin-hotspots"
           >
             {recomputing ? "Refreshing..." : "Refresh hotspots"}
-          </PillButton>
+          </PillButton>}
 
           <div className="bg-white rounded-xl px-3.5 py-2 text-xs font-bold text-[#0B5A9C] flex items-center gap-2 shadow-[0_6px_14px_-6px_rgba(11,90,156,0.45)]">
             <Shield className="w-4 h-4" />
@@ -644,7 +647,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {activeTab !== "analytics" && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatTile
           title="Reports"
           value={reports.length}
@@ -669,7 +672,7 @@ export default function AdminDashboardPage() {
           note="Areas covered"
           icon={MapPin}
         />
-      </div>
+      </div>}
 
       {/* Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -687,6 +690,7 @@ export default function AdminDashboardPage() {
           },
           { id: "areas", label: `Wards (${areas.length})`, icon: MapPin },
           { id: "departments", label: "Departments", icon: Building2 },
+          { id: "analytics", label: "Analytics & performance", icon: BarChart3 },
           { id: "system", label: "Settings", icon: Sliders },
         ].map((tab) => (
           <button
@@ -705,6 +709,8 @@ export default function AdminDashboardPage() {
           </button>
         ))}
       </div>
+
+      {activeTab === "analytics" && <AdminAnalyticsDashboard />}
 
       {/* Reports */}
       {activeTab === "reports" && (
