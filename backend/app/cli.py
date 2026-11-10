@@ -12,6 +12,7 @@ from .county_boundaries import (
     download_source,
     import_county_boundaries,
 )
+from .civicai import GROQ_RESPONSES_TOOL_MODELS, list_groq_models
 from .constants import DEFAULT_CATEGORIES, ROLES
 from .extensions import db
 from .jobqueue import enqueue, queue_info
@@ -20,6 +21,20 @@ from .models import Area, Category, ClassificationFeedback, County, Department, 
 
 
 def register_cli(app):
+    @app.cli.command('civicai-models')
+    def civicai_models():
+        """List active Groq model IDs using GROQ_API_KEY from the backend environment."""
+        try:
+            models = list_groq_models()
+        except ValueError as error:
+            raise click.ClickException(str(error)) from error
+        if not models:
+            click.echo('Groq returned no active models for this API key.')
+            return
+        for model in models:
+            capability = ' (verified for CivicAI Responses + tools)' if model in GROQ_RESPONSES_TOOL_MODELS else ''
+            click.echo(f'{model}{capability}')
+
     @app.cli.command('init-db')
     def init_db():
         """Quick dev setup: enable PostGIS and create all tables."""

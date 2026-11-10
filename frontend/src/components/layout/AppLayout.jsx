@@ -7,6 +7,7 @@ import ContextualTip from '../onboarding/ContextualTip';
 import Sidebar from './Sidebar';
 import TopNavigation from './TopNavigation';
 import MobileNavigation from './MobileNavigation';
+import CivicAIAssistant from '../civicai/CivicAIAssistant';
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -17,9 +18,12 @@ export default function AppLayout() {
 
   useEffect(() => {
     const handleOpenTour = () => setManualTourOpen(true);
+    const handleCivicAITour = () => setManualTourOpen(true);
     window.addEventListener('civicpulse:open-onboarding', handleOpenTour);
+    window.addEventListener('civicpulse:start-guided-tour', handleCivicAITour);
     return () => {
       window.removeEventListener('civicpulse:open-onboarding', handleOpenTour);
+      window.removeEventListener('civicpulse:start-guided-tour', handleCivicAITour);
     };
   }, []);
 
@@ -54,6 +58,7 @@ export default function AppLayout() {
 
         <MobileNavigation />
         <OnboardingTour open={manualTourOpen || shouldAutoOpenTour} onClose={closeTour} />
+        <CivicAIAssistant />
       </div>
     </NotificationProvider>
   );

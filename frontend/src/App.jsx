@@ -22,6 +22,7 @@ import CommunityMapPage from './pages/resident/CommunityMapPage';
 import ReportDetailsPage from './pages/resident/ReportDetailsPage';
 import ResidentProfilePage from './pages/resident/ResidentProfilePage';
 import NotificationsPage from './pages/resident/NotificationsPage';
+import ResidentAnalyticsPage from './pages/resident/ResidentAnalyticsPage';
 import VerifierDashboardPage from './pages/verifier/VerifierDashboardPage';
 import AuthorityDashboardPage from './pages/authority/AuthorityDashboardPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
@@ -92,6 +93,7 @@ export default function App() {
               <Route path="/community-map" element={<CommunityMapPage />} />
               <Route path="/profile" element={<ResidentProfilePage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/community-analytics" element={<RoleRoute roles={['resident']}><ResidentAnalyticsPage /></RoleRoute>} />
 
               {/* Verifier Screens (Guarded to verifier & admin) */}
               <Route
@@ -127,7 +129,7 @@ export default function App() {
               <Route
                 path="/analytics"
                 element={
-                  <RoleRoute roles={['authority', 'admin']}>
+                  <RoleRoute roles={['authority']}>
                     <AnalyticsDashboardPage />
                   </RoleRoute>
                 }

@@ -6,6 +6,7 @@ export default function ImageUploadComponent({
   onImageChange,
   onImageRemove,
   error = null,
+  allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'],
 }) {
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -26,8 +27,8 @@ export default function ImageUploadComponent({
   const handleFileProcess = (file) => {
     if (!file) return;
 
-    if (!['image/jpeg', 'image/png', 'image/webp', 'image/jpg'].includes(file.type)) {
-      alert('Only JPEG, PNG, or WebP images are allowed.');
+    if (!allowedTypes.includes(file.type)) {
+      alert(`Allowed image formats: ${allowedTypes.map((type) => type.replace('image/', '').toUpperCase()).join(', ')}.`);
       return;
     }
 
@@ -118,7 +119,7 @@ export default function ImageUploadComponent({
         type="file"
         ref={fileInputRef}
         onChange={(e) => handleFileProcess(e.target.files[0])}
-        accept="image/jpeg,image/png,image/webp"
+        accept={allowedTypes.join(',')}
         className="hidden"
       />
 

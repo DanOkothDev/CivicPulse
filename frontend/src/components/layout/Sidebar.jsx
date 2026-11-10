@@ -11,6 +11,7 @@ import {
   User,
   Bell,
   Home,
+  Trophy,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useNotifications } from "../../context/NotificationContext";
@@ -178,6 +179,17 @@ export default function Sidebar({ isOpen, onClose }) {
                 </NavLink>
 
                 <NavLink
+                  to="/community-analytics"
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${isActive ? `${GRADIENT} text-white shadow-md` : "text-[#5F5F5F] hover:bg-white/80 hover:text-[#0B5A9C]"}`
+                  }
+                >
+                  <Trophy className="w-4 h-4 shrink-0" />
+                  <span>Community Impact</span>
+                </NavLink>
+
+                <NavLink
                   to="/report/new"
                   onClick={onClose}
                   className={({ isActive }) =>
@@ -339,7 +351,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 </NavLink>
 
                 <NavLink
-                  to="/analytics"
+                  to="/admin?tab=analytics"
                   onClick={onClose}
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
@@ -350,7 +362,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   }
                 >
                   <BarChart3 className="w-4 h-4 shrink-0" />
-                  <span>Hotspots & Intelligence</span>
+                  <span>Advanced Analytics</span>
                 </NavLink>
 
                 <NavLink

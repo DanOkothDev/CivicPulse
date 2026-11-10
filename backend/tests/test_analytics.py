@@ -126,3 +126,52 @@ def test_trends_validation(client, who):
     for days in ('0', '366', 'abc'):
         r = client.get(f'/api/v1/analytics/trends?days={days}', headers=staff)
         assert r.status_code == 400 and r.json['error']['code'] == 'invalid_days'
+
+
+def test_leaderboard_counts_only_verified_unique_contributions(client, app, who):
+    resident, uid = who('resident')
+    staff, _ = who('verifier')
+    first, duplicate, rejected, unresolved = (new_report(client, resident) for _ in range(4))
+    with app.app_context():
+        db.session.get(Report, first).status = 'resolved'
+        db.session.get(Report, duplicate).status = 'verified'
+        db.session.get(Report, duplicate).duplicate_of = first
+        db.session.get(Report, rejected).status = 'rejected'
+        db.session.commit()
+    assert client.get('/api/v1/leaderboard').status_code == 401
+    assert client.get('/api/v1/leaderboard', headers=staff).status_code == 403
+    result = client.get('/api/v1/leaderboard?period=all_time', headers=resident).json
+    assert result['my_stats'] == {'verified_contributions': 1, 'points': 10, 'rank': 1}
+    assert result['entries'][0]['verified_contributions'] == 1
+    assert result['entries'][0]['points'] == 10
+    assert 'email' not in result['entries'][0]
+    assert result['scoring']
+    assert client.get('/api/v1/leaderboard?period=bad', headers=resident).status_code == 422
+
+
+def test_public_analytics_are_aggregate_and_role_limited(client, who):
+    resident, _ = who('resident')
+    admin, _ = who('admin')
+    assert client.get('/api/v1/analytics/public').status_code == 401
+    assert client.get('/api/v1/analytics/public', headers=admin).status_code == 403
+    result = client.get('/api/v1/analytics/public', headers=resident).json
+    assert result['total_reports'] == 0
+    assert result['resolved_reports'] == 0
+    assert result['unresolved_reports'] == 0
+    assert 'email' not in str(result).lower()
+    assert 'location' not in result
+
+
+def test_admin_summary_includes_workload_metrics(client, who):
+    admin, _ = who('admin')
+    resident, _ = who('resident')
+    new_report(client, resident)
+    summary = client.get('/api/v1/analytics/summary', headers=admin).json
+    assert summary['awaiting_verification'] == 1
+    assert summary['awaiting_assignment'] == 0
+    assert summary['overdue_reports'] == 0
+    assert isinstance(summary['by_department'], list)
+    reporting_county = next(row for row in summary['by_county'] if row['total_reports'] == 1)
+    assert reporting_county['open_reports'] == 1
+    assert reporting_county['overdue_reports'] == 0
+    assert reporting_county['avg_days_to_resolve'] is None
