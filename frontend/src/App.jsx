@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import AppLayout from './components/layout/AppLayout';
@@ -26,12 +26,16 @@ import ResidentAnalyticsPage from './pages/resident/ResidentAnalyticsPage';
 import VerifierDashboardPage from './pages/verifier/VerifierDashboardPage';
 import AuthorityDashboardPage from './pages/authority/AuthorityDashboardPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import NationalAdminDashboard from './pages/admin/NationalAdminDashboard';
+import NationalAdminProfile from './pages/admin/NationalAdminProfile';
+import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import AnalyticsDashboardPage from './pages/analytics/AnalyticsDashboardPage';
 import NotFoundPage from './pages/common/NotFoundPage';
 import ForbiddenPage from './pages/common/ForbiddenPage';
 
 function RequireAuthentication({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -41,15 +45,41 @@ function RequireAuthentication({ children }) {
     );
   }
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.must_change_password && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
   return children;
 }
 
 function RoleRoute({ roles = [], children }) {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
+  if (role === 'admin' && user?.county_id == null && roles.some((item) => ['verifier', 'authority'].includes(item))) {
+    return <Navigate to="/admin" replace />;
+  }
   if (roles.length > 0 && !roles.includes(role)) {
     return <ForbiddenPage requiredRole={roles.join(' or ')} />;
   }
   return children;
+}
+
+function CountyReportAccess({ children }) {
+  const { role, user } = useAuth();
+  if (role === 'admin' && user?.county_id == null) return <Navigate to="/admin" replace />;
+  return children;
+}
+
+function AdminHome() {
+  const { user } = useAuth();
+  return user?.county_id == null
+    ? <NationalAdminDashboard />
+    : <AdminDashboardPage />;
+}
+
+function ProfileHome() {
+  const { user } = useAuth();
+  return user?.role === 'admin' && user.county_id == null
+    ? <NationalAdminProfile />
+    : <ResidentProfilePage />;
 }
 
 export default function App() {
@@ -66,7 +96,7 @@ export default function App() {
                 path="/map"
                 element={
                   <RequireAuthentication>
-                    <CommunityMapPage />
+                    <CountyReportAccess><CommunityMapPage /></CountyReportAccess>
                   </RequireAuthentication>
                 }
               />
@@ -76,6 +106,7 @@ export default function App() {
             {/* 2. Public Authentication Routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/change-password" element={<RequireAuthentication><ChangePasswordPage /></RequireAuthentication>} />
 
             {/* 3. Operational Application Portal Layout */}
             <Route
@@ -86,12 +117,12 @@ export default function App() {
               }
             >
               {/* Resident Screens */}
-              <Route path="/dashboard" element={<ResidentDashboardPage />} />
-              <Route path="/report/new" element={<ReportIssuePage />} />
-              <Route path="/reports/:id" element={<ReportDetailsPage />} />
-              <Route path="/my-reports" element={<MyReportsPage />} />
-              <Route path="/community-map" element={<CommunityMapPage />} />
-              <Route path="/profile" element={<ResidentProfilePage />} />
+              <Route path="/dashboard" element={<CountyReportAccess><ResidentDashboardPage /></CountyReportAccess>} />
+              <Route path="/report/new" element={<CountyReportAccess><ReportIssuePage /></CountyReportAccess>} />
+              <Route path="/reports/:id" element={<CountyReportAccess><ReportDetailsPage /></CountyReportAccess>} />
+              <Route path="/my-reports" element={<CountyReportAccess><MyReportsPage /></CountyReportAccess>} />
+              <Route path="/community-map" element={<CountyReportAccess><CommunityMapPage /></CountyReportAccess>} />
+              <Route path="/profile" element={<ProfileHome />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/community-analytics" element={<RoleRoute roles={['resident']}><ResidentAnalyticsPage /></RoleRoute>} />
 
@@ -120,7 +151,7 @@ export default function App() {
                 path="/admin"
                 element={
                   <RoleRoute roles={['admin']}>
-                    <AdminDashboardPage />
+                    <AdminHome />
                   </RoleRoute>
                 }
               />

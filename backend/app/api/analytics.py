@@ -4,6 +4,7 @@ Counts describe *cases*: a report merged into another one (duplicate_of is set) 
 problem, so it is not counted twice. The trends endpoint is the exception: it counts every
 report residents submitted per day, duplicates included."""
 from datetime import date, datetime, timedelta, timezone
+from statistics import median
 
 from flask import Blueprint, jsonify, request
 from geoalchemy2 import Geometry
@@ -304,3 +305,66 @@ def report_trends():
         day_string = (start_day + timedelta(days=offset)).isoformat()
         daily.append({'date': day_string, 'count': counts.get(day_string, 0)})
     return jsonify({'days': days, 'daily_reports': daily})
+
+
+@bp.get('/analytics/workflow-timing')
+@roles_required('admin')
+def workflow_timing():
+    """Aggregate time between report workflow stages without returning report records."""
+    user = current_user()
+    query = (db.session.query(Report.county_id, County.name, StatusEvent.report_id,
+                              StatusEvent.status, StatusEvent.created_at)
+             .join(Report, Report.id == StatusEvent.report_id)
+             .outerjoin(County, County.id == Report.county_id)
+             .filter(Report.duplicate_of.is_(None), Report.county_id.isnot(None))
+             .order_by(Report.county_id, StatusEvent.report_id, StatusEvent.created_at, StatusEvent.id))
+    if user.county_id is not None:
+        query = query.filter(Report.county_id == user.county_id)
+
+    transitions = [
+        ('reported', 'verified', 'Verification'),
+        ('verified', 'assigned', 'Assignment'),
+        ('assigned', 'in_progress', 'Mobilization'),
+        ('in_progress', 'resolved', 'Resolution'),
+    ]
+    transition_pairs = {(source, target) for source, target, _ in transitions}
+    durations = {}
+    events_by_report = {}
+    county_names = {}
+    for county_id, county_name, report_id, status, created_at in query.all():
+        county_names[county_id] = county_name or 'Unknown county'
+        events_by_report.setdefault((county_id, report_id), []).append((status, created_at))
+
+    for (county_id, _), events in events_by_report.items():
+        for (from_status, start), (to_status, end) in zip(events, events[1:]):
+            if (from_status, to_status) not in transition_pairs:
+                continue
+            seconds = (end - start).total_seconds()
+            if seconds < 0:
+                continue
+            durations.setdefault((county_id, from_status, to_status), []).append(seconds / 86400)
+
+    def stage_rows(county_id=None):
+        result = []
+        for from_status, to_status, label in transitions:
+            values = [value for (scope_id, source, target), samples in durations.items()
+                      if source == from_status and target == to_status
+                      and (county_id is None or scope_id == county_id)
+                      for value in samples]
+            result.append({
+                'from_status': from_status,
+                'to_status': to_status,
+                'label': label,
+                'sample_count': len(values),
+                'average_days': round(sum(values) / len(values), 2) if values else None,
+                'median_days': round(median(values), 2) if values else None,
+            })
+        return result
+
+    county_ids = sorted(county_names, key=lambda county_id: county_names[county_id].lower())
+    return jsonify({
+        'stages': stage_rows(),
+        'counties': [{'county_id': county_id, 'county_name': county_names[county_id],
+                      'stages': stage_rows(county_id)} for county_id in county_ids],
+        'scope': 'county' if user.county_id is not None else 'national',
+    })

@@ -240,6 +240,8 @@ def create_report():
 @login_required
 def list_reports():
     user = current_user()
+    if user.role == 'admin' and user.county_id is None:
+        raise ApiError('forbidden', 'National admins cannot access individual reports', 403)
     args = request.args
     q = Report.query
 

@@ -80,6 +80,23 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/AuthenticatedUser'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Set a new password after temporary staff sign-in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_password]
+              properties:
+                new_password: {type: string, minLength: 10}
+      responses:
+        '200': {description: Password updated}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/Invalid'}
   /counties:
     get:
       tags: [Reference]
@@ -852,6 +869,50 @@ paths:
               schema:
                 type: array
                 items: {$ref: '#/components/schemas/User'}
+  /users/staff:
+    post:
+      tags: [Admin]
+      summary: Create county staff and queue its temporary password email
+      description: National admins only. SMTP delivery runs in the RQ worker and does not delay this response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, role, county_id]
+              properties:
+                name: {type: string, maxLength: 120}
+                email: {type: string, format: email}
+                role: {type: string, enum: [admin, verifier, authority]}
+                county_id: {type: integer}
+                department_id: {type: integer, description: Required for authority accounts}
+      responses:
+        '201': {description: Account created with email pending, sent, or failed}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Invalid'}
+  /users/{id}/staff-email/retry:
+    post:
+      tags: [Admin]
+      summary: Queue a fresh temporary password email after delivery failure
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '202': {description: Email retry queued or marked failed}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Invalid'}
+  /users/{id}/staff:
+    delete:
+      tags: [Admin]
+      summary: Revoke a county staff account
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200': {description: Staff account revoked}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
   /users/{id}/role:
     patch:
       tags: [Admin]

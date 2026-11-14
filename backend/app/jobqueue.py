@@ -23,15 +23,27 @@ def enqueue(func, *args):
         job_timeout=300, result_ttl=3600, failure_ttl=7 * 24 * 3600)
 
 
+def enqueue_background(func, *args):
+    """Queue staff onboarding independently of report processing mode.
+
+    Redis/RQ is required for this latency-sensitive email path. Enqueue errors
+    intentionally propagate so the caller can persist a failed delivery state.
+    """
+    from .jobs import mark_staff_temporary_password_failed
+    return get_queue().enqueue(
+        func, *args, retry=Retry(max=2, interval=[15, 60]),
+        on_failure=mark_staff_temporary_password_failed,
+        job_timeout=60, result_ttl=300, failure_ttl=7 * 24 * 3600)
+
+
 def queue_info():
     """Shown by /health so you can see at a glance whether jobs are flowing."""
     info = {'mode': current_app.config['QUEUE_MODE']}
-    if info['mode'] == 'redis':
-        try:
-            from rq import Worker
-            queue = get_queue()
-            info.update(pending=queue.count, failed=queue.failed_job_registry.count,
-                        workers=len(Worker.all(queue=queue)))
-        except Exception:
-            info['error'] = 'Redis is not reachable'
+    try:
+        from rq import Worker
+        queue = get_queue()
+        info.update(pending=queue.count, failed=queue.failed_job_registry.count,
+                    workers=len(Worker.all(queue=queue)))
+    except Exception:
+        info['error'] = 'Redis is not reachable'
     return info

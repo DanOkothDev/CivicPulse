@@ -9,4 +9,4 @@ ARG INSTALL_ML=0
 RUN if [ "$INSTALL_ML" = "1" ]; then pip install --no-cache-dir -r requirements-ml.txt; fi
 COPY . .
 # SimpleWorker runs jobs inside one process, so the AI model is loaded once and reused for every job.
-CMD ["rq", "worker", "default", "--worker-class", "rq.SimpleWorker", "--url", "redis://redis:6379/0"]
+CMD ["sh", "-c", "exec rq worker \"${QUEUE_NAME:-default}\" --worker-class rq.SimpleWorker --with-scheduler --url \"${REDIS_URL:-redis://redis:6379/0}\""]

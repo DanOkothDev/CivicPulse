@@ -1,12 +1,19 @@
-from flask import Blueprint, jsonify, request
+import re
+import secrets
+
+from flask import Blueprint, current_app, jsonify, request
 
 from ..auth_utils import current_user, login_required, roles_required, serialize_user
 from ..constants import ROLES
 from ..errors import ApiError
 from ..extensions import db
+from ..jobqueue import enqueue_background
+from ..jobs import send_staff_temporary_password
 from ..models import County, Department, User, now
+from werkzeug.security import generate_password_hash
 
 bp = Blueprint('users', __name__)
+EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
 
 def _int(value):
@@ -46,7 +53,7 @@ def list_users():
         raise ApiError('validation_error', 'page and per_page must be numbers', 422)
     page, per_page = max(page, 1), min(max(per_page, 1), 200)
 
-    q = User.query
+    q = User.query.filter(User.is_active.is_(True))
     if me.role == 'admin' and me.county_id is not None:
         q = q.filter(User.county_id == me.county_id)
     elif me.role in {'verifier', 'authority'}:
@@ -62,6 +69,111 @@ def list_users():
         for item in items:
             item.pop('email')
     return jsonify(items)
+
+
+@bp.post('/users/staff')
+@roles_required('admin')
+def create_staff_user():
+    """National admins create county-scoped staff accounts directly."""
+    if current_user().county_id is not None:
+        raise ApiError('forbidden', 'Only national admins can create staff accounts', 403)
+    data = request.get_json(silent=True)
+    allowed = {'name', 'email', 'role', 'county_id', 'department_id'}
+    if not isinstance(data, dict) or set(data) - allowed:
+        raise ApiError('validation_error', 'Send valid staff account details', 422)
+
+    name, email = data.get('name'), data.get('email')
+    role, county_id = data.get('role'), data.get('county_id')
+    department_id = data.get('department_id')
+    errors = {}
+    if not isinstance(name, str) or not name.strip() or len(name.strip()) > 120:
+        errors['name'] = 'Enter a name of 1 to 120 characters'
+    if not isinstance(email, str) or len(email.strip()) > 255 or not EMAIL_RE.fullmatch(email.strip()):
+        errors['email'] = 'Enter a valid email address'
+    if role not in ('admin', 'verifier', 'authority'):
+        errors['role'] = 'Choose admin, verifier, or authority'
+    if not isinstance(county_id, int) or isinstance(county_id, bool) or db.session.get(County, county_id) is None:
+        errors['county_id'] = 'Choose a valid county'
+
+    department = None
+    if role == 'authority':
+        if not isinstance(department_id, int) or isinstance(department_id, bool):
+            errors['department_id'] = 'Choose a department for the authority'
+        else:
+            department = db.session.get(Department, department_id)
+            if department is None or department.county_id != county_id:
+                errors['department_id'] = 'Choose a department in the selected county'
+    elif department_id is not None:
+        errors['department_id'] = 'Only authority accounts can have a department'
+    if errors:
+        raise ApiError('validation_error', 'Please fix the highlighted fields', 422, errors)
+
+    email = email.strip().lower()
+    if User.query.filter_by(email=email).first():
+        raise ApiError('email_taken', 'An account with this email already exists', 409)
+    temporary_password = secrets.token_urlsafe(18)
+    user = User(name=name.strip(), email=email, password_hash=generate_password_hash(temporary_password),
+                role=role, county_id=county_id,
+                department_id=department.id if department else None,
+                must_change_password=True, temporary_password_email_status='pending')
+    db.session.add(user)
+    db.session.commit()
+    user_id = user.id
+    try:
+        enqueue_background(send_staff_temporary_password, user_id, temporary_password)
+    except Exception as error:
+        db.session.rollback()
+        user = db.session.get(User, user_id)
+        user.temporary_password_email_status = 'failed'
+        db.session.commit()
+        current_app.logger.warning('Could not queue staff onboarding email for user_id=%s (%s)', user_id, type(error).__name__)
+    return jsonify(serialize_user(user)), 201
+
+
+@bp.post('/users/<int:user_id>/staff-email/retry')
+@roles_required('admin')
+def retry_staff_email(user_id):
+    if current_user().county_id is not None:
+        raise ApiError('forbidden', 'Only national admins can retry staff onboarding emails', 403)
+    user = db.session.get(User, user_id)
+    if user is None or user.role not in {'admin', 'verifier', 'authority'} or user.county_id is None:
+        raise ApiError('not_found', 'County staff account not found', 404)
+    if not user.is_active:
+        raise ApiError('validation_error', 'Revoked accounts cannot receive onboarding emails', 422)
+    if user.temporary_password_email_status != 'failed':
+        raise ApiError('validation_error', 'Only failed onboarding emails can be retried', 422)
+
+    temporary_password = secrets.token_urlsafe(18)
+    user.password_hash = generate_password_hash(temporary_password)
+    user.must_change_password = True
+    user.temporary_password_email_status = 'pending'
+    db.session.commit()
+    user_id = user.id
+    try:
+        enqueue_background(send_staff_temporary_password, user_id, temporary_password)
+    except Exception as error:
+        db.session.rollback()
+        user = db.session.get(User, user_id)
+        user.temporary_password_email_status = 'failed'
+        db.session.commit()
+        current_app.logger.warning('Could not queue staff onboarding email for user_id=%s (%s)', user_id, type(error).__name__)
+    return jsonify(serialize_user(user)), 202
+
+
+@bp.delete('/users/<int:user_id>/staff')
+@roles_required('admin')
+def revoke_staff_user(user_id):
+    admin = current_user()
+    if admin.county_id is not None:
+        raise ApiError('forbidden', 'Only national admins can revoke staff accounts', 403)
+    user = db.session.get(User, user_id)
+    if user is None:
+        raise ApiError('not_found', 'Staff account not found', 404)
+    if user.id == admin.id or user.role not in {'admin', 'verifier', 'authority'} or user.county_id is None:
+        raise ApiError('validation_error', 'Only county staff accounts can be revoked', 422)
+    user.is_active = False
+    db.session.commit()
+    return jsonify(serialize_user(user))
 
 
 @bp.get('/users/me/preferences')
@@ -150,8 +262,30 @@ def update_user_role(user_id):
     user = db.session.get(User, user_id)
     if user is None:
         raise ApiError('not_found', 'User not found', 404)
-    if current_user().county_id is not None and current_user().county_id != user.county_id:
+    admin = current_user()
+    if admin.county_id is not None and admin.county_id != user.county_id:
         raise ApiError('forbidden', 'You can only manage users in your county', 403)
+    if isinstance(data, dict) and set(data) - {'role', 'county_id'}:
+        raise ApiError('validation_error', 'Only role and county_id can be updated', 422, {
+            'allowed': ['role', 'county_id'],
+        })
+    county_id = data.get('county_id', user.county_id) if isinstance(data, dict) else user.county_id
+    if admin.county_id is not None and county_id != admin.county_id:
+        raise ApiError('forbidden', 'You can only assign users in your county', 403)
+    if county_id is not None and (
+        not isinstance(county_id, int) or isinstance(county_id, bool)
+        or db.session.get(County, county_id) is None
+    ):
+        raise ApiError('validation_error', 'Choose a valid county', 422, {
+            'county_id': 'Choose a valid county',
+        })
+    if role in {'admin', 'verifier', 'authority'} and county_id is None:
+        raise ApiError('validation_error', 'Staff accounts must be assigned to a county', 422, {
+            'county_id': 'Choose a county for this staff role',
+        })
+    if user.county_id != county_id:
+        user.department_id = None
+    user.county_id = county_id
     user.role = role
     if role != 'authority':
         user.department_id = None

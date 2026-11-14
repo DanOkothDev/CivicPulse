@@ -11,8 +11,8 @@ JPEG = b'\xff\xd8\xff\xe0' + b'0' * 100
 @pytest.fixture
 def who(client, make_user):
     """who('verifier') -> (auth headers, user id)"""
-    def _who(role):
-        email, pw = make_user(role)
+    def _who(role, county_id=None):
+        email, pw = make_user(role, county_id=county_id)
         token = client.post('/api/v1/auth/login', json={'email': email, 'password': pw}).json['token']
         headers = {'Authorization': 'Bearer ' + token}
         return headers, client.get('/api/v1/auth/me', headers=headers).json['id']
@@ -37,6 +37,10 @@ def set_db(app, rid, **fields):
             setattr(report, key, value)
         db.session.commit()
 
+def get_report_county(app, rid):
+    with app.app_context():
+        return db.session.get(Report, rid).county_id
+
 
 def test_verifier_verifies_and_history_grows(client, who, report_id):
     verifier, vid = who('verifier')
@@ -53,8 +57,8 @@ def test_residents_and_anonymous_cannot_change_status(client, who, report_id):
     assert patch(client, {}, report_id, 'verified').status_code == 401
 
 
-def test_invalid_jump_is_rejected(client, who, report_id):
-    admin, _ = who('admin')
+def test_invalid_jump_is_rejected(client, app, who, report_id):
+    admin, _ = who('admin', county_id=get_report_county(app, report_id))
     r = patch(client, admin, report_id, 'resolved')
     assert r.status_code == 409 and r.json['error']['code'] == 'invalid_transition'
     assert r.json['error']['details']['allowed'] == ['rejected', 'verified']
@@ -68,15 +72,15 @@ def test_reject_needs_a_reason_and_is_final(client, who, report_id):
     assert again.status_code == 409 and again.json['error']['code'] == 'invalid_transition'
 
 
-def test_assigned_must_use_assign_endpoint(client, who, report_id):
-    admin, _ = who('admin')
+def test_assigned_must_use_assign_endpoint(client, app, who, report_id):
+    admin, _ = who('admin', county_id=get_report_county(app, report_id))
     patch(client, admin, report_id, 'verified')
     r = patch(client, admin, report_id, 'assigned')
     assert r.status_code == 409 and r.json['error']['code'] == 'use_assign_endpoint'
 
 
-def test_bad_bodies(client, who, report_id):
-    admin, _ = who('admin')
+def test_bad_bodies(client, app, who, report_id):
+    admin, _ = who('admin', county_id=get_report_county(app, report_id))
     assert patch(client, admin, report_id, 'bogus').status_code == 422
     assert client.patch(f'/api/v1/reports/{report_id}/status', json={}, headers=admin).status_code == 422
     assert client.patch(f'/api/v1/reports/{report_id}/status', data='x', headers=admin).status_code == 422
@@ -100,14 +104,14 @@ def test_authority_works_only_on_own_assigned_reports(client, app, who, report_i
 
 
 def test_admin_can_work_on_any_assigned_report(client, app, who, report_id):
-    admin, _ = who('admin')
+    admin, _ = who('admin', county_id=get_report_county(app, report_id))
     _, aid = who('authority')
     set_db(app, report_id, status='assigned', assigned_to=aid)
     assert patch(client, admin, report_id, 'in_progress').status_code == 200
 
 
 def test_duplicates_cannot_be_updated_directly(client, app, who, report_id):
-    admin, _ = who('admin')
+    admin, _ = who('admin', county_id=get_report_county(app, report_id))
     set_db(app, report_id, duplicate_of=report_id)  # pretend it was merged
     r = patch(client, admin, report_id, 'verified')
     assert r.status_code == 409 and r.json['error']['code'] == 'is_duplicate'
@@ -121,7 +125,7 @@ def test_history_requires_login_and_existing_report(client, who, report_id):
 
 
 def test_admin_can_assign_and_clear_report_area(client, app, who, report_id):
-    admin, _ = who('admin')
+    admin, _ = who('admin', county_id=get_report_county(app, report_id))
     resident, _ = who('resident')
     with app.app_context():
         area = Area(name='Test ward')

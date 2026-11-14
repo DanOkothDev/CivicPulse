@@ -38,6 +38,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const isVerifier = role === "verifier";
   const isAuthority = role === "authority";
   const isAdmin = role === "admin";
+  const isNationalAdmin = isAdmin && user?.county_id == null;
 
   // Load Montserrat font dynamically
   useEffect(() => {
@@ -227,7 +228,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 >
                   <div className="flex items-center gap-3">
                     <LayoutDashboard className="w-4 h-4 shrink-0" />
-                    <span>Triage Queue</span>
+                  <span>Triage Queue</span>
                   </div>
                   <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#7FD0E0]/40 text-[#0B5A9C] font-extrabold uppercase">
                     Queue
@@ -335,7 +336,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   <span>Admin Dashboard</span>
                 </NavLink>
 
-                <NavLink
+                {!isNationalAdmin && <NavLink
                   to="/verifier/queue"
                   onClick={onClose}
                   className={({ isActive }) =>
@@ -348,9 +349,9 @@ export default function Sidebar({ isOpen, onClose }) {
                 >
                   <CheckSquare className="w-4 h-4 shrink-0" />
                   <span>Triage & Verification</span>
-                </NavLink>
+                </NavLink>}
 
-                <NavLink
+                {!isNationalAdmin && <NavLink
                   to="/admin?tab=analytics"
                   onClick={onClose}
                   className={({ isActive }) =>
@@ -363,9 +364,9 @@ export default function Sidebar({ isOpen, onClose }) {
                 >
                   <BarChart3 className="w-4 h-4 shrink-0" />
                   <span>Advanced Analytics</span>
-                </NavLink>
+                </NavLink>}
 
-                <NavLink
+                {!isNationalAdmin && <NavLink
                   to="/community-map"
                   onClick={onClose}
                   className={({ isActive }) =>
@@ -378,7 +379,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 >
                   <MapIcon className="w-4 h-4 shrink-0" />
                   <span>Citywide Map</span>
-                </NavLink>
+                </NavLink>}
               </nav>
             </div>
           )}

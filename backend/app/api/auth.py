@@ -4,7 +4,7 @@ from flask_jwt_extended import create_access_token
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from ..auth_utils import current_user, login_required, serialize_user
+from ..auth_utils import current_user, password_change_access, serialize_user
 from ..errors import ApiError
 from ..extensions import db
 from ..models import Area, County, User
@@ -75,12 +75,39 @@ def login():
     password = data.get('password')
     user = User.query.filter_by(email=email).first()
     # Same message for "no such email" and "wrong password" so nobody can probe which emails exist.
-    if not user or not isinstance(password, str) or not check_password_hash(user.password_hash, password):
+    if not user or not user.is_active or not isinstance(password, str) or not check_password_hash(user.password_hash, password):
         raise ApiError('invalid_credentials', 'Email or password is wrong', 401)
+    if user.must_change_password and user.temporary_password_email_status != 'sent':
+        raise ApiError('account_setup_pending', 'Your temporary password email is still being prepared. Contact your administrator if this continues.', 403)
     return _auth_response(user, 200)
 
 
 @bp.get('/auth/me')
-@login_required
+@password_change_access
 def me():
     return jsonify(serialize_user(current_user(), include_onboarding=True))
+
+
+@bp.post('/auth/change-password')
+@password_change_access
+def change_password():
+    data = _json()
+    if set(data) != {'new_password'}:
+        raise ApiError('validation_error', 'Send only new_password', 422, {
+            'allowed': ['new_password'],
+        })
+    new_password = data.get('new_password')
+    if not isinstance(new_password, str) or len(new_password) < 10:
+        raise ApiError('validation_error', 'Use a password with at least 10 characters', 422, {
+            'new_password': 'Use at least 10 characters',
+        })
+
+    user = current_user()
+    if check_password_hash(user.password_hash, new_password):
+        raise ApiError('validation_error', 'Choose a password different from the temporary password', 422, {
+            'new_password': 'Choose a new password',
+        })
+    user.password_hash = generate_password_hash(new_password)
+    user.must_change_password = False
+    db.session.commit()
+    return jsonify(serialize_user(user, include_onboarding=True))
