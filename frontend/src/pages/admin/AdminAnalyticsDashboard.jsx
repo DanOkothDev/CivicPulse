@@ -57,11 +57,75 @@ function TrendChart({ rows = [] }) {
   </div>;
 }
 
+const STATUS_COLORS = {
+  reported: '#f59e0b', verified: '#06b6d4', assigned: '#6366f1',
+  in_progress: '#8b5cf6', resolved: '#10b981', rejected: '#f43f5e',
+};
+
+function DonutChart({ entries, label }) {
+  const valid = entries.filter(([, value]) => Number(value) > 0);
+  const total = valid.reduce((sum, [, value]) => sum + Number(value), 0);
+  const circumference = 2 * Math.PI * 40;
+  let offset = 0;
+  if (!total) return <div className="grid h-52 place-items-center text-sm text-slate-500">No data available.</div>;
+  return <div className="flex flex-col items-center gap-5 sm:flex-row">
+    <svg viewBox="0 0 100 100" className="h-44 w-44 shrink-0" role="img" aria-label={`${label}, ${total} total`}>
+    <g transform="rotate(-90 50 50)">{valid.map(([name, value], index) => {
+        const length = (Number(value) / total) * circumference;
+        const color = STATUS_COLORS[name] || ['#0284c7', '#7c3aed', '#ea580c', '#059669', '#db2777', '#4f46e5'][index % 6];
+        const circle = <circle key={name} cx="50" cy="50" r="40" fill="none" stroke={color} strokeWidth="13" strokeDasharray={`${length} ${circumference - length}`} strokeDashoffset={-offset} />;
+        offset += length;
+        return circle;
+      })}</g>
+      <text x="50" y="47" textAnchor="middle" className="fill-slate-900 text-[15px] font-bold">{total.toLocaleString()}</text>
+      <text x="50" y="59" textAnchor="middle" className="fill-slate-500 text-[6px]">{label}</text>
+    </svg>
+    <ul className="grid w-full grid-cols-1 gap-2 text-xs sm:grid-cols-2">{valid.map(([name, value], index) => <li key={name} className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 capitalize text-slate-600"><i className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: STATUS_COLORS[name] || ['#0284c7', '#7c3aed', '#ea580c', '#059669', '#db2777', '#4f46e5'][index % 6] }} />{name.replaceAll('_', ' ')}</span><strong className="text-slate-900">{Number(value).toLocaleString()} <span className="font-normal text-slate-400">({((Number(value) / total) * 100).toFixed(1)}%)</span></strong></li>)}</ul>
+  </div>;
+}
+
+function WorkflowGantt({ stages = [] }) {
+  const maxEnd = stages.reduce((sum, stage) => sum + (stage.average_days || 0), 0);
+  if (!stages.some((stage) => stage.sample_count)) return <div className="grid min-h-52 place-items-center text-sm text-slate-500">No completed workflow transitions yet.</div>;
+  let elapsed = 0;
+  return <div>
+    <div className="mb-3 ml-36 flex justify-between text-[10px] text-slate-400"><span>0 days</span><span>{(maxEnd / 2).toFixed(1)} days</span><span>{maxEnd.toFixed(1)} days</span></div>
+    <div className="space-y-3">{stages.map((stage) => {
+      const start = elapsed;
+      const duration = stage.average_days || 0;
+      elapsed += duration;
+      return <div key={stage.to_status} className="grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-3">
+        <div className="text-right"><p className="text-xs font-semibold text-slate-700">{stage.label}</p><p className="text-[10px] text-slate-400">n={stage.sample_count}</p></div>
+        <div className="relative h-7 rounded-md bg-slate-50">
+          <div className="absolute inset-y-1 rounded bg-gradient-to-r from-cyan-500 to-blue-700" style={{ left: `${maxEnd ? (start / maxEnd) * 100 : 0}%`, width: `${maxEnd ? Math.max((duration / maxEnd) * 100, duration ? 1.5 : 0) : 0}%` }} title={`${stage.label}: ${duration.toFixed(2)} day average, median ${stage.median_days ?? 'N/A'}, n=${stage.sample_count}`} />
+          <span className="absolute inset-y-0 flex items-center text-[10px] font-semibold text-slate-700" style={{ left: `${maxEnd ? Math.min((elapsed / maxEnd) * 100 + 1, 82) : 2}%` }}>{stage.average_days == null ? 'N/A' : `${stage.average_days.toFixed(1)}d`}</span>
+        </div>
+      </div>;
+    })}</div>
+    <p className="mt-4 text-[11px] leading-relaxed text-slate-500">Average elapsed time for each completed transition. Sample sizes differ by stage; medians are available on hover.</p>
+  </div>;
+}
+
+function TrendLineChart({ rows = [] }) {
+  const width = 640;
+  const height = 170;
+  const max = Math.max(...rows.map((row) => row.count), 1);
+  const points = rows.map((row, index) => `${rows.length < 2 ? width / 2 : (index / (rows.length - 1)) * width},${height - (row.count / max) * (height - 12)}`).join(' ');
+  if (!rows.some((row) => row.count > 0)) return <div className="grid h-48 place-items-center text-sm text-slate-500">No report activity in this period.</div>;
+  return <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="h-48 w-full overflow-visible" role="img" aria-label={`Daily report activity line chart, peak ${max}`}>
+    {[0, 0.5, 1].map((fraction) => <line key={fraction} x1="0" x2={width} y1={height * fraction} y2={height * fraction} stroke="#e2e8f0" strokeDasharray="4 4" />)}
+    <polyline points={points} fill="none" stroke="#0b5a9c" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+    {rows.filter((_, index) => index % Math.max(1, Math.ceil(rows.length / 12)) === 0).map((row) => <circle key={row.date} cx={rows.length < 2 ? width / 2 : (rows.indexOf(row) / (rows.length - 1)) * width} cy={height - (row.count / max) * (height - 12)} r="3" fill="#06b6d4"><title>{row.date}: {row.count} reports</title></circle>)}
+  </svg>;
+}
+
 export default function AdminAnalyticsDashboard() {
   const { user } = useAuth();
   const [days, setDays] = useState(90);
   const [summary, setSummary] = useState(null);
   const [trend, setTrend] = useState(null);
+  const [workflowTiming, setWorkflowTiming] = useState(null);
+  const [workflowCountyId, setWorkflowCountyId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [countyA, setCountyA] = useState('');
@@ -74,12 +138,18 @@ export default function AdminAnalyticsDashboard() {
     setLoading(true);
     setError('');
     try {
-      const [nextSummary, nextTrend, nextDigests] = await Promise.all([
+      const [nextSummary, nextTrend, nextDigests, nextWorkflowTiming] = await Promise.all([
         api.analytics.getSummary(), api.analytics.getTrends(days), api.analytics.getQuarterlyDigests(),
+        typeof api.analytics.getWorkflowTiming === 'function'
+          ? api.analytics.getWorkflowTiming()
+          : Promise.resolve(null),
       ]);
       setSummary(nextSummary);
       setTrend(nextTrend);
       setDigests(nextDigests || []);
+      setWorkflowTiming(nextWorkflowTiming || null);
+      setWorkflowCountyId((current) => (nextWorkflowTiming?.counties || []).some((county) => String(county.county_id) === current)
+        ? current : String(nextWorkflowTiming?.counties?.[0]?.county_id ?? ''));
       const counties = nextSummary.by_county || [];
       setCountyA((current) => counties.some((county) => String(county.county_id) === current) ? current : String(counties[0]?.county_id ?? ''));
       setCountyB((current) => counties.some((county) => String(county.county_id) === current && String(county.county_id) !== String(counties[0]?.county_id)) ? current : String(counties[1]?.county_id ?? ''));
@@ -92,6 +162,7 @@ export default function AdminAnalyticsDashboard() {
 
   useEffect(() => { load(); }, [days]);
   const counties = summary?.by_county || [];
+  const workflowCounty = workflowTiming?.counties?.find((county) => String(county.county_id) === workflowCountyId);
   const left = counties.find((county) => String(county.county_id) === countyA);
   const right = counties.find((county) => String(county.county_id) === countyB);
   const totals = useMemo(() => ({
@@ -141,6 +212,30 @@ export default function AdminAnalyticsDashboard() {
       <Metric icon={Clock3} label="Overdue" value={loading ? '—' : (summary?.overdue_reports ?? 0).toLocaleString()} note={`${summary?.awaiting_verification ?? 0} awaiting verification`} tone="amber" />
     </section>
 
+    <section className="grid gap-6 xl:grid-cols-2" aria-label="National distribution analysis">
+      <div className={`${CARD} p-5 sm:p-6`}><div className="mb-4"><h2 className="text-lg font-bold text-slate-950">Case status distribution</h2><p className="mt-1 text-xs text-slate-500">Current non-duplicate cases by workflow state.</p></div><DonutChart entries={Object.entries(summary?.by_status || {})} label="cases" /></div>
+      <div className={`${CARD} p-5 sm:p-6`}><div className="mb-4"><h2 className="text-lg font-bold text-slate-950">Issue category distribution</h2><p className="mt-1 text-xs text-slate-500">Share of current cases by category.</p></div><DonutChart entries={Object.entries(summary?.by_category || {})} label="cases" /></div>
+    </section>
+
+    <section className={`${CARD} p-5 sm:p-6`} aria-labelledby="workflow-gantt-title">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[.14em] text-blue-700">Lifecycle timing · Gantt</p><h2 id="workflow-gantt-title" className="mt-1 text-lg font-bold text-slate-950">Average case workflow duration</h2><p className="mt-1 text-xs text-slate-500">Elapsed time between audited status transitions, based on completed workflow steps.</p></div><span className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">Scope: {workflowTiming?.scope || 'national'}</span></div>
+      <div className="grid gap-8 xl:grid-cols-2">
+        <div><h3 className="mb-4 text-sm font-semibold text-slate-800">National stage averages</h3><WorkflowGantt stages={workflowTiming?.stages || []} /></div>
+        <div><label className="mb-4 block text-sm font-semibold text-slate-800">County stage averages<select aria-label="Workflow timing county" value={workflowCountyId} onChange={(event) => setWorkflowCountyId(event.target.value)} className="ml-3 min-h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs font-normal text-slate-800"><option value="">Select county</option>{(workflowTiming?.counties || []).map((county) => <option key={county.county_id} value={county.county_id}>{county.county_name}</option>)}</select></label><WorkflowGantt stages={workflowCounty?.stages || []} /></div>
+      </div>
+    </section>
+
+    <section className={`${CARD} p-5 sm:p-6`} aria-labelledby="developer-coverage-title">
+      <div className="mb-4"><p className="text-[11px] font-bold uppercase tracking-[.14em] text-blue-700">Developer view</p><h2 id="developer-coverage-title" className="mt-1 text-lg font-bold text-slate-950">Data coverage and pipeline diagnostics</h2><p className="mt-1 text-xs text-slate-500">Aggregate diagnostics from reporting, status history, and county assignment.</p></div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[["Counties with cases", counties.length, `${summary?.county_count ?? counties.length} counties in admin scope`], ["Categories tracked", Object.keys(summary?.by_category || {}).length, `${Object.values(summary?.by_category || {}).filter((count) => count > 0).length} categories with activity`], ["Workflow transitions sampled", (workflowTiming?.stages || []).reduce((sum, stage) => sum + stage.sample_count, 0), "Completed adjacent status transitions"], ["Resolution coverage", `${summary?.resolved_reports ?? 0} / ${summary?.total_reports ?? 0}`, "Resolved cases / total non-duplicate cases"]].map(([label, value, note]) => <article key={label} className="rounded-xl border border-slate-100 bg-slate-50 p-4"><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold text-slate-900">{loading ? '—' : value}</p><p className="mt-1 text-[11px] text-slate-500">{note}</p></article>)}
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="rounded-xl border border-slate-100 p-4"><h3 className="text-xs font-bold uppercase tracking-wide text-slate-600">Largest open workload</h3>{counties.slice().sort((a, b) => b.open_reports - a.open_reports).slice(0, 5).map((county) => <div key={county.county_id} className="mt-3 grid grid-cols-[minmax(0,8rem)_1fr_3rem] items-center gap-2 text-xs"><span className="truncate text-slate-600">{county.county_name}</span><div className="h-2 rounded bg-slate-100"><div className="h-2 rounded bg-amber-500" style={{ width: `${Math.max(2, (county.open_reports / Math.max(...counties.map((item) => item.open_reports), 1)) * 100)}%` }} /></div><strong className="text-right text-slate-800">{county.open_reports}</strong></div>)}</div>
+        <div className="rounded-xl border border-slate-100 p-4"><h3 className="text-xs font-bold uppercase tracking-wide text-slate-600">Transition sample coverage</h3>{(workflowTiming?.stages || []).map((stage) => <div key={stage.to_status} className="mt-3 flex items-center justify-between gap-3 text-xs"><span className="text-slate-600">{stage.label}</span><span className="font-semibold text-slate-900">n={stage.sample_count} · median {stage.median_days == null ? 'N/A' : `${stage.median_days}d`}</span></div>)}</div>
+      </div>
+    </section>
+
     <section className={`${CARD} p-5 sm:p-6`} aria-labelledby="county-comparison-title">
       <div className="flex flex-wrap items-end justify-between gap-4"><div><h2 id="county-comparison-title" className="text-lg font-bold text-slate-950">County performance comparison</h2><p className="mt-1 text-sm text-slate-500">Compare report volume, resolution, outstanding work, and overdue cases side by side.</p></div>
         <div className="flex flex-wrap gap-3"><label className="text-xs font-semibold text-slate-600">County A<select aria-label="First county" value={countyA} onChange={(event) => setCountyA(event.target.value)} className="mt-1 block min-h-10 min-w-40 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline focus:outline-2 focus:outline-blue-700"><option value="">Select county</option>{counties.map((county) => <option key={county.county_id} value={county.county_id}>{county.county_name}</option>)}</select></label>
@@ -153,7 +248,7 @@ export default function AdminAnalyticsDashboard() {
 
     <section className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
       <div className={`${CARD} p-5 sm:p-6`}><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold text-slate-950">Reporting activity</h2><p className="mt-1 text-sm text-slate-500">Daily report submissions across counties in your admin scope.</p></div><label className="text-xs font-semibold text-slate-600">Period<select aria-label="Trend period" value={days} onChange={(event) => setDays(Number(event.target.value))} className="ml-2 min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900">{PERIODS.map((period) => <option key={period.days} value={period.days}>{period.label}</option>)}</select></label></div>
-        {loading ? <div className="grid min-h-48 place-items-center text-sm text-slate-500">Loading reporting activity…</div> : <div className="mt-5"><TrendChart rows={trend?.daily_reports || []} /><div className="mt-2 flex justify-between text-[11px] text-slate-500"><span>{trend?.daily_reports?.[0]?.date}</span><span>{trend?.daily_reports?.at(-1)?.date}</span></div></div>}
+        {loading ? <div className="grid min-h-48 place-items-center text-sm text-slate-500">Loading reporting activity…</div> : <div className="mt-5"><TrendChart rows={trend?.daily_reports || []} /><div className="mt-2 flex justify-between text-[11px] text-slate-500"><span>{trend?.daily_reports?.[0]?.date}</span><span>{trend?.daily_reports?.at(-1)?.date}</span></div><h3 className="mb-2 mt-6 text-xs font-bold uppercase tracking-wide text-slate-600">Daily trend line</h3><TrendLineChart rows={trend?.daily_reports || []} /></div>}
       </div>
       <div className={`${CARD} p-5 sm:p-6`}><div className="flex items-center gap-2"><TrendingUp className="text-blue-700" size={19} /><h2 className="text-lg font-bold text-slate-950">County overview</h2></div><p className="mt-1 text-sm text-slate-500">Counties ranked by incoming case volume.</p>
         {loading ? <p className="mt-5 text-sm text-slate-500">Loading county performance…</p> : !counties.length ? <p className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">No county report data is available yet.</p> : <ol className="mt-5 max-h-80 space-y-4 overflow-y-auto">{counties.map((county) => { const width = Math.max(2, (county.total_reports / Math.max(counties[0]?.total_reports || 1, 1)) * 100); return <li key={county.county_id}><div className="mb-1 flex justify-between gap-2 text-sm"><span className="font-medium text-slate-800">{county.county_name}</span><span className="font-semibold text-slate-900">{county.total_reports} <span className="font-normal text-slate-500">· {percent(county.resolution_rate)} resolved</span></span></div><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-700" style={{ width: `${width}%` }} /></div></li>; })}</ol>}

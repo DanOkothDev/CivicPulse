@@ -11,8 +11,8 @@ JPEG = b'\xff\xd8\xff\xe0' + b'0' * 100
 
 @pytest.fixture
 def who(client, make_user):
-    def _who(role):
-        email, pw = make_user(role)
+    def _who(role, county_id=None):
+        email, pw = make_user(role, county_id=county_id)
         token = client.post('/api/v1/auth/login', json={'email': email, 'password': pw}).json['token']
         headers = {'Authorization': 'Bearer ' + token}
         return headers, client.get('/api/v1/auth/me', headers=headers).json['id']
@@ -51,6 +51,10 @@ def set_db(app, rid, **fields):
         for k, v in fields.items():
             setattr(report, k, v)
         db.session.commit()
+
+def get_report_county(app, rid):
+    with app.app_context():
+        return db.session.get(Report, rid).county_id
 
 
 def test_suggestions_are_stored_and_listed_best_first(client, app, who, new_report):
@@ -149,10 +153,10 @@ def test_merging_a_report_that_has_duplicates_keeps_one_level(client, who, new_r
     assert get(client, verifier, p)['report_count'] == 2    # d stays with p
 
 
-def test_merge_permissions(client, who, new_report):
+def test_merge_permissions(client, app, who, new_report):
     a, b = new_report(), new_report()
     for role in ('resident', 'authority'):
         assert merge(client, who(role)[0], b, a).status_code == 403
         assert unmerge(client, who(role)[0], b).status_code == 403
     assert merge(client, {}, b, a).status_code == 401
-    assert merge(client, who('admin')[0], b, a).status_code == 200
+    assert merge(client, who('admin', county_id=get_report_county(app, b))[0], b, a).status_code == 200

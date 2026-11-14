@@ -24,7 +24,8 @@ import { useNotifications } from "../../context/NotificationContext";
 const GRADIENT = "bg-gradient-to-br from-[#38C6DC] to-[#0B5A9C]";
 
 export default function MobileNavigation() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
+  const isNationalAdmin = role === 'admin' && user?.county_id == null;
   const { unreadCount } = useNotifications();
   const homeRoute =
     role === "admin"
@@ -65,7 +66,7 @@ export default function MobileNavigation() {
         <span>Dashboard</span>
       </NavLink>
 
-      <NavLink
+      {!isNationalAdmin && <NavLink
         to="/community-map"
         className={({ isActive }) =>
           `flex flex-col items-center justify-center gap-1 text-[10px] font-extrabold transition-colors ${
@@ -75,10 +76,10 @@ export default function MobileNavigation() {
       >
         <MapIcon className="w-5 h-5" />
         <span>Map</span>
-      </NavLink>
+      </NavLink>}
 
       {/* Prominent Center Report Button */}
-      <NavLink
+      {role === 'resident' && <NavLink
         to="/report/new"
         className="flex flex-col items-center justify-center -mt-5 group"
       >
@@ -90,7 +91,7 @@ export default function MobileNavigation() {
         <span className="text-[10px] font-extrabold text-[#0B5A9C] mt-1">
           Report
         </span>
-      </NavLink>
+      </NavLink>}
 
       <NavLink
         to="/notifications"

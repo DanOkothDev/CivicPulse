@@ -58,7 +58,7 @@ export default function LoginPage() {
     try {
       const loggedUser = await login(email, password);
       toast.success(`Welcome back, ${loggedUser?.name || "User"}!`);
-      navigate(routeForRole(loggedUser?.role));
+      navigate(loggedUser?.must_change_password ? "/change-password" : routeForRole(loggedUser?.role));
     } catch (err) {
       toast.error(
         err.message ||

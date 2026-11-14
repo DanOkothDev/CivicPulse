@@ -13,11 +13,13 @@ from geoalchemy2 import Geography, Geometry
 from geoalchemy2.elements import WKTElement
 from sqlalchemy import cast, func
 from sqlalchemy.orm import joinedload
+from werkzeug.security import check_password_hash
 
 from .duplicate_service import OPEN_STATUSES, save_suggestions
 from .extensions import db
 from .hotspot_service import recompute_hotspots
-from .models import Category, Report
+from .models import Category, Report, User
+from .email_service import send_temporary_password
 
 logger = logging.getLogger(__name__)
 _app = None
@@ -187,3 +189,40 @@ def process_new_report(report_id):
             outcome['duplicates_saved'] = save_suggestions(report.id, _clean_suggestions(report.id, raw))
         _refresh_hotspots_if_due()
         return outcome or {'note': 'no AI functions configured'}
+
+
+def send_staff_temporary_password(user_id, temporary_password):
+    """Deliver the one-time staff password outside the account-creation request."""
+    with app_context():
+        user = db.session.get(User, user_id)
+        if user is None or not user.is_active:
+            return {'skipped': 'account unavailable'}
+        if user.temporary_password_email_status != 'pending':
+            return {'skipped': 'email no longer pending'}
+        if not user.must_change_password or not check_password_hash(user.password_hash, temporary_password):
+            return {'skipped': 'temporary password was rotated'}
+        try:
+            send_temporary_password(
+                user.email, user.name, user.role, user.county.name, temporary_password,
+            )
+        except Exception:
+            # Leave the delivery pending while RQ retries. Its final failure
+            # callback marks it failed after all configured attempts are used.
+            db.session.rollback()
+            raise
+        user.temporary_password_email_status = 'sent'
+        db.session.commit()
+        return {'status': 'sent'}
+
+
+def mark_staff_temporary_password_failed(job, connection, exception_type, exception_value, traceback):
+    """RQ final-failure callback: retries keep the account pending until exhausted."""
+    user_id = (job.args or [None])[0]
+    if user_id is None:
+        return
+    with app_context():
+        user = db.session.get(User, user_id)
+        if user is not None and user.temporary_password_email_status == 'pending':
+            user.temporary_password_email_status = 'failed'
+            db.session.commit()
+            logger.warning('Staff onboarding job exhausted retries for user_id=%s', user_id)

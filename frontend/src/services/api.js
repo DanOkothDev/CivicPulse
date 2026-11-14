@@ -97,6 +97,13 @@ export const api = {
       return request('/auth/me');
     },
 
+    changePassword(new_password) {
+      return request('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ new_password }),
+      });
+    },
+
     logout() {
       localStorage.removeItem('civicpulse_token');
       localStorage.removeItem('civicpulse_current_user');
@@ -311,6 +318,10 @@ export const api = {
       return request(`/analytics/trends${queryString({ days })}`);
     },
 
+    getWorkflowTiming() {
+      return request('/analytics/workflow-timing');
+    },
+
     getCategories(areaId) {
       return request(`/analytics/categories${queryString({ area_id: areaId })}`);
     },
@@ -321,6 +332,21 @@ export const api = {
   },
 
   admin: {
+    createStaffUser(data) {
+      return request('/users/staff', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+
+    revokeStaffUser(id) {
+      return request(`/users/${id}/staff`, { method: 'DELETE' });
+    },
+
+    retryStaffEmail(id) {
+      return request(`/users/${id}/staff-email/retry`, { method: 'POST' });
+    },
+
     listUsers(params = {}) {
       return request(`/users${queryString(params)}`);
     },
@@ -338,10 +364,10 @@ export const api = {
       },
     },
 
-    updateUserRole(id, role) {
+    updateUserRole(id, role, county_id) {
       return request(`/users/${id}/role`, {
         method: 'PATCH',
-        body: JSON.stringify({ role }),
+        body: JSON.stringify({ role, county_id }),
       });
     },
 

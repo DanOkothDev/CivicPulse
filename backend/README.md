@@ -2,6 +2,12 @@
 
 Flask API for CivicPulse. The full contract is in `openapi.yaml`: build to match it. Paste it into editor.swagger.io to browse it as documentation.
 
+## Production configuration validation
+
+Set `CIVICPULSE_ENV=production` in the API environment (including Azure Container Apps) to enable startup validation. The API refuses to start if `SECRET_KEY` or `JWT_SECRET_KEY` is missing, shorter than 32 characters, a known development placeholder, too repetitive, or equal to each other. Supply stable secrets through the deployment platform's secret settings; the application does not generate or rotate keys.
+
+Production startup also validates that `DATABASE_URL` is a non-local PostgreSQL URL, that `REDIS_URL` identifies a non-local Redis service when `QUEUE_MODE=redis`, and that `UPLOAD_FOLDER` is configured and writable. It validates connection URL structure without making a database or Redis connection during startup. Local development remains in `CIVICPULSE_ENV=development` and keeps the existing defaults. Do not commit production secret values.
+
 ## Status
 
 **Working now:** project setup, database schema, authentication and roles, report submission with photos, report listing with filters, following reports, status workflow with history, assignment, the authority list, duplicate suggestions and merging, notifications, background job queue and worker.
@@ -74,6 +80,9 @@ CivicAI calls the provider from the backend. Set `GROQ_API_KEY` to use Groq with
 | GET | `/analytics/quarterly-digests` | Admin | In-app quarterly analytics briefings delivered to the signed-in admin |
 | POST | `/analytics/quarterly-digests/send` | National admin | Send the last completed quarter's aggregate briefing to other admins; recipients receive data scoped to their county, once per quarter |
 | GET | `/users` | Verifier, authority, admin | List users. Admins can filter any `role`; others only get authority users, without emails |
+| POST | `/users/staff` | National admin | Create a county-scoped admin, verifier, or authority; emails a temporary password and requires a password change at first login |
+| DELETE | `/users/{id}/staff` | National admin | Revoke a county staff account and block future login/API access |
+| POST | `/auth/change-password` | First-login staff session | Set a new password before accessing the rest of the API |
 | PATCH | `/users/{id}/role` | Admin | Change a user's role |
 | POST | `/reports/{id}/follow` | Logged in | Follow a report (safe to repeat) |
 | DELETE | `/reports/{id}/follow` | Logged in | Stop following |
@@ -107,6 +116,32 @@ CivicAI calls the provider from the backend. Set `GROQ_API_KEY` to use Groq with
 Staff only (authority or admin): residents get 403 and anonymous requests get 401. Numbers count **cases**: a report merged into another is not counted twice. `trends` is the exception and counts every submitted report per day (UTC days). `avg_days_to_resolve` is the average time from submission to the `resolved` status event, and is `null` until something is resolved.
 
 Quarterly briefings are in-app, database-backed aggregate snapshots. They include county rank by resolution rate (with case denominator), national leaders and median, quarter-over-quarter report/resolution/time changes, and issue-category movement. Status values reflect the current status when the briefing is generated. A national admin can send the last completed calendar quarter once; county admins receive only their own county's metrics, while other national admins can receive the full aggregate. The report contains no resident identities or individual locations. Apply the additive `c72b930f7a2d` migration with `flask --app wsgi db upgrade` before enabling this feature. No email or automatic scheduler is configured; a national admin triggers each quarterly distribution from Admin Dashboard → Advanced Analytics.
+
+Staff onboarding email uses SMTP. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, and `SMTP_USE_SSL` in the worker environment. For Gmail, enable 2-Step Verification, create an App Password, set the mailbox as `SMTP_USERNAME` and `SMTP_FROM_EMAIL`, and use port 587 with `SMTP_USE_SSL=false` (STARTTLS). Do not use the mailbox's normal password. Account creation stores the account as `pending` and queues the email; the API response does not wait for SMTP. RQ retries delivery twice after the initial attempt. The final failure callback records `failed`; successful delivery records `sent`. A national admin can retry failed delivery, which generates a fresh temporary password. The account cannot sign in until email delivery succeeds, and API access remains blocked until the new staff member changes that password. Staff onboarding always uses Redis/RQ, including when report processing is set to inline, so Redis and a worker listening on `QUEUE_NAME` must be running. If Redis cannot accept the job, the account is recorded as `failed` and the API response reports that state. Apply current migrations with `flask --app wsgi db upgrade`.
+
+### Azure Container Apps deployment settings
+
+Run the API container from `Dockerfile.api` and at least one worker container from `backend/Dockerfile`, with the same database URL, Redis service, and `QUEUE_NAME`. The worker image contains the `app.jobs` module and its dependencies; invoke its built-in RQ command (`rq worker "$QUEUE_NAME" --worker-class rq.SimpleWorker --url "$REDIS_URL"`). Set the API's `QUEUE_MODE` to `inline` if report processing should remain synchronous, or `redis` to queue report jobs too. In either case, staff onboarding requires Redis and a running worker. Keep API and worker queue names and Redis URLs identical.
+
+Configure these Container App environment variables (set them on the worker for SMTP; set queue values on both API and worker):
+
+| Variable | Production value |
+| --- | --- |
+| `CIVICPULSE_ENV` | `production` |
+| `DATABASE_URL` | PostgreSQL connection URL (API and worker) |
+| `SECRET_KEY`, `JWT_SECRET_KEY` | Distinct strong secrets (API; keep stable across restarts) |
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USERNAME` | Gmail mailbox address |
+| `SMTP_PASSWORD` | Reference an Azure Container Apps secret containing a Gmail App Password; worker only |
+| `SMTP_FROM_EMAIL` | Authorized Gmail mailbox address |
+| `SMTP_USE_SSL` | `false` for STARTTLS on port 587 |
+| `REDIS_URL` | Reference an Azure secret containing the Redis connection URL (API and worker) |
+| `QUEUE_MODE` | `inline` or `redis` for report processing (API); same setting is harmless on worker |
+| `QUEUE_NAME` | Same queue name for API and worker, for example `default` |
+| `UPLOAD_FOLDER` | Writable persistent/shared storage path if report uploads must survive container replacement |
+
+Create the `SMTP_PASSWORD` and `REDIS_URL` secrets in the Container Apps environment, then use secret references in the container environment configuration rather than storing their values in deployment YAML or source control. Also provide `CORS_ORIGINS` for the deployed frontend. SMTP settings are intentionally validated when delivery is attempted, so missing mail configuration fails onboarding delivery without preventing the API from starting.
 
 ### Notifications
 
@@ -202,7 +237,7 @@ POST /reports -> saved -> job queued -> response sent
 - **The worker's database login** comes from `WORKER_DATABASE_URL` in `.env`, and defaults to the `db` container's login (`civicpulse` / `civicpulse`). If your own `DATABASE_URL` uses a different user or password, copy it into `WORKER_DATABASE_URL` and change `localhost` to `db` (a database in the compose file) or to `host.docker.internal` (a database running directly on your Windows PC). Then run `docker compose up -d` so the worker picks it up.
 - **See what is happening:** `GET /api/v1/health` includes `queue` (mode, pending jobs, failed jobs, number of workers), and `flask --app wsgi queue-status` prints the same. If `pending` keeps growing and `workers` is 0, the worker is not running.
 - **Hotspots refresh themselves.** After a new report is processed, the clustering (`app/hotspot_service.py`) re-runs, at most every `HOTSPOT_REFRESH_MINUTES` (default 10; `0` turns it off). An admin can also run it on demand with `POST /analytics/hotspots/recompute`. A clustering error is logged and never fails the report's job.
-- **No worker?** Set `QUEUE_MODE=inline` in `.env` and jobs run inside the request instead (slower, but needs nothing extra). The default is `redis`.
+- **No worker?** Set `QUEUE_MODE=inline` in `.env` and report processing runs inside the request instead (slower). Staff onboarding email still requires the Docker RQ worker and Redis, so keep those running to deliver temporary passwords.
 - **A queue problem never blocks a report.** If Redis enqueueing fails, the API tries the AI processing inline after the report is saved. If inline processing also fails, it logs the report id; queue it later with `flask --app wsgi process-reports <id>`. Jobs accepted by Redis are retried 3 times (after 10 s, 60 s and 5 min) and then kept in the failed list for a week.
 - **Run the checks on existing reports** (for example the seeded demo data): `flask --app wsgi process-reports --all`, or `flask --app wsgi process-reports 12 13`.
 

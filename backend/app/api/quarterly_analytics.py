@@ -185,7 +185,9 @@ def send_quarterly_digests():
         raise ApiError('already_sent', 'Quarterly analytics for this period have already been sent', 409,
                        {'sent_at': existing.created_at.isoformat()})
 
-    recipients = User.query.filter(User.role == 'admin', User.id != sender.id).order_by(User.id).all()
+    recipients = User.query.filter(
+        User.role == 'admin', User.is_active.is_(True), User.id != sender.id
+    ).order_by(User.id).all()
     try:
         batch = QuarterlyAnalyticsBatch(period_start=start, period_end=end, sent_by=sender.id)
         db.session.add(batch)

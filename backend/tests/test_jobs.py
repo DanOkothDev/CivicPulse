@@ -10,7 +10,7 @@ from redis import Redis
 
 from app import jobs
 from app.jobs import process_new_report
-from app.jobqueue import get_queue
+from app.jobqueue import enqueue_background, get_queue
 
 JPEG = b'\xff\xd8\xff\xe0' + b'0' * 100
 
@@ -180,8 +180,34 @@ def test_a_failing_ai_function_never_blocks_a_report(client, who, monkeypatch):
     assert client.get(f"/api/v1/reports/{r.json['id']}", headers=resident).status_code == 200  # database still fine
 
 
-def test_health_shows_the_queue(client):
-    assert client.get('/api/v1/health').json['queue'] == {'mode': 'inline'}
+def test_health_shows_queue_information_in_inline_mode(client, app, monkeypatch):
+    import app.jobqueue as jobqueue
+    from rq import Worker
+
+    class FailedRegistry:
+        count = 2
+
+    class FakeQueue:
+        count = 3
+        failed_job_registry = FailedRegistry()
+
+    queue = FakeQueue()
+    app.config['QUEUE_MODE'] = 'inline'
+    monkeypatch.setattr(jobqueue, 'get_queue', lambda: queue)
+    monkeypatch.setattr(Worker, 'all', lambda queue=None: [object()])
+    assert client.get('/api/v1/health').json['queue'] == {
+        'mode': 'inline', 'pending': 3, 'failed': 2, 'workers': 1,
+    }
+
+
+def test_health_reports_redis_unavailable_in_inline_mode(client, app, monkeypatch):
+    import app.jobqueue as jobqueue
+
+    app.config['QUEUE_MODE'] = 'inline'
+    monkeypatch.setattr(jobqueue, 'get_queue', lambda: (_ for _ in ()).throw(ConnectionError()))
+    assert client.get('/api/v1/health').json['queue'] == {
+        'mode': 'inline', 'error': 'Redis is not reachable',
+    }
 
 
 @pytest.fixture
@@ -207,4 +233,16 @@ def test_report_puts_a_job_on_the_redis_queue(client, who, redis_queue):
 def test_redis_being_down_never_blocks_a_report(client, app, who):
     app.config.update(QUEUE_MODE='redis', REDIS_URL='redis://localhost:1/0')  # nothing listens here
     assert submit(client, who('resident')).status_code == 201
-    assert client.get('/api/v1/health').json['queue']['error'] == 'Redis is not reachable'
+    assert client.get('/api/v1/health').json['queue'] == {
+        'mode': 'redis', 'error': 'Redis is not reachable',
+    }
+
+
+def test_staff_email_enqueue_requires_redis_even_in_inline_report_mode(app, monkeypatch):
+    from redis.exceptions import ConnectionError
+    import app.jobqueue as jobqueue
+
+    app.config['QUEUE_MODE'] = 'inline'
+    monkeypatch.setattr(jobqueue, 'get_queue', lambda: (_ for _ in ()).throw(ConnectionError()))
+    with app.app_context(), pytest.raises(ConnectionError):
+        enqueue_background(lambda: None)

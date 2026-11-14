@@ -124,14 +124,20 @@ export default function AdminDashboardPage() {
   }, []);
 
   // Active tab state synced with URL query param
+  const nationalAdmin = user?.role === "admin" && user.county_id == null;
   const activeTab = searchParams.get("tab") || "reports";
   const setActiveTab = (tabId) => setSearchParams({ tab: tabId });
+  useEffect(() => {
+    if (nationalAdmin && activeTab === "reports") setActiveTab("users");
+  }, [nationalAdmin, activeTab]);
 
   // Data states
   const [users, setUsers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [areas, setAreas] = useState([]);
   const [reports, setReports] = useState([]);
+  const [counties, setCounties] = useState([]);
+  const [selectedCountyId, setSelectedCountyId] = useState("");
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -172,16 +178,18 @@ export default function AdminDashboardPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [u, c, a, r] = await Promise.all([
+      const [u, c, a, r, countyRows] = await Promise.all([
         api.admin.listUsers(),
         api.reference.getCategories(),
         api.reference.getAreas(),
-        api.reports.list(),
+        nationalAdmin ? Promise.resolve({ items: [] }) : api.reports.list(),
+        api.reference.getCounties(),
       ]);
       setUsers(u || []);
       setCategories(c || []);
       setAreas(a || []);
       setReports(r.items || []);
+      setCounties(countyRows || []);
     } catch (error) {
       toast.error(`Could not load dashboard data: ${error.message}`);
     } finally {
@@ -191,18 +199,19 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [nationalAdmin]);
 
   const handleOpenRoleModal = (u) => {
     setSelectedUser(u);
     setNewRole(u.role);
+    setSelectedCountyId(u.county_id == null ? "" : String(u.county_id));
     setSelectedDepartmentId(u.department_id == null ? "" : String(u.department_id));
     setRoleModalOpen(true);
   };
 
   useEffect(() => {
     let active = true;
-    if (newRole !== "authority" || !selectedUser?.county_id) {
+    if (newRole !== "authority" || !selectedCountyId) {
       setAuthorityDepartments([]);
       setAuthorityDepartmentError("");
       setLoadingAuthorityDepartments(false);
@@ -210,7 +219,7 @@ export default function AdminDashboardPage() {
     }
     setLoadingAuthorityDepartments(true);
     setAuthorityDepartmentError("");
-    api.reference.getDepartments(selectedUser.county_id)
+    api.reference.getDepartments(Number(selectedCountyId))
       .then((rows) => {
         if (active) setAuthorityDepartments(rows || []);
       })
@@ -221,17 +230,21 @@ export default function AdminDashboardPage() {
         if (active) setLoadingAuthorityDepartments(false);
       });
     return () => { active = false; };
-  }, [newRole, selectedUser?.county_id]);
+  }, [newRole, selectedCountyId]);
 
   const handleUpdateRole = async (e) => {
     e.preventDefault();
     if (!selectedUser) return;
-    if (newRole === "authority" && (!selectedUser.county_id || !selectedDepartmentId)) {
+    if (newRole !== "resident" && !selectedCountyId) {
+      toast.error("Choose a county for this staff account.");
+      return;
+    }
+    if (newRole === "authority" && !selectedDepartmentId) {
       toast.error("Choose the authority user's county department before saving.");
       return;
     }
     try {
-      await api.admin.updateUserRole(selectedUser.id, newRole);
+      await api.admin.updateUserRole(selectedUser.id, newRole, selectedCountyId ? Number(selectedCountyId) : null);
       if (newRole === "authority") {
         await api.admin.updateUserDepartment(
           selectedUser.id,
@@ -648,12 +661,12 @@ export default function AdminDashboardPage() {
 
       {/* Summary */}
       {activeTab !== "analytics" && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile
+        {!nationalAdmin && <StatTile
           title="Reports"
           value={reports.length}
           note="Submitted so far"
           icon={FileText}
-        />
+        />}
         <StatTile
           title="Users"
           value={users.length}
@@ -692,7 +705,7 @@ export default function AdminDashboardPage() {
           { id: "departments", label: "Departments", icon: Building2 },
           { id: "analytics", label: "Analytics & performance", icon: BarChart3 },
           { id: "system", label: "Settings", icon: Sliders },
-        ].map((tab) => (
+        ].filter((tab) => !nationalAdmin || tab.id !== "reports").map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -713,7 +726,7 @@ export default function AdminDashboardPage() {
       {activeTab === "analytics" && <AdminAnalyticsDashboard />}
 
       {/* Reports */}
-      {activeTab === "reports" && (
+      {activeTab === "reports" && !nationalAdmin && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
@@ -762,6 +775,7 @@ export default function AdminDashboardPage() {
       {/* Users */}
       {activeTab === "users" && (
         <div className="space-y-4">
+          {nationalAdmin && <p className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">Assign a resident to a county and promote them to county admin, verifier, or authority. County staff can access reports only in their assigned county.</p>}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
               {["all", "resident", "verifier", "authority", "admin"].map(
@@ -984,6 +998,13 @@ export default function AdminDashboardPage() {
         subtitle="Choose what this person can do"
       >
         <form onSubmit={handleUpdateRole} className="space-y-4">
+          {nationalAdmin && <div>
+            <label htmlFor="staff-county" className="mb-1 block text-xs font-bold text-[#5F5F5F]">Assigned county</label>
+            <select id="staff-county" value={selectedCountyId} onChange={(event) => { setSelectedCountyId(event.target.value); setSelectedDepartmentId(""); }} className={INPUT}>
+              <option value="">{newRole === "resident" ? "No county" : "Select a county"}</option>
+              {counties.map((county) => <option key={county.id} value={county.id}>{county.name}</option>)}
+            </select>
+          </div>}
           <div>
             <label className="block text-xs font-bold text-[#5F5F5F] mb-2">
               Role
@@ -1008,7 +1029,7 @@ export default function AdminDashboardPage() {
                 {
                   r: "admin",
                   label: "Admin",
-                  desc: "Can manage everything, including users and roles",
+                  desc: "Can manage users and operations in their assigned county",
                 },
               ].map((item) => (
                 <label
@@ -1045,7 +1066,7 @@ export default function AdminDashboardPage() {
               <label htmlFor="authority-department" className="mb-1 block text-xs font-bold text-[#5F5F5F]">
                 Assigned department
               </label>
-              {selectedUser?.county_id ? (
+              {selectedCountyId ? (
                 <>
                 <select
                   id="authority-department"
@@ -1070,7 +1091,7 @@ export default function AdminDashboardPage() {
                 </>
               ) : (
                 <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
-                  This user needs a registered county before being assigned an authority role.
+                  Choose a county before assigning this user as an authority.
                 </p>
               )}
             </div>

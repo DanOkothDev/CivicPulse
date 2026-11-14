@@ -38,6 +38,7 @@ def app(tmp_path):
 
     app = create_app({
         'TESTING': True,
+        'CIVICPULSE_ENV': 'test',
         'SQLALCHEMY_DATABASE_URI': test_database_uri,
         'UPLOAD_FOLDER': str(tmp_path),
         'QUEUE_MODE': 'inline',
@@ -96,18 +97,21 @@ def client(app):
     return app.test_client()
 
 
+
 @pytest.fixture
 def make_user(app):
     """Create a user with any role directly in the database; returns (email, password)."""
 
-    def _make(role='resident'):
+    def _make(role='resident', county_id=None):
         email = f'{uuid.uuid4().hex[:10]}{DOMAIN}'
 
         with app.app_context():
-            default_county_id = None
             county = db.session.query(County).order_by(County.id).first()
-            if county is not None and role != 'admin':
+            default_county_id = county_id
+
+            if default_county_id is None and county is not None and role != 'admin':
                 default_county_id = county.id
+
             department = (
                 Department.query.filter_by(county_id=default_county_id)
                 .order_by(Department.id)
@@ -115,6 +119,7 @@ def make_user(app):
                 if role == 'authority' and default_county_id is not None
                 else None
             )
+
             db.session.add(
                 User(
                     name='Test',
@@ -130,6 +135,7 @@ def make_user(app):
         return email, 'password123'
 
     return _make
+
 
 
 @pytest.fixture

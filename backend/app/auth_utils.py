@@ -14,6 +14,9 @@ def serialize_user(u, include_onboarding=False):
         'name': u.name,
         'email': u.email,
         'role': u.role,
+        'is_active': bool(u.is_active),
+        'must_change_password': bool(u.must_change_password),
+        'temporary_password_email_status': u.temporary_password_email_status,
         'area_id': u.area_id,
         'county_id': u.county_id,
         'county': (
@@ -56,7 +59,7 @@ def user_can_access_county(user, county_id):
 
 def user_can_access_report(user, report):
     if user.role == 'admin':
-        return user.county_id is None or user.county_id == report.county_id
+        return user.county_id is not None and user.county_id == report.county_id
     if user.role == 'resident':
         return report.created_by == user.id
     if user.role in {'verifier', 'authority'}:
@@ -75,11 +78,15 @@ def user_can_access_report(user, report):
     return False
 
 
-def _load_user():
+def _load_user(allow_password_change=False):
     # The token stores the id as text (a JWT rule), so convert it back to a number.
     user = db.session.get(User, int(get_jwt_identity()))
-    if user is None:
+    if user is None or not user.is_active:
         raise ApiError('unauthorized', 'This account no longer exists', 401)
+    if user.must_change_password and user.temporary_password_email_status != 'sent':
+        raise ApiError('account_setup_pending', 'Your temporary password email is still being prepared. Contact your administrator if this continues.', 403)
+    if user.must_change_password and not allow_password_change:
+        raise ApiError('password_change_required', 'Change your temporary password before continuing', 403)
     g.user = user
 
 
@@ -89,6 +96,16 @@ def login_required(fn):
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
         _load_user()
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+def password_change_access(fn):
+    """Allow the temporary-account session to read its user and set a new password."""
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        verify_jwt_in_request()
+        _load_user(allow_password_change=True)
         return fn(*args, **kwargs)
     return wrapper
 
