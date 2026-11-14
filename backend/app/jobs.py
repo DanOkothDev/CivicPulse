@@ -7,6 +7,7 @@ import time
 from contextlib import contextmanager, nullcontext
 from datetime import timedelta
 from pathlib import Path
+import tempfile
 
 from flask import current_app, has_app_context
 from geoalchemy2 import Geography, Geometry
@@ -20,6 +21,7 @@ from .extensions import db
 from .hotspot_service import recompute_hotspots
 from .models import Category, Report, User
 from .email_service import send_temporary_password
+from .storage import download_photo
 
 logger = logging.getLogger(__name__)
 _app = None
@@ -179,8 +181,24 @@ def process_new_report(report_id):
         outcome = {}
         classify = load_hook('AI_CLASSIFIER')
         if classify:
-            photo = os.path.join(current_app.config['UPLOAD_FOLDER'], report.photo_path)
-            outcome['classifier'] = _apply_classification(report, classify(photo))
+            if current_app.config['STORAGE_BACKEND'] == 'azure':
+                suffix = Path(report.photo_path).suffix
+
+                with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp:
+                    photo = temp.name
+
+                try:
+                    download_photo(report.photo_path, photo)
+                    outcome['classifier'] = _apply_classification(report, classify(photo))
+                finally:
+                    os.unlink(photo)
+
+            else:
+                photo = os.path.join(
+                    current_app.config['UPLOAD_FOLDER'],
+                    report.photo_path,
+                )
+                outcome['classifier'] = _apply_classification(report, classify(photo))
         find_duplicates = load_hook('AI_DUPLICATES')
         if find_duplicates:
             lat, lon = _position(report)

@@ -18,6 +18,7 @@ from .extensions import db
 from .jobqueue import enqueue, queue_info
 from .jobs import process_new_report
 from .models import Area, Category, ClassificationFeedback, County, Department, Report, User
+from .storage import download_photo
 
 
 def register_cli(app):
@@ -179,7 +180,7 @@ def register_cli(app):
     @app.cli.command('export-approved-feedback')
     @click.option('--output', required=True, type=click.Path(dir_okay=False, writable=True))
     def export_approved_feedback(output):
-        """Export approved, training-eligible image references and category labels as CSV."""
+        """Export approved, training-eligible images and category labels as CSV."""
         rows = (ClassificationFeedback.query
                 .join(Report, ClassificationFeedback.report_id == Report.id)
                 .join(Category, ClassificationFeedback.selected_category_id == Category.id)
@@ -192,15 +193,36 @@ def register_cli(app):
                     Report.photo_path,
                     Category.name,
                 ).all())
+
+        is_azure = app.config['STORAGE_BACKEND'] == 'azure'
         upload_root = app.config['UPLOAD_FOLDER']
+        image_dir = f'{os.path.abspath(output)}.images'
+
+        if is_azure:
+            os.makedirs(image_dir, exist_ok=True)
+
         with open(output, 'w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow(('feedback_id', 'report_id', 'image_path', 'label'))
+
             for feedback_id, report_id, photo_path, label in rows:
+                if is_azure:
+                    extension = os.path.splitext(photo_path)[1]
+                    filename = f'feedback_{feedback_id}_report_{report_id}{extension}'
+                    local_path = os.path.join(image_dir, filename)
+
+                    download_photo(photo_path, local_path)
+                    image_path = os.path.abspath(local_path)
+                else:
+                    image_path = os.path.abspath(
+                        os.path.join(upload_root, photo_path)
+                    )
+
                 writer.writerow((
                     feedback_id,
                     report_id,
-                    os.path.abspath(os.path.join(upload_root, photo_path)),
+                    image_path,
                     label,
                 ))
+
         click.echo(f'Exported {len(rows)} approved image-label pair(s) to {output}.')

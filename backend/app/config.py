@@ -92,6 +92,24 @@ def validate_config(config):
         errors.append('REDIS_URL must be a valid Redis connection URL for staff onboarding.')
 
     upload_folder = config.get('UPLOAD_FOLDER')
+    storage_backend = str(config.get('STORAGE_BACKEND', 'local')).strip().lower()
+    if storage_backend not in {'local', 'azure'}:
+        errors.append('STORAGE_BACKEND must be local or azure.')
+
+    if storage_backend == 'local':
+        upload_folder = config.get('UPLOAD_FOLDER')
+        if not isinstance(upload_folder, (str, os.PathLike)) or not os.fspath(upload_folder).strip():
+            errors.append('UPLOAD_FOLDER must be configured.')
+
+    elif storage_backend == 'azure':
+        account_url = config.get('AZURE_STORAGE_ACCOUNT_URL')
+        container = config.get('AZURE_STORAGE_CONTAINER')
+
+        if not isinstance(account_url, str) or not account_url.startswith('https://'):
+            errors.append('AZURE_STORAGE_ACCOUNT_URL must be a valid HTTPS URL.')
+
+        if not isinstance(container, str) or not container.strip():
+            errors.append('AZURE_STORAGE_CONTAINER must be configured.')
     if not isinstance(upload_folder, (str, os.PathLike)) or not os.fspath(upload_folder).strip():
         errors.append('UPLOAD_FOLDER must be configured.')
 
@@ -111,6 +129,9 @@ class Config:
     REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB photo limit, matches the API contract
+    STORAGE_BACKEND = os.getenv('STORAGE_BACKEND', 'local').strip().lower()
+    AZURE_STORAGE_ACCOUNT_URL = os.getenv('AZURE_STORAGE_ACCOUNT_URL', '')
+    AZURE_STORAGE_CONTAINER = os.getenv('AZURE_STORAGE_CONTAINER', '')
     # 'redis': a separate worker runs background jobs. 'inline': jobs run inside the request (no worker needed).
     QUEUE_MODE = os.getenv('QUEUE_MODE', 'redis')
     QUEUE_NAME = os.getenv('QUEUE_NAME', 'default')

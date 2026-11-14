@@ -36,25 +36,28 @@ def create_app(config=None):
     if config:
         app.config.update(config)
     validate_config(app.config)
-    folder = app.config['UPLOAD_FOLDER']
-    if not os.path.isabs(folder):  # keep uploads inside the backend folder, wherever you run from
-        app.config['UPLOAD_FOLDER'] = os.path.abspath(os.path.join(app.root_path, '..', folder))
-    try:
-        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    except OSError:
-        if str(app.config.get('CIVICPULSE_ENV', '')).strip().lower() == 'production':
-            raise ValueError(
-                'Invalid production configuration: UPLOAD_FOLDER must be a writable directory.'
-            ) from None
-        raise
-    if str(app.config.get('CIVICPULSE_ENV', '')).strip().lower() == 'production':
+    if app.config['STORAGE_BACKEND'] == 'local':
+        folder = app.config['UPLOAD_FOLDER']
+        if not os.path.isabs(folder):
+            app.config['UPLOAD_FOLDER'] = os.path.abspath(os.path.join(app.root_path, '..', folder))
         try:
-            upload_folder_is_directory = os.path.isdir(app.config['UPLOAD_FOLDER'])
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         except OSError:
-            upload_folder_is_directory = False
-        if (not upload_folder_is_directory
-                or not _production_upload_folder_is_writable(app.config['UPLOAD_FOLDER'])):
-            raise ValueError('Invalid production configuration: UPLOAD_FOLDER must be a writable directory.') from None
+            if str(app.config.get('CIVICPULSE_ENV', '')).strip().lower() == 'production':
+                raise ValueError(
+                    'Invalid production configuration: UPLOAD_FOLDER must be a writable directory.'
+                ) from None
+            raise
+        if str(app.config.get('CIVICPULSE_ENV', '')).strip().lower() == 'production':
+            try:
+                upload_folder_is_directory = os.path.isdir(app.config['UPLOAD_FOLDER'])
+            except OSError:
+                upload_folder_is_directory = False
+            if (not upload_folder_is_directory
+                    or not _production_upload_folder_is_writable(app.config['UPLOAD_FOLDER'])):
+                raise ValueError(
+                    'Invalid production configuration: UPLOAD_FOLDER must be a writable directory.'
+                ) from None
 
     db.init_app(app)
     migrate.init_app(app, db)

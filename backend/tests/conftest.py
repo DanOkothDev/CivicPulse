@@ -41,6 +41,7 @@ def app(tmp_path):
         'CIVICPULSE_ENV': 'test',
         'SQLALCHEMY_DATABASE_URI': test_database_uri,
         'UPLOAD_FOLDER': str(tmp_path),
+        'STORAGE_BACKEND': 'local',
         'QUEUE_MODE': 'inline',
         'AI_CLASSIFIER': '',
         'AI_DUPLICATES': '',
