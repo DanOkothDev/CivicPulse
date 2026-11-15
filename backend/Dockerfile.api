@@ -12,9 +12,12 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt \
 
 COPY backend/ /app/backend/
 COPY ml/ /app/ml/
+COPY backend/start-production.sh /app/backend/start-production.sh
+
+RUN chmod +x /app/backend/start-production.sh
 
 WORKDIR /app/backend
 
 EXPOSE 8000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--timeout", "300", "wsgi:app"]
+CMD ["sh", "/app/backend/start-production.sh"]

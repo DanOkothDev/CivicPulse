@@ -1,7 +1,7 @@
 import os
 import tempfile
 
-from flask import Flask
+from flask import Flask, request
 
 from .api import register_blueprints
 from .cli import register_cli
@@ -36,25 +36,28 @@ def create_app(config=None):
     if config:
         app.config.update(config)
     validate_config(app.config)
-    folder = app.config['UPLOAD_FOLDER']
-    if not os.path.isabs(folder):  # keep uploads inside the backend folder, wherever you run from
-        app.config['UPLOAD_FOLDER'] = os.path.abspath(os.path.join(app.root_path, '..', folder))
-    try:
-        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    except OSError:
-        if str(app.config.get('CIVICPULSE_ENV', '')).strip().lower() == 'production':
-            raise ValueError(
-                'Invalid production configuration: UPLOAD_FOLDER must be a writable directory.'
-            ) from None
-        raise
-    if str(app.config.get('CIVICPULSE_ENV', '')).strip().lower() == 'production':
+    if app.config['STORAGE_BACKEND'] == 'local':
+        folder = app.config['UPLOAD_FOLDER']
+        if not os.path.isabs(folder):
+            app.config['UPLOAD_FOLDER'] = os.path.abspath(os.path.join(app.root_path, '..', folder))
         try:
-            upload_folder_is_directory = os.path.isdir(app.config['UPLOAD_FOLDER'])
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         except OSError:
-            upload_folder_is_directory = False
-        if (not upload_folder_is_directory
-                or not _production_upload_folder_is_writable(app.config['UPLOAD_FOLDER'])):
-            raise ValueError('Invalid production configuration: UPLOAD_FOLDER must be a writable directory.') from None
+            if str(app.config.get('CIVICPULSE_ENV', '')).strip().lower() == 'production':
+                raise ValueError(
+                    'Invalid production configuration: UPLOAD_FOLDER must be a writable directory.'
+                ) from None
+            raise
+        if str(app.config.get('CIVICPULSE_ENV', '')).strip().lower() == 'production':
+            try:
+                upload_folder_is_directory = os.path.isdir(app.config['UPLOAD_FOLDER'])
+            except OSError:
+                upload_folder_is_directory = False
+            if (not upload_folder_is_directory
+                    or not _production_upload_folder_is_writable(app.config['UPLOAD_FOLDER'])):
+                raise ValueError(
+                    'Invalid production configuration: UPLOAD_FOLDER must be a writable directory.'
+                ) from None
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -65,4 +68,9 @@ def create_app(config=None):
     register_errors(app)
     register_blueprints(app)
     register_cli(app)
+    @app.after_request
+    def password_reset_referrer_policy(response):
+        if request.path.rstrip('/').endswith('/reset-password'):
+            response.headers['Referrer-Policy'] = 'no-referrer'
+        return response
     return app

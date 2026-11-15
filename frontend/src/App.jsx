@@ -13,6 +13,8 @@ import FAQPage from './pages/public/FAQPage';
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 
 // Portal Screens
 import ResidentDashboardPage from './pages/resident/ResidentDashboardPage';
@@ -106,6 +108,8 @@ export default function App() {
             {/* 2. Public Authentication Routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/change-password" element={<RequireAuthentication><ChangePasswordPage /></RequireAuthentication>} />
 
             {/* 3. Operational Application Portal Layout */}

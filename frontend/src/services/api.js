@@ -1,20 +1,21 @@
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
 
 async function request(endpoint, options = {}) {
-  const headers = new Headers(options.headers);
+  const { public: isPublic = false, ...requestOptions } = options;
+  const headers = new Headers(requestOptions.headers);
   const token = localStorage.getItem('civicpulse_token');
 
-  if (token && !headers.has('Authorization')) {
+  if (!isPublic && token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  if (!(options.body instanceof FormData) && options.body && !headers.has('Content-Type')) {
+  if (!(requestOptions.body instanceof FormData) && requestOptions.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
   let response;
   try {
-    response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
+    response = await fetch(`${BASE_URL}${endpoint}`, { ...requestOptions, headers });
   } catch (cause) {
     const error = new Error(
       'Unable to connect to CivicPulse right now. Please try again shortly.'
@@ -71,6 +72,18 @@ export const api = {
     },
   },
   auth: {
+    forgotPassword(email) {
+      return request('/auth/forgot-password', {
+        method: 'POST', public: true, body: JSON.stringify({ email }),
+      });
+    },
+
+    resetPassword(token, new_password) {
+      return request('/auth/reset-password', {
+        method: 'POST', public: true, body: JSON.stringify({ token, new_password }),
+      });
+    },
+
     async login(email, password) {
       const response = await request('/auth/login', {
         method: 'POST',

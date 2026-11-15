@@ -11,3 +11,5 @@ rq==1.16.2
 python-dotenv==1.0.1
 pytest==8.3.2
 gunicorn
+azure-storage-blob==12.31.1
+azure-identity==1.27.0
