@@ -191,12 +191,6 @@ export default function LoginPage() {
                   </label>
                   <Link
                     to="/forgot-password"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      toast.info(
-                        "Password reset is not available yet. Please contact an admin.",
-                      );
-                    }}
                     className="text-xs font-semibold text-[#1B8FC0] hover:text-[#0B5A9C] hover:underline"
                   >
                     Forgot password?

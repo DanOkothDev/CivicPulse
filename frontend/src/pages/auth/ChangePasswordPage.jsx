@@ -8,7 +8,7 @@ import { useToast } from '../../context/ToastContext';
 const INPUT = 'mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100';
 
 export default function ChangePasswordPage() {
-  const { user, refreshUser } = useAuth();
+  const { user, logout } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
@@ -30,12 +30,9 @@ export default function ChangePasswordPage() {
     setSaving(true);
     try {
       await api.auth.changePassword(password);
-      const updatedUser = await refreshUser();
+      logout();
       toast.success('Your password has been updated.');
-      if (updatedUser?.role === 'admin') navigate('/admin', { replace: true });
-      else if (updatedUser?.role === 'verifier') navigate('/verifier/queue', { replace: true });
-      else if (updatedUser?.role === 'authority') navigate('/authority/assigned', { replace: true });
-      else navigate('/dashboard', { replace: true });
+      navigate('/login', { replace: true });
     } catch (cause) {
       setError(cause.message || 'Could not update your password.');
     } finally {

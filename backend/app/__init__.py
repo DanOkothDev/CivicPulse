@@ -1,7 +1,7 @@
 import os
 import tempfile
 
-from flask import Flask
+from flask import Flask, request
 
 from .api import register_blueprints
 from .cli import register_cli
@@ -68,4 +68,9 @@ def create_app(config=None):
     register_errors(app)
     register_blueprints(app)
     register_cli(app)
+    @app.after_request
+    def password_reset_referrer_policy(response):
+        if request.path.rstrip('/').endswith('/reset-password'):
+            response.headers['Referrer-Policy'] = 'no-referrer'
+        return response
     return app

@@ -1,0 +1,12 @@
+/cls
+/identity.json
+/civicpulse-current.yaml
+/civicpulse-worker-update.yaml
+/backend/Dockerfile.api.bak
+/frontend/civicai-config-patch.json
+/frontend/smtp-config-patch.json
+/frontend/worker-command-patch.json
+/frontend/worker-update.json
+/local-report-images.zip
+__pycache__/
+*.py[cod]

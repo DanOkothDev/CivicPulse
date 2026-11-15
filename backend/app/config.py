@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlsplit
 from datetime import timedelta
 from dotenv import load_dotenv
 from sqlalchemy.engine import make_url
@@ -53,6 +54,25 @@ def validate_config(config):
     environment = str(config.get('CIVICPULSE_ENV', 'development')).strip().lower()
     if environment not in {'development', 'test', 'production'}:
         raise ValueError('CIVICPULSE_ENV must be development, test, or production.')
+    frontend_base_url = config.get('FRONTEND_BASE_URL')
+    try:
+        parsed_frontend = urlsplit(frontend_base_url)
+        _ = parsed_frontend.port  # Accessing this validates the configured port range.
+        valid_frontend = (
+            isinstance(frontend_base_url, str) and frontend_base_url == frontend_base_url.strip()
+            and '?' not in frontend_base_url and '#' not in frontend_base_url
+            and parsed_frontend.scheme in {'http', 'https'} and bool(parsed_frontend.hostname)
+            and parsed_frontend.username is None and parsed_frontend.password is None
+            and parsed_frontend.path in {'', '/'} and not parsed_frontend.query and not parsed_frontend.fragment
+        )
+        if environment == 'production' and parsed_frontend.scheme != 'https':
+            valid_frontend = False
+        if environment != 'production' and parsed_frontend.scheme == 'http' and parsed_frontend.hostname not in _LOCAL_HOSTS:
+            valid_frontend = False
+    except (TypeError, ValueError):
+        valid_frontend = False
+    if not valid_frontend:
+        raise ValueError('FRONTEND_BASE_URL must be a valid trusted frontend origin (HTTPS in production).')
     if environment != 'production':
         return
 
@@ -151,6 +171,7 @@ class Config:
     # New reports can create hotspots, so clustering re-runs after new reports, at most this often (0 = never).
     HOTSPOT_REFRESH_MINUTES = int(os.getenv('HOTSPOT_REFRESH_MINUTES', '10'))
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:5173').split(',')
+    FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL', 'http://localhost:5173')
     SMTP_HOST = os.getenv('SMTP_HOST', '')
     # Keep raw input here so malformed SMTP settings fail the delivery job,
     # rather than preventing the API or worker from starting.

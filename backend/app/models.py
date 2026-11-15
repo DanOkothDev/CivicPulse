@@ -145,6 +145,7 @@ class User(db.Model):
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     must_change_password = db.Column(db.Boolean, nullable=False, default=False)
     temporary_password_email_status = db.Column(db.String(16), nullable=True)
+    token_version = db.Column(db.Integer, nullable=False, default=0, server_default='0')
     onboarding_completed = db.Column(db.Boolean, nullable=False, default=False)
     product_tour_enabled = db.Column(db.Boolean, nullable=False, default=True)
     feature_tips_enabled = db.Column(db.Boolean, nullable=False, default=True)
@@ -152,7 +153,20 @@ class User(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=now, nullable=False)
     county = db.relationship('County', back_populates='users')
     department = db.relationship('Department', back_populates='users')
+    password_reset_tokens = db.relationship('PasswordResetToken', back_populates='user', cascade='all, delete-orphan')
     __table_args__ = (db.CheckConstraint(f'role IN ({_in(ROLES)})', name='ck_users_role'),)
+
+
+class PasswordResetToken(db.Model):
+    __tablename__ = 'password_reset_tokens'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    used_at = db.Column(db.DateTime(timezone=True))
+    created_at = db.Column(db.DateTime(timezone=True), default=now, nullable=False)
+    user = db.relationship('User', back_populates='password_reset_tokens')
+    __table_args__ = (db.Index('ix_password_reset_tokens_user_open', 'user_id', 'used_at', 'expires_at'),)
 
 
 class Report(db.Model):

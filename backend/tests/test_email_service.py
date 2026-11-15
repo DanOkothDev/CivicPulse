@@ -3,7 +3,7 @@ import smtplib
 import pytest
 from flask import Flask
 
-from app.email_service import EmailDeliveryError, send_temporary_password
+from app.email_service import EmailDeliveryError, send_password_reset_email, send_temporary_password
 
 
 class FakeSMTP:
@@ -57,6 +57,19 @@ def test_smtp_delivery_uses_starttls_and_auth(smtp_app, monkeypatch):
     assert smtp.args == ('smtp.gmail.com', 587)
     assert smtp.credentials == ('mailer@example.test', 'fake-secret')
     assert 'one-time' in smtp.sent[0].get_content()
+
+
+def test_password_reset_email_has_expiring_link_and_text_and_html(smtp_app, monkeypatch):
+    clients = []
+    monkeypatch.setattr('app.email_service.smtplib.SMTP', lambda *args, **kwargs: clients.append(FakeSMTP(*args, **kwargs)) or clients[-1])
+    url = 'https://civicpulse.example/reset-password#token=opaque'
+    with smtp_app.app_context():
+        send_password_reset_email('person@example.test', 'Resident', url)
+    message = clients[0].sent[0]
+    assert 'Reset your CivicPulse password' in message['Subject']
+    assert url in message.get_body(preferencelist=('plain',)).get_content()
+    assert '15 minutes' in message.get_body(preferencelist=('html',)).get_content()
+    assert url in message.get_body(preferencelist=('html',)).get_content()
 
 
 def test_missing_smtp_configuration_fails_without_exposing_secrets(smtp_app):

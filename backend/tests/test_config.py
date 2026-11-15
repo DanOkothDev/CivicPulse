@@ -16,6 +16,7 @@ def production_settings(tmp_path):
         'QUEUE_MODE': 'redis',
         'REDIS_URL': 'rediss://test-user:test-password@redis.example.test:6380/0',
         'UPLOAD_FOLDER': str(tmp_path / 'uploads'),
+        'FRONTEND_BASE_URL': 'https://civicpulse.example.test',
     }
 
 
@@ -125,6 +126,19 @@ def test_existing_local_development_defaults_remain_accepted():
         'REDIS_URL': Config.REDIS_URL,
         'QUEUE_MODE': Config.QUEUE_MODE,
         'UPLOAD_FOLDER': Config.UPLOAD_FOLDER,
+        'FRONTEND_BASE_URL': 'http://localhost:5173',
     }
 
     validate_config(settings)
+
+
+@pytest.mark.parametrize('value', [
+    '', 'http://example.test', 'https://example.test/path',
+    'https://example.test/?next=x', 'https://example.test?',
+    'https://example.test#', 'https://user@example.test',
+])
+def test_production_requires_trusted_frontend_origin(tmp_path, value):
+    settings = production_settings(tmp_path)
+    settings['FRONTEND_BASE_URL'] = value
+    with pytest.raises(ValueError, match='FRONTEND_BASE_URL'):
+        validate_config(settings)

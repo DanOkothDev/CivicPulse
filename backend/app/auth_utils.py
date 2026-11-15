@@ -1,7 +1,7 @@
 from functools import wraps
 
 from flask import g
-from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+from flask_jwt_extended import get_jwt, get_jwt_identity, verify_jwt_in_request
 
 from .errors import ApiError
 from .extensions import db
@@ -83,6 +83,8 @@ def _load_user(allow_password_change=False):
     user = db.session.get(User, int(get_jwt_identity()))
     if user is None or not user.is_active:
         raise ApiError('unauthorized', 'This account no longer exists', 401)
+    if get_jwt().get('token_version') != user.token_version:
+        raise ApiError('unauthorized', 'Please sign in again', 401)
     if user.must_change_password and user.temporary_password_email_status != 'sent':
         raise ApiError('account_setup_pending', 'Your temporary password email is still being prepared. Contact your administrator if this continues.', 403)
     if user.must_change_password and not allow_password_change:
