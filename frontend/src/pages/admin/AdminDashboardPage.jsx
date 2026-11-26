@@ -23,6 +23,7 @@ import DataTable from "../../components/ui/DataTable";
 import Modal from "../../components/ui/Modal";
 import DepartmentManagementPanel from "./DepartmentManagementPanel";
 import AdminAnalyticsDashboard from "./AdminAnalyticsDashboard";
+import PrioritizedReportsPanel from "./PrioritizedReportsPanel";
 
 /*
   Theme (taken from the landing page design)
@@ -695,6 +696,7 @@ export default function AdminDashboardPage() {
             label: `Reports (${reports.length})`,
             icon: FileText,
           },
+          ...(!nationalAdmin ? [{ id: "priorities", label: "Priority management", icon: Flame }] : []),
           { id: "users", label: `Users (${users.length})`, icon: Users },
           {
             id: "categories",
@@ -724,6 +726,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {activeTab === "analytics" && <AdminAnalyticsDashboard />}
+      {activeTab === "priorities" && !nationalAdmin && <PrioritizedReportsPanel />}
 
       {/* Reports */}
       {activeTab === "reports" && !nationalAdmin && (

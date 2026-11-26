@@ -277,6 +277,12 @@ export const api = {
     },
   },
 
+  prioritization: {
+    list(params = {}) {
+      return request(`/prioritization/reports${queryString(params)}`);
+    },
+  },
+
   notifications: {
     list(params = {}) {
       return request(`/notifications${queryString(params)}`);
