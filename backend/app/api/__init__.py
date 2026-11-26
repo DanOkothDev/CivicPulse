@@ -7,6 +7,7 @@ from .duplicates import bp as duplicates_bp
 from .health import bp as health_bp
 from .hotspots import bp as hotspots_bp
 from .media import bp as media_bp
+from .prioritization import bp as prioritization_bp
 from .notifications import bp as notifications_bp
 from .quarterly_analytics import bp as quarterly_analytics_bp
 from .reference import bp as reference_bp
@@ -32,6 +33,7 @@ def register_blueprints(app):
         notifications_bp,
         analytics_bp,
         quarterly_analytics_bp,
+        prioritization_bp,
         hotspots_bp,
     ):
         app.register_blueprint(bp, url_prefix=API_PREFIX)
